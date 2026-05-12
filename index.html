@@ -818,18 +818,22 @@ let sessionHistory = []; // [{id, mode, question, imageDataUrl, imageMime, subje
 
 function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
   const id = sessionHistory.length + 1;
-  // Use selSubj at call time if available, otherwise fall back to payload.subject
   const subj = selSubj ? (T[currentLang].subs[selSubj.key] || selSubj.subject) : (payload.subject || '');
   const subjEmoji = selSubj ? selSubj.emoji : '';
-  sessionHistory.push({
+  // Safety: if answerHtml is empty, generate it from answerText
+  const safeHtml = (answerHtml && answerHtml.trim()) ? answerHtml : fmt(answerText);
+  const entry = {
     id, mode: payload.mode,
     question: payload.question || '',
     imageDataUrl: imageDataUrl || null,
     subject: subj, subjectEmoji: subjEmoji,
     className: payload.className || '',
-    answer: answerText, answerHtml,
+    answer: answerText,
+    answerHtml: safeHtml,
     payload: { ...payload }
-  });
+  };
+  sessionHistory.push(entry);
+  console.log('[History] Saved Q' + id + ':', entry.question.slice(0, 40), '| html length:', safeHtml.length);
   updateHistPill();
 }
 
@@ -915,32 +919,39 @@ function buildHistList() {
 
 function restoreHistItem(item) {
   closeHistSheet();
-  const rc = document.getElementById('resultCard');
-  const rb = document.getElementById('resultBody');
+
+  const rc  = document.getElementById('resultCard');
+  const rb  = document.getElementById('resultBody');
   const rCl = document.getElementById('rtag-cl');
   const rSj = document.getElementById('rtag-sj');
 
-  // Restore header tags
-  if (item.className) { rCl.textContent = item.className; rCl.style.display = ''; }
-  if (item.subject) rSj.textContent = item.subject;
+  // 1. Header tags
+  rCl.textContent = item.className || '';
+  rCl.style.display = item.className ? '' : 'none';
+  rSj.textContent = item.subject || '';
 
-  // Reset all states first
-  rc.classList.remove('thinking', 'animate-in');
-  rc.classList.add('visible', 'answered');
+  // 2. Force card fully visible — bypass transition entirely with inline styles
+  rc.className = 'result-card visible answered';
+  rc.style.cssText = 'display:block; opacity:1; transform:translateY(0);';
 
-  // Inject saved answer HTML directly — no API call
-  rb.innerHTML = item.answerHtml;
+  // 3. Inject answer — force result-body visible too
+  rb.style.cssText = 'opacity:1; transform:translateY(0);';
+  rb.innerHTML = item.answerHtml || ('<p>' + item.answer + '</p>');
   rb.classList.add('reveal');
 
-  // Restore last answer text for copy/speak/follow-up to work
+  // 4. Hide thinking panel just in case
+  const tp = document.getElementById('thinkingPanel');
+  if (tp) tp.classList.remove('visible');
+
+  // 5. Restore state for copy/speak/follow-up
   lastAnswerText = item.answer;
-  lastPayload = item.payload;
+  lastPayload    = item.payload;
 
-  // Trigger the animate-in on next frame so transition plays
-  requestAnimationFrame(() => rc.classList.add('animate-in'));
-
+  // 6. Show actions bar
   showActionsBar();
-  setTimeout(() => rc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+
+  // 7. Scroll to it
+  setTimeout(() => rc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
 // ── MODE TOGGLE ──
