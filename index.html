@@ -924,18 +924,20 @@ function restoreHistItem(item) {
   if (item.className) { rCl.textContent = item.className; rCl.style.display = ''; }
   if (item.subject) rSj.textContent = item.subject;
 
-  // Show card instantly with saved answer (no API call)
-  rc.classList.add('visible', 'answered');
+  // Reset all states first
   rc.classList.remove('thinking', 'animate-in');
+  rc.classList.add('visible', 'answered');
+
+  // Inject saved answer HTML directly — no API call
   rb.innerHTML = item.answerHtml;
   rb.classList.add('reveal');
+
+  // Restore last answer text for copy/speak/follow-up to work
   lastAnswerText = item.answer;
   lastPayload = item.payload;
 
-  // Restore image preview if photo mode
-  if (item.mode === 'photo' && item.imageDataUrl) {
-    curB64 = item.payload.imageBase64 || curB64;
-  }
+  // Trigger the animate-in on next frame so transition plays
+  requestAnimationFrame(() => rc.classList.add('animate-in'));
 
   showActionsBar();
   setTimeout(() => rc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
