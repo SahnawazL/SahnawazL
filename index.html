@@ -320,10 +320,10 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
 /* ANSWER ACTIONS BAR */
 .ans-actions {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.5rem;
-  padding: 0.7rem 1.1rem 1rem;
+  padding: 0.75rem 0.9rem 0.9rem;
   border-top: 1px solid var(--border);
   opacity: 0;
   transform: translateY(8px);
@@ -336,28 +336,37 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   pointer-events: all;
 }
 .ans-action-btn {
-  display: flex; align-items: center; gap: 0.38rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
   background: var(--surface2);
   border: 1.5px solid var(--border);
-  border-radius: 100px;
-  padding: 0.45rem 0.85rem;
+  border-radius: 14px;
+  padding: 0.65rem 0.4rem;
   font-family: var(--font-body);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap;
-  flex-shrink: 0;
+  width: 100%;
 }
-.ans-action-btn:hover { color: var(--text); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-.ans-action-btn:active { transform: translateY(0); }
+.ans-action-btn:active { transform: scale(0.96); }
 
-/* Individual button accent colors */
-.ans-action-btn.copy-btn:hover   { border-color: var(--accent);  color: var(--accent);  background: rgba(79,142,247,0.08); }
-.ans-action-btn.speak-btn:hover  { border-color: var(--green);   color: var(--green);   background: rgba(62,207,142,0.08); }
-.ans-action-btn.speak-btn.speaking { border-color: var(--green); color: var(--green); background: rgba(62,207,142,0.12); animation: speakPulse 1.4s ease-in-out infinite; }
-.ans-action-btn.follow-btn:hover { border-color: var(--accent2); color: var(--accent2); background: rgba(247,201,72,0.08); }
+/* Individual button accent colors on tap/hover */
+.ans-action-btn.copy-btn:hover,
+.ans-action-btn.copy-btn:focus   { border-color: var(--accent);  color: var(--accent);  background: rgba(79,142,247,0.08); }
+.ans-action-btn.speak-btn:hover,
+.ans-action-btn.speak-btn:focus  { border-color: var(--green);   color: var(--green);   background: rgba(62,207,142,0.08); }
+.ans-action-btn.speak-btn.speaking {
+  border-color: var(--green); color: var(--green);
+  background: rgba(62,207,142,0.12);
+  animation: speakPulse 1.4s ease-in-out infinite;
+}
+.ans-action-btn.follow-btn:hover,
+.ans-action-btn.follow-btn:focus { border-color: var(--accent2); color: var(--accent2); background: rgba(247,201,72,0.08); }
 
 @keyframes speakPulse {
   0%,100% { box-shadow: 0 0 0 0 rgba(62,207,142,0.4); }
@@ -370,7 +379,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   background: rgba(62,207,142,0.1);
 }
 
-.ans-action-icon { font-size: 0.9rem; line-height: 1; }
+.ans-action-icon { font-size: 1.2rem; line-height: 1; }
 
 /* Follow-up input — slides in below actions */
 .followup-area {
