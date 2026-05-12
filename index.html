@@ -187,12 +187,57 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .tip-icon { font-size: 0.95rem; flex-shrink: 0; }
 .tip span { line-height: 1.4; }
 
+/* RICH ANSWER FORMATTING */
+.ans-h2 { font-family: var(--font-head); font-size: 1rem; font-weight: 800; color: var(--accent); margin: 0.8rem 0 0.3rem; }
+.ans-h3 { font-family: var(--font-head); font-size: 0.92rem; font-weight: 700; color: var(--accent2); margin: 0.6rem 0 0.25rem; }
+.ans-step { display: flex; gap: 0.5rem; margin: 0.3rem 0; align-items: flex-start; }
+.ans-num { color: var(--accent); font-weight: 700; flex-shrink: 0; margin-top: 0.05rem; }
+.ans-bullet { display: flex; gap: 0.4rem; margin: 0.2rem 0; align-items: flex-start; color: var(--text); }
+.ans-bullet span:first-child { color: var(--green); flex-shrink: 0; margin-top: 0.05rem; }
+.ans-takeaway { background: rgba(62,207,142,0.08); border: 1px solid rgba(62,207,142,0.2); border-radius: 10px; padding: 0.55rem 0.8rem; margin: 0.8rem 0 0.2rem; font-weight: 600; color: var(--green); font-size: 0.88rem; }
+
 /* FOOTER */
 .footer-note { text-align: center; font-size: 0.74rem; color: var(--muted); padding: 1rem 0 0.4rem; border-top: 1px solid var(--border); line-height: 1.5; }
 
 /* UNLOCK PULSE */
 @keyframes unlockPulse { 0%{box-shadow:0 0 0 0 rgba(79,142,247,0.5)} 70%{box-shadow:0 0 0 12px rgba(79,142,247,0)} 100%{box-shadow:0 0 0 0 rgba(79,142,247,0)} }
 .pulse-once { animation: unlockPulse 0.75s ease both; }
+
+/* MODE TOGGLE */
+.mode-toggle-wrap {
+  padding: 0.6rem 0.7rem 0.3rem;
+  display: flex; gap: 0.45rem;
+}
+.mode-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.38rem;
+  padding: 0.6rem 0.5rem; border-radius: 11px; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700;
+  color: var(--muted); transition: all 0.22s; user-select: none;
+}
+.mode-tab:hover { border-color: var(--accent); color: var(--text); }
+.mode-tab.active-type { border-color: var(--accent2); background: rgba(247,201,72,0.12); color: var(--accent2); }
+.mode-tab.active-photo { border-color: var(--accent); background: rgba(79,142,247,0.12); color: var(--accent); }
+.mode-tab-icon { font-size: 1.05rem; line-height: 1; }
+
+/* TEXT QUESTION AREA */
+.text-question-body {
+  overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-6px);
+  transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease, transform 0.35s ease;
+}
+.text-question-body.open { opacity: 1; transform: translateY(0); }
+.text-question-inner { padding: 0.6rem 0.7rem 0.75rem; }
+.text-q-input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 0.9rem 1rem; font-family: var(--font-body);
+  font-size: 0.9rem; color: var(--text); outline: none; resize: none;
+  min-height: 110px; line-height: 1.6; transition: border-color 0.2s;
+  display: block;
+}
+.text-q-input::placeholder { color: var(--muted); }
+.text-q-input:focus { border-color: var(--accent2); }
+.text-q-hint { font-size: 0.72rem; color: var(--muted); margin-top: 0.45rem; padding: 0 0.2rem; line-height: 1.4; }
+.text-q-ready { border-color: rgba(247,201,72,0.5) !important; }
 </style>
 </head>
 <body>
@@ -228,7 +273,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <div class="step-line" id="sl-line2"></div>
     <div class="step-node" id="sn3">
       <div class="step-circle"><span class="nm">3</span><span class="chk">✓</span></div>
-      <div class="step-label" id="sl3">Photo</div>
+      <div class="step-label" id="sl3">Question</div>
     </div>
   </div>
 
@@ -266,15 +311,35 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     </div>
   </div>
 
-  <!-- STEP 3: PHOTO — locked until subject done -->
+  <!-- STEP 3: PHOTO or TEXT — locked until subject done -->
   <div class="step-card locked" id="card3">
     <div class="step-card-hdr done-s" id="hdr3" style="cursor:default; pointer-events:none;">
       <div class="hdr-left">
-        <span class="hdr-icon">📷</span>
+        <span class="hdr-icon" id="step3-icon">📷</span>
         <div class="hdr-text">
-          <span class="hdr-label" id="lbl-photo">Add Question Photo</span>
+          <span class="hdr-label" id="lbl-photo">Add Your Question</span>
           <span class="hdr-val ph" id="val-photo">Choose subject first…</span>
         </div>
+      </div>
+    </div>
+
+    <!-- MODE TOGGLE (shown after subject selected) -->
+    <div class="mode-toggle-wrap" id="modeToggleWrap" style="display:none;">
+      <div class="mode-tab active-type" id="tab-text" onclick="setMode('text')">
+        <span class="mode-tab-icon">📝</span>
+        <span id="mode-tab-text-label">Type Question</span>
+      </div>
+      <div class="mode-tab" id="tab-photo" onclick="setMode('photo')">
+        <span class="mode-tab-icon">📷</span>
+        <span id="mode-tab-photo-label">Add Photo</span>
+      </div>
+    </div>
+
+    <!-- TEXT QUESTION MODE -->
+    <div class="text-question-body open" id="textQuestionBody" style="max-height:260px;">
+      <div class="text-question-inner">
+        <textarea class="text-q-input" id="textQInput" rows="4" placeholder="Type your question here… e.g. What is photosynthesis? How do I solve this equation?"></textarea>
+        <div class="text-q-hint" id="textQHint">💡 Type any theory question, definition, or doubt — no photo needed!</div>
       </div>
     </div>
     <div class="photo-body" id="photoBody">
@@ -340,14 +405,77 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 </div>
 
 <script>
-const GEMINI_API_KEY = 'YOUR_API_KEY_HERE';
-
+// API key is now on the server — never exposed in frontend
 let currentLang = 'en';
 let selClass = null;
 let selSubj  = null;
 let curFile  = null;
 let curB64   = null;
 let openDP   = 0;
+let currentMode = 'text'; // 'text' or 'photo'
+
+// ── MODE TOGGLE ──
+function setMode(mode) {
+  currentMode = mode;
+  const t = T[currentLang];
+  const tabText = document.getElementById('tab-text');
+  const tabPhoto = document.getElementById('tab-photo');
+  const textBody = document.getElementById('textQuestionBody');
+  const photoBody = document.getElementById('photoBody');
+  const step3icon = document.getElementById('step3-icon');
+
+  tabText.className = 'mode-tab' + (mode==='text' ? ' active-type' : '');
+  tabPhoto.className = 'mode-tab' + (mode==='photo' ? ' active-photo' : '');
+
+  if (mode === 'text') {
+    textBody.style.maxHeight = '260px';
+    textBody.classList.add('open');
+    photoBody.style.maxHeight = '0';
+    photoBody.classList.remove('open');
+    step3icon.textContent = '📝';
+    document.getElementById('askInput').placeholder = t.placeholderTextMode;
+    // update step 3 header based on text content
+    updateStep3HeaderText();
+  } else {
+    textBody.style.maxHeight = '0';
+    textBody.classList.remove('open');
+    photoBody.style.maxHeight = curB64 ? '400px' : '320px';
+    photoBody.classList.add('open');
+    step3icon.textContent = '📷';
+    document.getElementById('askInput').placeholder = t.placeholderPhotoMode;
+    updateStep3HeaderPhoto();
+  }
+  updateStepper();
+}
+
+function updateStep3HeaderText() {
+  const t = T[currentLang];
+  const typed = document.getElementById('textQInput').value.trim();
+  const vp = document.getElementById('val-photo');
+  if (typed) {
+    vp.textContent = t.readyText;
+    vp.classList.remove('ph'); vp.classList.add('dv');
+    document.getElementById('hdr3').classList.add('done-s');
+  } else {
+    vp.textContent = t.lblPhoto;
+    vp.classList.remove('dv','ph');
+    document.getElementById('hdr3').classList.remove('done-s');
+  }
+}
+
+function updateStep3HeaderPhoto() {
+  const t = T[currentLang];
+  const vp = document.getElementById('val-photo');
+  if (curB64) {
+    vp.textContent = t.readyPhoto;
+    vp.classList.remove('ph'); vp.classList.add('dv');
+    document.getElementById('hdr3').classList.add('done-s');
+  } else {
+    vp.textContent = t.lblPhoto;
+    vp.classList.remove('dv','ph');
+    document.getElementById('hdr3').classList.remove('done-s');
+  }
+}
 
 const CLASSES = [
   {id:'kg1',num:'KG 1',label:'Nursery'},{id:'kg2',num:'KG 2',label:'LKG/UKG'},
@@ -380,55 +508,70 @@ const SUBJECTS = [
 const T = {
   en:{
     heroTitle:'Your <span class="highlight">AI Study</span> Helper',
-    heroSub:'Select your class & subject, then add your question photo — get a clear step-by-step answer instantly.',
+    heroSub:'Select your class & subject, type your question or add a photo — get a clear answer instantly.',
     lblCls:'Select Class',phCls:'Tap to choose your class…',selCls:'Class',
     lblSubj:'Choose Subject',phSubj:'Choose your class first…',phSubj2:'Tap to choose your subject…',
-    lblPhoto:'Add Question Photo',phPhoto:'Choose subject first…',readyPhoto:'✓ Photo ready',
+    lblPhoto:'Add Your Question',phPhoto:'Choose subject first…',readyPhoto:'✓ Photo ready',readyText:'✓ Question typed',
     camTitle:'Camera',camHint:'Open camera directly',galTitle:'Gallery',galHint:'Pick from gallery',
     retakeCam:'Retake',retakeGal:'Change',
-    sl1:'Class',sl2:'Subject',sl3:'Photo',
-    placeholder:'Ask anything, or just press ➤ to explain the image…',
+    sl1:'Class',sl2:'Subject',sl3:'Question',
+    modeTabText:'Type Question',modeTabPhoto:'Add Photo',
+    textPlaceholder:'Type your question here…\ne.g. What is photosynthesis? How do I solve 2x + 5 = 11?',
+    textHint:'💡 Any theory question, definition, or doubt — no photo needed!',
+    placeholder:'Add more detail, or just press ➤…',
+    placeholderTextMode:'Question ready! Press ➤ to get the answer…',
+    placeholderPhotoMode:'Ask anything about the photo, or just press ➤…',
     aiTag:'✓ AI Answer',
     resultLang:'Please explain this image in simple English, step by step. I am a school student.',
-    tip1:'Take a clear, well-lit photo. Make sure the text is readable.',
-    tip2:'You can ask in your own language — Bengali, Hindi, or English.',
-    tip3:'Works with printed books, handwritten notes, and worksheets.',
-    footer:'Made for students, parents & learners in India 🇮🇳<br/>Powered by Google Gemini AI',
+    tip1:'Type any question — theory, definition, formula, or concept.',
+    tip2:'You can ask in Bengali, Hindi, or English.',
+    tip3:'Works with typed questions AND photos of books, notes & worksheets.',
+    footer:'Made for students, parents &amp; learners in India 🇮🇳<br/>Powered by Google Gemini AI',
     subs:{math:'Maths',science:'Science',eng1:'English 1',eng2:'English 2',bn1:'Bengali 1',bn2:'Bengali 2',hindi:'Hindi',evs:'EVS',sst:'SST',gk:'GK',computer:'Computer',moral:'Moral Sci.',history:'History',geo:'Geography',conv:'Conversation'},
   },
   bn:{
     heroTitle:'তোমার <span class="highlight">AI পড়ার</span> সাথী',
-    heroSub:'ক্লাস ও বিষয় বেছে নাও, তারপর প্রশ্নের ছবি যোগ করো — এক্ষুনি সহজ ব্যাখ্যা পাও।',
+    heroSub:'ক্লাস ও বিষয় বেছে নাও, প্রশ্ন লেখো বা ছবি যোগ করো — এক্ষুনি সহজ উত্তর পাও।',
     lblCls:'ক্লাস বেছে নাও',phCls:'তোমার ক্লাস বেছে নিতে ট্যাপ করো…',selCls:'ক্লাস',
     lblSubj:'বিষয় বেছে নাও',phSubj:'আগে ক্লাস বেছে নাও…',phSubj2:'তোমার বিষয় বেছে নিতে ট্যাপ করো…',
-    lblPhoto:'প্রশ্নের ছবি যোগ করো',phPhoto:'আগে বিষয় বেছে নাও…',readyPhoto:'✓ ছবি প্রস্তুত',
+    lblPhoto:'তোমার প্রশ্ন যোগ করো',phPhoto:'আগে বিষয় বেছে নাও…',readyPhoto:'✓ ছবি প্রস্তুত',readyText:'✓ প্রশ্ন লেখা হয়েছে',
     camTitle:'ক্যামেরা',camHint:'সরাসরি ক্যামেরা খোলো',galTitle:'গ্যালারি',galHint:'গ্যালারি থেকে বেছে নাও',
     retakeCam:'আবার তোলো',retakeGal:'পরিবর্তন করো',
-    sl1:'ক্লাস',sl2:'বিষয়',sl3:'ছবি',
-    placeholder:'যেকোনো প্রশ্ন লেখো, অথবা ➤ চাপো…',
+    sl1:'ক্লাস',sl2:'বিষয়',sl3:'প্রশ্ন',
+    modeTabText:'প্রশ্ন লেখো',modeTabPhoto:'ছবি যোগ করো',
+    textPlaceholder:'এখানে প্রশ্ন লেখো…\nযেমন: সালোকসংশ্লেষণ কী? এই অঙ্কটা কীভাবে করবো?',
+    textHint:'💡 যেকোনো তাত্ত্বিক প্রশ্ন, সংজ্ঞা বা সন্দেহ — ছবি ছাড়াই!',
+    placeholder:'আরও কিছু লেখো, অথবা ➤ চাপো…',
+    placeholderTextMode:'প্রশ্ন প্রস্তুত! উত্তর পেতে ➤ চাপো…',
+    placeholderPhotoMode:'ছবি সম্পর্কে কিছু জিজ্ঞেস করো, অথবা ➤ চাপো…',
     aiTag:'✓ AI উত্তর',
     resultLang:'এই ছবিটি দেখো এবং বাংলায় সহজ ভাষায় ধাপে ধাপে ব্যাখ্যা করো। আমি একজন স্কুল ছাত্র।',
-    tip1:'পরিষ্কার আলোতে ছবি তোলো যাতে লেখা স্পষ্ট বোঝা যায়।',
+    tip1:'যেকোনো তাত্ত্বিক প্রশ্ন, সংজ্ঞা বা সূত্র লিখে জিজ্ঞেস করো।',
     tip2:'বাংলায়, হিন্দিতে বা ইংরেজিতে প্রশ্ন করতে পারো।',
-    tip3:'ছাপানো বই, হাতের লেখা ও ওয়ার্কশিট সবকিছুতে কাজ করে।',
+    tip3:'লেখা প্রশ্ন এবং বইয়ের ছবি — দুটোতেই কাজ করে।',
     footer:'ভারতের শিক্ষার্থী, অভিভাবক ও শিক্ষানুরাগীদের জন্য 🇮🇳<br/>Google Gemini AI দ্বারা পরিচালিত',
     subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংরেজি ১',eng2:'ইংরেজি ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দি',evs:'পরিবেশ বিদ্যা',sst:'সমাজবিজ্ঞান',gk:'সাধারণ জ্ঞান',computer:'কম্পিউটার',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
   },
   hi:{
     heroTitle:'तुम्हारा <span class="highlight">AI पढ़ाई</span> साथी',
-    heroSub:'अपनी क्लास और विषय चुनो, फिर सवाल की फोटो डालो — तुरंत आसान जवाब पाओ।',
+    heroSub:'अपनी क्लास और विषय चुनो, सवाल टाइप करो या फोटो डालो — तुरंत आसान जवाब पाओ।',
     lblCls:'कक्षा चुनो',phCls:'अपनी कक्षा चुनने के लिए टैप करो…',selCls:'कक्षा',
     lblSubj:'विषय चुनो',phSubj:'पहले कक्षा चुनो…',phSubj2:'अपना विषय चुनने के लिए टैप करो…',
-    lblPhoto:'सवाल की फोटो डालो',phPhoto:'पहले विषय चुनो…',readyPhoto:'✓ फोटो तैयार',
+    lblPhoto:'अपना सवाल डालो',phPhoto:'पहले विषय चुनो…',readyPhoto:'✓ फोटो तैयार',readyText:'✓ सवाल टाइप हो गया',
     camTitle:'कैमरा',camHint:'सीधे कैमरा खोलो',galTitle:'गैलरी',galHint:'गैलरी से चुनो',
     retakeCam:'फिर खींचो',retakeGal:'बदलो',
-    sl1:'कक्षा',sl2:'विषय',sl3:'फोटो',
-    placeholder:'कुछ भी पूछो, या बस ➤ दबाओ…',
+    sl1:'कक्षा',sl2:'विषय',sl3:'सवाल',
+    modeTabText:'सवाल टाइप करो',modeTabPhoto:'फोटो डालो',
+    textPlaceholder:'यहाँ सवाल लिखो…\nजैसे: प्रकाश संश्लेषण क्या है? यह समीकरण कैसे हल करें?',
+    textHint:'💡 कोई भी थ्योरी सवाल, परिभाषा या शंका — बिना फोटो के!',
+    placeholder:'और कुछ लिखो, या बस ➤ दबाओ…',
+    placeholderTextMode:'सवाल तैयार है! जवाब पाने के लिए ➤ दबाओ…',
+    placeholderPhotoMode:'फोटो के बारे में कुछ पूछो, या बस ➤ दबाओ…',
     aiTag:'✓ AI जवाब',
     resultLang:'इस फोटो को देखो और हिंदी में सरल भाषा में कदम-दर-कदम समझाओ। मैं एक स्कूल छात्र हूँ।',
-    tip1:'साफ रोशनी में फोटो लो ताकि लिखावट पढ़ी जा सके।',
+    tip1:'कोई भी थ्योरी सवाल, परिभाषा या फॉर्मूला टाइप करके पूछो।',
     tip2:'हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
-    tip3:'छपी किताबें, हाथ से लिखे नोट्स और वर्कशीट — सब पर काम करता है।',
+    tip3:'टाइप किए सवाल और किताब की फोटो — दोनों पर काम करता है।',
     footer:'भारत के छात्रों, माता-पिता और सीखने वालों के लिए 🇮🇳<br/>Google Gemini AI द्वारा संचालित',
     subs:{math:'गणित',science:'विज्ञान',eng1:'अंग्रेज़ी १',eng2:'अंग्रेज़ी २',bn1:'बांग्ला १',bn2:'बांग्ला २',hindi:'हिन्दी',evs:'पर्यावरण',sst:'सामाजिक विज्ञान',gk:'सामान्य ज्ञान',computer:'कंप्यूटर',moral:'नैतिक शिक्षा',history:'इतिहास',geo:'भूगोल',conv:'बातचीत'},
   }
@@ -436,7 +579,8 @@ const T = {
 
 // ── STEPPER ──
 function updateStepper() {
-  const s1d = !!selClass, s2d = !!selSubj, s3d = !!curB64;
+  const s1d = !!selClass, s2d = !!selSubj;
+  const s3d = currentMode === 'photo' ? !!curB64 : !!document.getElementById('textQInput').value.trim();
   document.getElementById('sn1').className = 'step-node ' + (s1d ? 'done' : 'active');
   document.getElementById('sn2').className = 'step-node ' + (s2d ? 'done' : s1d ? 'active' : '');
   document.getElementById('sn3').className = 'step-node ' + (s3d ? 'done' : s2d ? 'active' : '');
@@ -547,16 +691,18 @@ function pickSubj(s) {
   vp.textContent = t.lblPhoto;
   vp.classList.remove('ph');
 
-  // Open photo body
-  const pb = document.getElementById('photoBody');
-  pb.style.maxHeight = '520px';
-  pb.classList.add('open');
+  // Show mode toggle
+  const toggleWrap = document.getElementById('modeToggleWrap');
+  toggleWrap.style.display = 'flex';
+
+  // Default to text mode
+  setMode('text');
 
   // Show ask section
   document.getElementById('askSection').classList.add('visible');
 
   updateStepper();
-  setTimeout(()=>c3.scrollIntoView({behavior:'smooth',block:'nearest'}),180);
+  setTimeout(()=>document.getElementById('card3').scrollIntoView({behavior:'smooth',block:'nearest'}),180);
 }
 
 // ── FILE ──
@@ -574,10 +720,7 @@ function processFile(f) {
     document.getElementById('previewImg').src=ev.target.result;
     document.getElementById('previewBlock').style.display='block';
     document.getElementById('photoBtns').style.display='none';
-    const vp=document.getElementById('val-photo');
-    vp.textContent=T[currentLang].readyPhoto;
-    vp.classList.remove('ph'); vp.classList.add('dv');
-    document.getElementById('hdr3').classList.add('done-s');
+    updateStep3HeaderPhoto();
     updateStepper();
   };
   r.readAsDataURL(f);
@@ -587,10 +730,7 @@ function removeImage() {
   curFile=null; curB64=null;
   document.getElementById('previewBlock').style.display='none';
   document.getElementById('photoBtns').style.display='grid';
-  const vp=document.getElementById('val-photo');
-  vp.textContent=T[currentLang].lblPhoto;
-  vp.classList.remove('dv');
-  document.getElementById('hdr3').classList.remove('done-s');
+  updateStep3HeaderPhoto();
   updateStepper();
 }
 
@@ -618,7 +758,11 @@ function applyLang(lang) {
   document.getElementById('gal-hint').textContent=t.galHint;
   document.getElementById('lbl-retake-cam').textContent=t.retakeCam;
   document.getElementById('lbl-retake-gal').textContent=t.retakeGal;
-  document.getElementById('askInput').placeholder=t.placeholder;
+  document.getElementById('mode-tab-text-label').textContent=t.modeTabText;
+  document.getElementById('mode-tab-photo-label').textContent=t.modeTabPhoto;
+  document.getElementById('textQInput').placeholder=t.textPlaceholder;
+  document.getElementById('textQHint').textContent=t.textHint;
+  document.getElementById('askInput').placeholder=currentMode==='text'?t.placeholderTextMode:t.placeholderPhotoMode;
   document.getElementById('tip1').textContent=t.tip1;
   document.getElementById('tip2').textContent=t.tip2;
   document.getElementById('tip3').textContent=t.tip3;
@@ -626,65 +770,138 @@ function applyLang(lang) {
   document.getElementById('rtag-ai').textContent=t.aiTag;
   if(!selClass){const v=document.getElementById('val-cls');v.textContent=t.phCls;v.classList.add('ph');}
   if(!selSubj){const v=document.getElementById('val-subj');v.textContent=selClass?t.phSubj2:t.phSubj;v.classList.add('ph');}
-  if(!curB64){const v=document.getElementById('val-photo');if(!selSubj){v.textContent=t.phPhoto;v.classList.add('ph');}else{v.textContent=t.lblPhoto;}}
+  if(!selSubj){const v=document.getElementById('val-photo');if(!selSubj){v.textContent=t.phPhoto;v.classList.add('ph');}}
+  else {
+    if(currentMode==='text') updateStep3HeaderText();
+    else updateStep3HeaderPhoto();
+  }
 }
 
 // ── ASK ──
 async function askQuestion() {
-  const q=document.getElementById('askInput').value.trim();
-  const err=document.getElementById('errorMsg');
+  const t = T[currentLang];
+  const extraQ = document.getElementById('askInput').value.trim();
+  const err = document.getElementById('errorMsg');
   err.classList.remove('visible');
-  const rc=document.getElementById('resultCard');
-  const ld=document.getElementById('loadingDots');
-  const rb=document.getElementById('resultBody');
-  rc.classList.add('visible'); ld.classList.add('visible'); rb.innerHTML='';
+  const rc = document.getElementById('resultCard');
+  const ld = document.getElementById('loadingDots');
+  const rb = document.getElementById('resultBody');
+  rc.classList.add('visible');
+  ld.classList.add('visible');
+  rb.innerHTML = '';
 
-  const t=T[currentLang];
-  const rCl=document.getElementById('rtag-cl');
-  if(selClass){rCl.textContent=selClass.num+' ('+selClass.label+')';rCl.style.display='';}
-  else rCl.style.display='none';
+  const rCl = document.getElementById('rtag-cl');
+  if (selClass) { rCl.textContent = selClass.num + ' (' + selClass.label + ')'; rCl.style.display = ''; }
+  else rCl.style.display = 'none';
 
-  const ci=selClass?`Student Class: ${selClass.num} (${selClass.label})\n`:'';
-  const si=selSubj?`Subject: ${selSubj.subject}\n`:'';
-  const prompt=q?`${ci}${si}\n${q}\n\nPlease explain step by step in simple language a school student can understand. Answer in the same language as this message.`:`${ci}${si}\n${t.resultLang}`;
+  const btn = document.getElementById('askBtn');
+  btn.disabled = true;
 
-  const btn=document.getElementById('askBtn'); btn.disabled=true;
+  // Build request payload for our secure backend
+  let payload = {
+    lang: currentLang,
+    className: selClass ? `${selClass.num} (${selClass.label})` : '',
+    subject: selSubj ? selSubj.subject : '',
+  };
+
+  if (currentMode === 'text') {
+    const typedQ = document.getElementById('textQInput').value.trim();
+    if (!typedQ && !extraQ) {
+      showError('❌ Please type your question first.');
+      btn.disabled = false; return;
+    }
+    payload.mode = 'text';
+    // Combine typed question + any extra context
+    payload.question = typedQ + (extraQ ? '\n\nExtra context: ' + extraQ : '');
+
+  } else {
+    // Photo mode
+    if (!curB64 || !curFile) {
+      showError('❌ Please add a photo first, or switch to "Type Question" mode.');
+      btn.disabled = false; return;
+    }
+    payload.mode = 'photo';
+    payload.imageBase64 = curB64;
+    payload.imageMime = curFile.type || 'image/jpeg';
+    payload.question = extraQ || ''; // optional extra question about the photo
+  }
 
   try {
-    let parts=[{text:prompt}];
-    if(curB64&&curFile) parts.unshift({inline_data:{mime_type:curFile.type||'image/jpeg',data:curB64}});
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.4,maxOutputTokens:1024}})
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-    const data=await res.json();
-    if(data.error) throw new Error(data.error.message||'API error');
-    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'(No response)';
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `Server error (${res.status})`);
+    }
+
     ld.classList.remove('visible');
-    typeText(rb,text);
-    rc.scrollIntoView({behavior:'smooth',block:'nearest'});
-  } catch(e) {
+    typeText(rb, data.answer);
+    rc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  } catch (e) {
     ld.classList.remove('visible');
-    err.textContent=`❌ ${e.message}`; err.classList.add('visible');
+    showError(e.message || '❌ Something went wrong. Please try again.');
     rc.classList.remove('visible');
   }
-  btn.disabled=false;
+
+  btn.disabled = false;
 }
 
-function typeText(el,text){
-  let i=0; el.innerHTML='';
-  function n(){
-    if(i<text.length){el.innerHTML=esc(text.substring(0,i+1))+'<span class="typing-cursor"></span>';i++;setTimeout(n,i<100?12:6);}
-    else el.innerHTML=fmt(text);
+function showError(msg) {
+  const err = document.getElementById('errorMsg');
+  const rc  = document.getElementById('resultCard');
+  const ld  = document.getElementById('loadingDots');
+  err.textContent = msg;
+  err.classList.add('visible');
+  rc.classList.remove('visible');
+  ld.classList.remove('visible');
+}
+
+function typeText(el, text) {
+  let i = 0; el.innerHTML = '';
+  function n() {
+    if (i < text.length) {
+      el.innerHTML = esc(text.substring(0, i + 1)) + '<span class="typing-cursor"></span>';
+      i++;
+      setTimeout(n, i < 80 ? 10 : 5);
+    } else {
+      el.innerHTML = fmt(text);
+    }
   } n();
 }
-function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`(.*?)`/g,'<code>$1</code>').replace(/\n/g,'<br/>');}
-
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(t) {
+  return t
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    // Headers
+    .replace(/^### (.+)$/gm, '<div class="ans-h3">$1</div>')
+    .replace(/^## (.+)$/gm,  '<div class="ans-h2">$1</div>')
+    // Numbered list items
+    .replace(/^\d+\.\s+(.+)$/gm, '<div class="ans-step"><span class="ans-num">•</span><span>$1</span></div>')
+    // Bullet list items
+    .replace(/^[-*•]\s+(.+)$/gm, '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
+    // Key takeaway
+    .replace(/(Key Takeaway.*?💡)/g, '<div class="ans-takeaway">$1</div>')
+    // Line breaks
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>');
+}
 window.addEventListener('DOMContentLoaded',()=>{
   applyLang('en'); updateStepper();
   document.getElementById('askInput').addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();askQuestion();}
+  });
+  document.getElementById('textQInput').addEventListener('input',()=>{
+    updateStep3HeaderText();
+    updateStepper();
   });
 });
 </script>
