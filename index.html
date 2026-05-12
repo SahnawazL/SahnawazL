@@ -39,6 +39,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; padding: 0.28rem 0.7rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
 .lang-btn.active { background: var(--accent); color: #fff; }
 .lang-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+.has-answer .lang-btn:not(.active):hover::after {
+  content: ' ↺';
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
 
 /* APP */
 .app { padding-top: 60px; max-width: 500px; margin: 0 auto; padding-left: 1rem; padding-right: 1rem; padding-bottom: 3rem; }
@@ -413,6 +418,7 @@ let curFile  = null;
 let curB64   = null;
 let openDP   = 0;
 let currentMode = 'text'; // 'text' or 'photo'
+let lastPayload = null;   // stores last question payload for retranslation
 
 // ── MODE TOGGLE ──
 function setMode(mode) {
@@ -736,10 +742,16 @@ function removeImage() {
 
 // ── LANG ──
 function setLang(lang) {
-  currentLang=lang;
-  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('btn-'+lang).classList.add('active');
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + lang).classList.add('active');
   applyLang(lang);
+
+  // If an answer is currently showing, retranslate it
+  const rc = document.getElementById('resultCard');
+  if (lastPayload && rc.classList.contains('visible')) {
+    retranslate(lang);
+  }
 }
 
 function applyLang(lang) {
@@ -777,6 +789,41 @@ function applyLang(lang) {
   }
 }
 
+// ── RETRANSLATE ──
+async function retranslate(lang) {
+  const rb  = document.getElementById('resultBody');
+  const ld  = document.getElementById('loadingDots');
+  const rc  = document.getElementById('resultCard');
+  const t   = T[lang];
+
+  // Show loading in result card
+  rb.innerHTML = '';
+  ld.classList.add('visible');
+  document.getElementById('rtag-ai').textContent = t.aiTag;
+
+  const payload = { ...lastPayload, lang };
+
+  try {
+    const res  = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    ld.classList.remove('visible');
+
+    if (!res.ok || data.error) {
+      rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Translation failed. Please try again.'}</span>`;
+      return;
+    }
+    typeText(rb, data.answer);
+    rc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) {
+    ld.classList.remove('visible');
+    rb.innerHTML = `<span style="color:var(--danger)">❌ Translation failed. Please check your connection.</span>`;
+  }
+}
+
 // ── ASK ──
 async function askQuestion() {
   const t = T[currentLang];
@@ -811,11 +858,9 @@ async function askQuestion() {
       btn.disabled = false; return;
     }
     payload.mode = 'text';
-    // Combine typed question + any extra context
     payload.question = typedQ + (extraQ ? '\n\nExtra context: ' + extraQ : '');
 
   } else {
-    // Photo mode
     if (!curB64 || !curFile) {
       showError('❌ Please add a photo first, or switch to "Type Question" mode.');
       btn.disabled = false; return;
@@ -823,8 +868,11 @@ async function askQuestion() {
     payload.mode = 'photo';
     payload.imageBase64 = curB64;
     payload.imageMime = curFile.type || 'image/jpeg';
-    payload.question = extraQ || ''; // optional extra question about the photo
+    payload.question = extraQ || '';
   }
+
+  // Save payload so language switcher can retranslate
+  lastPayload = { ...payload };
 
   try {
     const res = await fetch('/api/ask', {
@@ -842,6 +890,8 @@ async function askQuestion() {
     ld.classList.remove('visible');
     typeText(rb, data.answer);
     rc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Mark lang bar so switcher shows retranslate hint
+    document.querySelector('.lang-bar').classList.add('has-answer');
 
   } catch (e) {
     ld.classList.remove('visible');
@@ -860,6 +910,8 @@ function showError(msg) {
   err.classList.add('visible');
   rc.classList.remove('visible');
   ld.classList.remove('visible');
+  document.querySelector('.lang-bar').classList.remove('has-answer');
+  lastPayload = null;
 }
 
 function typeText(el, text) {
