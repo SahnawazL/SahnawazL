@@ -1184,20 +1184,7 @@ async function askQuestion() {
   const btn = document.getElementById('askBtn');
   btn.disabled = true;
 
-  // Show result card with slide-in animation
-  rc.classList.add('visible', 'thinking');
-  rb.classList.remove('reveal');
-  rb.innerHTML = '';
-  hideActionsBar();
-  stopSpeak();
-  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  // Small delay so card is in DOM before animating
-  requestAnimationFrame(() => requestAnimationFrame(() => rc.classList.add('animate-in')));
-
-  // Start thinking messages cycle
-  showThinking();
-  startThinkingMessages();
+  // ── Validate FIRST before showing anything ──
   let payload = {
     lang: currentLang,
     className: selClass ? `${selClass.num} (${selClass.label})` : '',
@@ -1208,15 +1195,16 @@ async function askQuestion() {
     const typedQ = document.getElementById('textQInput').value.trim();
     if (!typedQ && !extraQ) {
       showError('❌ Please type your question first.');
-      btn.disabled = false; return;
+      btn.disabled = false;
+      return;
     }
     payload.mode = 'text';
     payload.question = typedQ + (extraQ ? '\n\nExtra context: ' + extraQ : '');
-
   } else {
     if (!curB64 || !curFile) {
       showError('❌ Please add a photo first, or switch to "Type Question" mode.');
-      btn.disabled = false; return;
+      btn.disabled = false;
+      return;
     }
     payload.mode = 'photo';
     payload.imageBase64 = curB64;
@@ -1226,6 +1214,17 @@ async function askQuestion() {
 
   // Save payload so language switcher can retranslate
   lastPayload = { ...payload };
+
+  // ── Now show the card and start thinking ──
+  rc.classList.add('visible', 'thinking');
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  hideActionsBar();
+  stopSpeak();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  requestAnimationFrame(() => requestAnimationFrame(() => rc.classList.add('animate-in')));
+  showThinking();
+  startThinkingMessages();
 
   try {
     const res = await fetch('/api/ask', {
@@ -1471,13 +1470,9 @@ async function sendFollowup() {
   }
 }
 
-// Enter key on follow-up input
-document.addEventListener('DOMContentLoaded', () => {
-  const fi = document.getElementById('followupInput');
-  if (fi) fi.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowup(); });
-});
+// Enter key on follow-up input — merged into main DOMContentLoaded below
 
-
+function fmt(t) {
   return t
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -1491,20 +1486,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bullet list items
     .replace(/^[-*•]\s+(.+)$/gm, '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
     // Key takeaway
-    .replace(/(Key Takeaway.*?💡)/g, '<div class="ans-takeaway">$1</div>')
+    .replace(/(💡 Key Takeaway[^<\n]*)/g, '<div class="ans-takeaway">$1</div>')
     // Line breaks
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g, '<br/>');
 }
-window.addEventListener('DOMContentLoaded',()=>{
+
+window.addEventListener('DOMContentLoaded', () => {
   applyLang('en'); updateStepper();
-  document.getElementById('askInput').addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();askQuestion();}
+  document.getElementById('askInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
   });
-  document.getElementById('textQInput').addEventListener('input',()=>{
+  document.getElementById('textQInput').addEventListener('input', () => {
     updateStep3HeaderText();
     updateStepper();
   });
+  const fi = document.getElementById('followupInput');
+  if (fi) fi.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowup(); });
 });
 </script>
 </body>
