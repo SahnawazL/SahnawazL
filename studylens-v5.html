@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>StudyLens — AI Homework Helper</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1f2435;
+  --border: #2a2f42;
+  --accent: #4f8ef7;
+  --accent2: #f7c948;
+  --green: #3ecf8e;
+  --text: #eef0f8;
+  --muted: #7a82a0;
+  --danger: #f74f4f;
+  --radius: 16px;
+  --font-head: 'Baloo 2', sans-serif;
+  --font-body: 'Hind', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+/* LANG BAR */
+.lang-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: rgba(15,17,23,0.97); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1.2rem;
+}
+.logo-text { font-family: var(--font-head); font-weight: 800; font-size: 1.2rem; color: var(--text); display: flex; align-items: center; gap: 0.4rem; }
+.logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: glow 2s ease-in-out infinite; }
+@keyframes glow { 0%,100%{opacity:1;box-shadow:0 0 8px var(--accent)} 50%{opacity:0.6;box-shadow:0 0 18px var(--accent)} }
+.lang-switcher { display: flex; gap: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.22rem; }
+.lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; padding: 0.28rem 0.7rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
+.lang-btn.active { background: var(--accent); color: #fff; }
+.lang-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+/* APP */
+.app { padding-top: 60px; max-width: 500px; margin: 0 auto; padding-left: 1rem; padding-right: 1rem; padding-bottom: 3rem; }
+
+/* HERO */
+.hero-section { text-align: center; padding: 2.2rem 0 1.4rem; }
+.hero-icon { font-size: 3.2rem; display: block; margin-bottom: 0.7rem; animation: bounceIn 0.6s ease both; }
+@keyframes bounceIn { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+.hero-title { font-family: var(--font-head); font-size: 1.85rem; font-weight: 800; line-height: 1.15; margin-bottom: 0.55rem; animation: fadeUp 0.5s 0.15s ease both; opacity: 0; }
+.hero-title .highlight { color: var(--accent); }
+.hero-sub { font-size: 0.9rem; color: var(--muted); line-height: 1.6; max-width: 340px; margin: 0 auto; animation: fadeUp 0.5s 0.25s ease both; opacity: 0; }
+@keyframes fadeUp { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* STEPPER */
+.stepper { display: flex; align-items: center; justify-content: center; margin: 1.4rem 0 1.8rem; animation: fadeUp 0.5s 0.3s ease both; opacity: 0; }
+.step-node { display: flex; flex-direction: column; align-items: center; gap: 0.32rem; }
+.step-circle { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; color: var(--muted); transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); position: relative; z-index: 1; }
+.step-circle .chk { display: none; font-size: 0.85rem; }
+.step-circle .nm { display: block; }
+.step-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); transition: color 0.3s; white-space: nowrap; }
+.step-node.active .step-circle { border-color: var(--accent); background: rgba(79,142,247,0.15); color: var(--accent); box-shadow: 0 0 0 4px rgba(79,142,247,0.12),0 0 16px rgba(79,142,247,0.2); }
+.step-node.active .step-label { color: var(--accent); }
+.step-node.done .step-circle { border-color: var(--green); background: rgba(62,207,142,0.15); color: var(--green); box-shadow: 0 0 0 4px rgba(62,207,142,0.1); }
+.step-node.done .step-circle .chk { display: block; }
+.step-node.done .step-circle .nm { display: none; }
+.step-node.done .step-label { color: var(--green); }
+.step-line { width: 40px; height: 2px; background: var(--border); margin: 0 3px 20px; border-radius: 2px; position: relative; overflow: hidden; }
+.step-line::after { content:''; position: absolute; left:0; top:0; height:100%; width:0; background: var(--green); border-radius: 2px; transition: width 0.5s ease; }
+.step-line.filled::after { width: 100%; }
+
+/* STEP CARDS */
+.step-card { margin-bottom: 0.8rem; border-radius: var(--radius); }
+.step-card.locked { opacity: 0.35; pointer-events: none; transition: opacity 0.4s; }
+.step-card-hdr {
+  width: 100%; background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 0.9rem 1.1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, border-radius 0.15s; gap: 0.75rem; user-select: none;
+}
+.step-card-hdr:hover { border-color: var(--accent); background: rgba(79,142,247,0.04); }
+.step-card-hdr.open { border-color: var(--accent); border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; background: rgba(79,142,247,0.06); }
+.step-card-hdr.done-s { border-color: rgba(62,207,142,0.45); background: rgba(62,207,142,0.03); }
+.step-card-hdr.done-s:hover { border-color: var(--green); background: rgba(62,207,142,0.07); }
+.hdr-left { display: flex; align-items: center; gap: 0.65rem; flex: 1; min-width: 0; }
+.hdr-icon { font-size: 1.15rem; flex-shrink: 0; }
+.hdr-text { display: flex; flex-direction: column; gap: 0.04rem; min-width: 0; }
+.hdr-label { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); line-height: 1; }
+.hdr-val { font-family: var(--font-head); font-size: 0.98rem; font-weight: 700; color: var(--text); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-val.ph { color: var(--muted); font-weight: 500; font-size: 0.88rem; }
+.hdr-val.dv { color: var(--green); }
+.chevron { font-size: 0.72rem; color: var(--muted); transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1); flex-shrink: 0; }
+.step-card-hdr.open .chevron { transform: rotate(180deg); }
+
+/* DROP PANEL */
+.drop-panel { background: var(--surface); border: 1.5px solid var(--accent); border-top: none; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden; max-height: 0; transition: max-height 0.38s cubic-bezier(0.4,0,0.2,1); }
+.drop-panel.open { max-height: 380px; }
+
+/* CLASS GRID */
+.class-grid { padding: 0.55rem; display: grid; grid-template-columns: repeat(4,1fr); gap: 0.4rem; overflow-y: auto; max-height: 340px; }
+.class-grid::-webkit-scrollbar { width: 3px; } .class-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.cls-chip { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; padding: 0.5rem 0.2rem; text-align: center; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 0.12rem; }
+.cls-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
+.cls-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 2px rgba(79,142,247,0.18); }
+.cls-num { font-family: var(--font-head); font-size: 0.82rem; font-weight: 800; color: var(--text); line-height: 1; }
+.cls-chip.sel .cls-num { color: var(--accent); }
+.cls-sub { font-size: 0.54rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; line-height: 1; }
+.cls-chip.sel .cls-sub { color: rgba(79,142,247,0.8); }
+
+/* SUBJECT GRID */
+.subj-grid { padding: 0.55rem; display: grid; grid-template-columns: repeat(3,1fr); gap: 0.45rem; overflow-y: auto; max-height: 360px; }
+.subj-grid::-webkit-scrollbar { width: 3px; } .subj-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.subj-chip { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 11px; padding: 0.62rem 0.25rem; text-align: center; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 0.28rem; }
+.subj-chip:hover { border-color: var(--accent2); background: rgba(247,201,72,0.07); }
+.subj-chip.sel { border-color: var(--accent2); background: rgba(247,201,72,0.12); box-shadow: 0 0 0 2px rgba(247,201,72,0.15); }
+.subj-emoji { font-size: 1.35rem; line-height: 1; }
+.subj-name { font-size: 0.62rem; font-weight: 700; color: var(--text); text-align: center; line-height: 1.2; }
+.subj-chip.sel .subj-name { color: var(--accent2); }
+
+/* PHOTO BODY — slides in */
+.photo-body { overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-8px); transition: max-height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease, transform 0.4s ease; }
+.photo-body.open { opacity: 1; transform: translateY(0); }
+.photo-inner { padding: 0.7rem 0.7rem 0.5rem; }
+.photo-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+.photo-btn { border-radius: 13px; padding: 1.2rem 0.6rem 1rem; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; border: 1.5px solid; }
+.photo-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
+.photo-btn:active { transform: translateY(0); }
+.photo-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.cam-btn { background: linear-gradient(135deg,rgba(79,142,247,0.1),rgba(79,142,247,0.04)); border-color: rgba(79,142,247,0.45); }
+.gal-btn { background: linear-gradient(135deg,rgba(62,207,142,0.1),rgba(62,207,142,0.04)); border-color: rgba(62,207,142,0.45); }
+.cam-btn:hover { border-color: var(--accent); background: rgba(79,142,247,0.13); }
+.gal-btn:hover { border-color: var(--green); background: rgba(62,207,142,0.13); }
+.pbtn-icon { font-size: 2rem; line-height: 1; }
+.pbtn-title { font-family: var(--font-head); font-size: 0.95rem; font-weight: 700; }
+.cam-btn .pbtn-title { color: var(--accent); }
+.gal-btn .pbtn-title { color: var(--green); }
+.pbtn-hint { font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+
+/* PREVIEW */
+.preview-block { display: none; }
+.preview-img-wrap { position: relative; border-radius: 11px; overflow: hidden; border: 1.5px solid var(--border); margin-bottom: 0.55rem; }
+.preview-img-wrap img { width: 100%; max-height: 210px; object-fit: cover; display: block; }
+.remove-btn { position: absolute; top: 8px; right: 8px; background: var(--danger); border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 5; }
+.retake-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.retake-btn { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 9px; padding: 0.5rem; font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.3rem; position: relative; overflow: hidden; transition: all 0.18s; }
+.retake-btn:hover { border-color: var(--accent); color: var(--text); }
+.retake-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+/* ASK */
+.ask-section { margin-top: 0.4rem; opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
+.ask-section.visible { opacity: 1; transform: translateY(0); pointer-events: all; }
+.ask-wrap { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.ask-input { flex: 1; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; font-family: var(--font-body); font-size: 0.88rem; color: var(--text); outline: none; resize: none; height: 50px; line-height: 1.2; transition: border-color 0.2s; }
+.ask-input::placeholder { color: var(--muted); }
+.ask-input:focus { border-color: var(--accent); }
+.ask-btn { background: var(--accent); border: none; border-radius: 12px; width: 50px; height: 50px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 16px rgba(79,142,247,0.35); transition: all 0.2s; }
+.ask-btn:hover { transform: scale(1.05); background: #3a7ef6; }
+.ask-btn:active { transform: scale(0.97); }
+.ask-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* RESULT */
+.result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; margin-bottom: 1.4rem; animation: fadeUp 0.4s ease both; }
+.result-card.visible { display: block; }
+.result-hdr { background: var(--surface2); padding: 0.8rem 1.1rem; display: flex; align-items: center; gap: 0.4rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.rtag { border-radius: 100px; font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.6rem; letter-spacing: 0.04em; }
+.rtag-ai { background: rgba(62,207,142,0.14); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+.rtag-cl { background: rgba(79,142,247,0.13); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
+.rtag-sj { background: rgba(247,201,72,0.12); color: var(--accent2); border: 1px solid rgba(247,201,72,0.2); }
+.result-body { padding: 1.1rem; font-size: 0.9rem; line-height: 1.75; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.result-body strong { color: var(--accent2); }
+.result-body code { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.38rem; font-size: 0.8rem; color: var(--green); }
+.typing-cursor { display: inline-block; width: 2px; height: 1em; background: var(--accent); vertical-align: text-bottom; animation: blink 0.7s infinite; margin-left: 2px; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.loading-dots { display: none; padding: 1.1rem; gap: 0.4rem; }
+.loading-dots.visible { display: flex; align-items: center; }
+.loading-dots span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: db 1.2s ease-in-out infinite; }
+.loading-dots span:nth-child(2){animation-delay:0.15s} .loading-dots span:nth-child(3){animation-delay:0.3s}
+@keyframes db { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+/* ERROR */
+.error-msg { background: rgba(247,79,79,0.1); border: 1px solid rgba(247,79,79,0.25); border-radius: 11px; padding: 0.75rem 1rem; font-size: 0.83rem; color: #f78f8f; display: none; margin-bottom: 1rem; }
+.error-msg.visible { display: block; }
+
+/* TIPS */
+.tips { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.4rem; margin-top: 0.5rem; }
+.tip { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 0.65rem 0.9rem; font-size: 0.8rem; color: var(--muted); display: flex; align-items: flex-start; gap: 0.5rem; }
+.tip-icon { font-size: 0.95rem; flex-shrink: 0; }
+.tip span { line-height: 1.4; }
+
+/* FOOTER */
+.footer-note { text-align: center; font-size: 0.74rem; color: var(--muted); padding: 1rem 0 0.4rem; border-top: 1px solid var(--border); line-height: 1.5; }
+
+/* UNLOCK PULSE */
+@keyframes unlockPulse { 0%{box-shadow:0 0 0 0 rgba(79,142,247,0.5)} 70%{box-shadow:0 0 0 12px rgba(79,142,247,0)} 100%{box-shadow:0 0 0 0 rgba(79,142,247,0)} }
+.pulse-once { animation: unlockPulse 0.75s ease both; }
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="logo-text"><span class="logo-dot"></span>StudyLens</div>
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
+    <button class="lang-btn" onclick="setLang('bn')" id="btn-bn">বাং</button>
+    <button class="lang-btn" onclick="setLang('hi')" id="btn-hi">हिं</button>
+  </div>
+</div>
+
+<div class="app">
+
+  <div class="hero-section">
+    <span class="hero-icon">📚</span>
+    <h1 class="hero-title" id="h-title">Your <span class="highlight">AI Study</span> Helper</h1>
+    <p class="hero-sub" id="h-sub">Select your class & subject, then add your question photo — get a clear step-by-step answer instantly.</p>
+  </div>
+
+  <!-- STEPPER -->
+  <div class="stepper">
+    <div class="step-node active" id="sn1">
+      <div class="step-circle"><span class="nm">1</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl1">Class</div>
+    </div>
+    <div class="step-line" id="sl-line1"></div>
+    <div class="step-node" id="sn2">
+      <div class="step-circle"><span class="nm">2</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl2">Subject</div>
+    </div>
+    <div class="step-line" id="sl-line2"></div>
+    <div class="step-node" id="sn3">
+      <div class="step-circle"><span class="nm">3</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl3">Photo</div>
+    </div>
+  </div>
+
+  <!-- STEP 1: CLASS -->
+  <div class="step-card" id="card1">
+    <div class="step-card-hdr" id="hdr1" onclick="togglePanel(1)">
+      <div class="hdr-left">
+        <span class="hdr-icon">🎓</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-cls">Select Class</span>
+          <span class="hdr-val ph" id="val-cls">Tap to choose your class…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev1">▼</span>
+    </div>
+    <div class="drop-panel" id="dp1">
+      <div class="class-grid" id="classGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: SUBJECT — locked until class done -->
+  <div class="step-card locked" id="card2">
+    <div class="step-card-hdr" id="hdr2" onclick="togglePanel(2)">
+      <div class="hdr-left">
+        <span class="hdr-icon">📌</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-subj">Choose Subject</span>
+          <span class="hdr-val ph" id="val-subj">Choose your class first…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev2">▼</span>
+    </div>
+    <div class="drop-panel" id="dp2">
+      <div class="subj-grid" id="subjGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: PHOTO — locked until subject done -->
+  <div class="step-card locked" id="card3">
+    <div class="step-card-hdr done-s" id="hdr3" style="cursor:default; pointer-events:none;">
+      <div class="hdr-left">
+        <span class="hdr-icon">📷</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-photo">Add Question Photo</span>
+          <span class="hdr-val ph" id="val-photo">Choose subject first…</span>
+        </div>
+      </div>
+    </div>
+    <div class="photo-body" id="photoBody">
+      <div class="photo-inner">
+        <!-- preview (hidden until photo) -->
+        <div class="preview-block" id="previewBlock">
+          <div class="preview-img-wrap">
+            <button class="remove-btn" onclick="removeImage()">✕</button>
+            <img id="previewImg" src="" alt="Preview"/>
+          </div>
+          <div class="retake-row">
+            <button class="retake-btn">📷 <span id="lbl-retake-cam">Retake</span><input type="file" id="camIn2" accept="image/*" capture="environment" onchange="onFile(event)"/></button>
+            <button class="retake-btn">🖼️ <span id="lbl-retake-gal">Change</span><input type="file" id="galIn2" accept="image/*" onchange="onFile(event)"/></button>
+          </div>
+        </div>
+        <!-- buttons -->
+        <div class="photo-btns" id="photoBtns">
+          <div class="photo-btn cam-btn">
+            <span class="pbtn-icon">📷</span>
+            <span class="pbtn-title" id="cam-title">Camera</span>
+            <span class="pbtn-hint" id="cam-hint">Open camera directly</span>
+            <input type="file" id="camIn" accept="image/*" capture="environment" onchange="onFile(event)"/>
+          </div>
+          <div class="photo-btn gal-btn">
+            <span class="pbtn-icon">🖼️</span>
+            <span class="pbtn-title" id="gal-title">Gallery</span>
+            <span class="pbtn-hint" id="gal-hint">Pick from gallery</span>
+            <input type="file" id="galIn" accept="image/*" onchange="onFile(event)"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASK (appears after subject chosen) -->
+  <div class="ask-section" id="askSection">
+    <div class="ask-wrap">
+      <textarea class="ask-input" id="askInput" rows="1" placeholder="Ask anything, or just press ➤ to explain the image…"></textarea>
+      <button class="ask-btn" id="askBtn" onclick="askQuestion()">➤</button>
+    </div>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-hdr">
+      <span class="rtag rtag-ai" id="rtag-ai">✓ AI Answer</span>
+      <span class="rtag rtag-cl" id="rtag-cl"></span>
+      <span class="rtag rtag-sj" id="rtag-sj"></span>
+    </div>
+    <div class="loading-dots" id="loadingDots"><span></span><span></span><span></span></div>
+    <div class="result-body" id="resultBody"></div>
+  </div>
+
+  <div class="tips">
+    <div class="tip"><span class="tip-icon">💡</span><span id="tip1">Take a clear, well-lit photo. Make sure the text is readable.</span></div>
+    <div class="tip"><span class="tip-icon">🗣️</span><span id="tip2">You can ask in your own language — Bengali, Hindi, or English.</span></div>
+    <div class="tip"><span class="tip-icon">📷</span><span id="tip3">Works with printed books, handwritten notes, and worksheets.</span></div>
+  </div>
+
+  <div class="footer-note" id="footerNote">Made for students, parents &amp; learners in India 🇮🇳<br/>Powered by Google Gemini AI</div>
+
+</div>
+
+<script>
+const GEMINI_API_KEY = 'YOUR_API_KEY_HERE';
+
+let currentLang = 'en';
+let selClass = null;
+let selSubj  = null;
+let curFile  = null;
+let curB64   = null;
+let openDP   = 0;
+
+const CLASSES = [
+  {id:'kg1',num:'KG 1',label:'Nursery'},{id:'kg2',num:'KG 2',label:'LKG/UKG'},
+  {id:'c1',num:'1st',label:'Class 1'},{id:'c2',num:'2nd',label:'Class 2'},
+  {id:'c3',num:'3rd',label:'Class 3'},{id:'c4',num:'4th',label:'Class 4'},
+  {id:'c5',num:'5th',label:'Class 5'},{id:'c6',num:'6th',label:'Class 6'},
+  {id:'c7',num:'7th',label:'Class 7'},{id:'c8',num:'8th',label:'Class 8'},
+  {id:'c9',num:'9th',label:'Class 9'},{id:'c10',num:'10th',label:'Class 10'},
+  {id:'c11',num:'11th',label:'Class 11'},{id:'c12',num:'12th',label:'Class 12'},
+];
+
+const SUBJECTS = [
+  {key:'math',emoji:'🔢',subject:'Mathematics'},
+  {key:'science',emoji:'🔬',subject:'Science'},
+  {key:'eng1',emoji:'🔤',subject:'English (First Language)'},
+  {key:'eng2',emoji:'📝',subject:'English (Second Language)'},
+  {key:'bn1',emoji:'বা',subject:'Bengali (First Language)'},
+  {key:'bn2',emoji:'বং',subject:'Bengali (Second Language)'},
+  {key:'hindi',emoji:'हि',subject:'Hindi'},
+  {key:'evs',emoji:'🌿',subject:'Environmental Studies (EVS)'},
+  {key:'sst',emoji:'🗺️',subject:'Social Studies (SST)'},
+  {key:'gk',emoji:'🌍',subject:'General Knowledge (GK)'},
+  {key:'computer',emoji:'💻',subject:'Computer Science'},
+  {key:'moral',emoji:'🙏',subject:'Moral Science / Value Education'},
+  {key:'history',emoji:'🏛️',subject:'History & Civics'},
+  {key:'geo',emoji:'🧭',subject:'Geography'},
+  {key:'conv',emoji:'🗣️',subject:'English Conversation & Speaking'},
+];
+
+const T = {
+  en:{
+    heroTitle:'Your <span class="highlight">AI Study</span> Helper',
+    heroSub:'Select your class & subject, then add your question photo — get a clear step-by-step answer instantly.',
+    lblCls:'Select Class',phCls:'Tap to choose your class…',selCls:'Class',
+    lblSubj:'Choose Subject',phSubj:'Choose your class first…',phSubj2:'Tap to choose your subject…',
+    lblPhoto:'Add Question Photo',phPhoto:'Choose subject first…',readyPhoto:'✓ Photo ready',
+    camTitle:'Camera',camHint:'Open camera directly',galTitle:'Gallery',galHint:'Pick from gallery',
+    retakeCam:'Retake',retakeGal:'Change',
+    sl1:'Class',sl2:'Subject',sl3:'Photo',
+    placeholder:'Ask anything, or just press ➤ to explain the image…',
+    aiTag:'✓ AI Answer',
+    resultLang:'Please explain this image in simple English, step by step. I am a school student.',
+    tip1:'Take a clear, well-lit photo. Make sure the text is readable.',
+    tip2:'You can ask in your own language — Bengali, Hindi, or English.',
+    tip3:'Works with printed books, handwritten notes, and worksheets.',
+    footer:'Made for students, parents & learners in India 🇮🇳<br/>Powered by Google Gemini AI',
+    subs:{math:'Maths',science:'Science',eng1:'English 1',eng2:'English 2',bn1:'Bengali 1',bn2:'Bengali 2',hindi:'Hindi',evs:'EVS',sst:'SST',gk:'GK',computer:'Computer',moral:'Moral Sci.',history:'History',geo:'Geography',conv:'Conversation'},
+  },
+  bn:{
+    heroTitle:'তোমার <span class="highlight">AI পড়ার</span> সাথী',
+    heroSub:'ক্লাস ও বিষয় বেছে নাও, তারপর প্রশ্নের ছবি যোগ করো — এক্ষুনি সহজ ব্যাখ্যা পাও।',
+    lblCls:'ক্লাস বেছে নাও',phCls:'তোমার ক্লাস বেছে নিতে ট্যাপ করো…',selCls:'ক্লাস',
+    lblSubj:'বিষয় বেছে নাও',phSubj:'আগে ক্লাস বেছে নাও…',phSubj2:'তোমার বিষয় বেছে নিতে ট্যাপ করো…',
+    lblPhoto:'প্রশ্নের ছবি যোগ করো',phPhoto:'আগে বিষয় বেছে নাও…',readyPhoto:'✓ ছবি প্রস্তুত',
+    camTitle:'ক্যামেরা',camHint:'সরাসরি ক্যামেরা খোলো',galTitle:'গ্যালারি',galHint:'গ্যালারি থেকে বেছে নাও',
+    retakeCam:'আবার তোলো',retakeGal:'পরিবর্তন করো',
+    sl1:'ক্লাস',sl2:'বিষয়',sl3:'ছবি',
+    placeholder:'যেকোনো প্রশ্ন লেখো, অথবা ➤ চাপো…',
+    aiTag:'✓ AI উত্তর',
+    resultLang:'এই ছবিটি দেখো এবং বাংলায় সহজ ভাষায় ধাপে ধাপে ব্যাখ্যা করো। আমি একজন স্কুল ছাত্র।',
+    tip1:'পরিষ্কার আলোতে ছবি তোলো যাতে লেখা স্পষ্ট বোঝা যায়।',
+    tip2:'বাংলায়, হিন্দিতে বা ইংরেজিতে প্রশ্ন করতে পারো।',
+    tip3:'ছাপানো বই, হাতের লেখা ও ওয়ার্কশিট সবকিছুতে কাজ করে।',
+    footer:'ভারতের শিক্ষার্থী, অভিভাবক ও শিক্ষানুরাগীদের জন্য 🇮🇳<br/>Google Gemini AI দ্বারা পরিচালিত',
+    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংরেজি ১',eng2:'ইংরেজি ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দি',evs:'পরিবেশ বিদ্যা',sst:'সমাজবিজ্ঞান',gk:'সাধারণ জ্ঞান',computer:'কম্পিউটার',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
+  },
+  hi:{
+    heroTitle:'तुम्हारा <span class="highlight">AI पढ़ाई</span> साथी',
+    heroSub:'अपनी क्लास और विषय चुनो, फिर सवाल की फोटो डालो — तुरंत आसान जवाब पाओ।',
+    lblCls:'कक्षा चुनो',phCls:'अपनी कक्षा चुनने के लिए टैप करो…',selCls:'कक्षा',
+    lblSubj:'विषय चुनो',phSubj:'पहले कक्षा चुनो…',phSubj2:'अपना विषय चुनने के लिए टैप करो…',
+    lblPhoto:'सवाल की फोटो डालो',phPhoto:'पहले विषय चुनो…',readyPhoto:'✓ फोटो तैयार',
+    camTitle:'कैमरा',camHint:'सीधे कैमरा खोलो',galTitle:'गैलरी',galHint:'गैलरी से चुनो',
+    retakeCam:'फिर खींचो',retakeGal:'बदलो',
+    sl1:'कक्षा',sl2:'विषय',sl3:'फोटो',
+    placeholder:'कुछ भी पूछो, या बस ➤ दबाओ…',
+    aiTag:'✓ AI जवाब',
+    resultLang:'इस फोटो को देखो और हिंदी में सरल भाषा में कदम-दर-कदम समझाओ। मैं एक स्कूल छात्र हूँ।',
+    tip1:'साफ रोशनी में फोटो लो ताकि लिखावट पढ़ी जा सके।',
+    tip2:'हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
+    tip3:'छपी किताबें, हाथ से लिखे नोट्स और वर्कशीट — सब पर काम करता है।',
+    footer:'भारत के छात्रों, माता-पिता और सीखने वालों के लिए 🇮🇳<br/>Google Gemini AI द्वारा संचालित',
+    subs:{math:'गणित',science:'विज्ञान',eng1:'अंग्रेज़ी १',eng2:'अंग्रेज़ी २',bn1:'बांग्ला १',bn2:'बांग्ला २',hindi:'हिन्दी',evs:'पर्यावरण',sst:'सामाजिक विज्ञान',gk:'सामान्य ज्ञान',computer:'कंप्यूटर',moral:'नैतिक शिक्षा',history:'इतिहास',geo:'भूगोल',conv:'बातचीत'},
+  }
+};
+
+// ── STEPPER ──
+function updateStepper() {
+  const s1d = !!selClass, s2d = !!selSubj, s3d = !!curB64;
+  document.getElementById('sn1').className = 'step-node ' + (s1d ? 'done' : 'active');
+  document.getElementById('sn2').className = 'step-node ' + (s2d ? 'done' : s1d ? 'active' : '');
+  document.getElementById('sn3').className = 'step-node ' + (s3d ? 'done' : s2d ? 'active' : '');
+  document.getElementById('sl-line1').classList.toggle('filled', s1d);
+  document.getElementById('sl-line2').classList.toggle('filled', s2d);
+}
+
+// ── PANEL TOGGLE ──
+function togglePanel(n) {
+  if (n === 2 && !selClass) return; // safety
+  const dp = document.getElementById('dp'+n);
+  const hdr = document.getElementById('hdr'+n);
+  const isOpen = dp.classList.contains('open');
+  closeAllPanels();
+  if (!isOpen) {
+    if (n===1) buildClassGrid();
+    else buildSubjGrid();
+    dp.classList.add('open');
+    hdr.classList.add('open');
+    openDP = n;
+  }
+}
+
+function closeAllPanels() {
+  [1,2].forEach(n => {
+    document.getElementById('dp'+n).classList.remove('open');
+    document.getElementById('hdr'+n).classList.remove('open');
+  });
+  openDP = 0;
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('card1').contains(e.target) &&
+      !document.getElementById('card2').contains(e.target)) closeAllPanels();
+});
+
+// ── CLASS GRID ──
+function buildClassGrid() {
+  const g = document.getElementById('classGrid'); g.innerHTML='';
+  CLASSES.forEach(cls => {
+    const el = document.createElement('div');
+    el.className = 'cls-chip' + (selClass&&selClass.id===cls.id?' sel':'');
+    el.innerHTML = `<span class="cls-num">${cls.num}</span><span class="cls-sub">${cls.label}</span>`;
+    el.onclick = () => pickClass(cls);
+    g.appendChild(el);
+  });
+}
+
+function pickClass(cls) {
+  selClass = cls;
+  const t = T[currentLang];
+  const v = document.getElementById('val-cls');
+  v.textContent = `${t.selCls} — ${cls.num} (${cls.label})`;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr1').classList.add('done-s');
+  closeAllPanels();
+
+  // Unlock step 2
+  const c2 = document.getElementById('card2');
+  c2.classList.remove('locked');
+  const h2 = document.getElementById('hdr2');
+  h2.classList.add('pulse-once');
+  setTimeout(()=>h2.classList.remove('pulse-once'),800);
+
+  // Update subject placeholder
+  const vs = document.getElementById('val-subj');
+  if (vs.classList.contains('ph')) vs.textContent = t.phSubj2;
+
+  updateStepper();
+  // Auto-open subject
+  setTimeout(()=>togglePanel(2), 320);
+}
+
+// ── SUBJECT GRID ──
+function buildSubjGrid() {
+  const g = document.getElementById('subjGrid'); g.innerHTML='';
+  const t = T[currentLang];
+  SUBJECTS.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'subj-chip' + (selSubj&&selSubj.key===s.key?' sel':'');
+    const name = t.subs[s.key]||s.subject;
+    el.innerHTML = `<span class="subj-emoji">${s.emoji}</span><span class="subj-name">${name}</span>`;
+    el.onclick = () => pickSubj(s);
+    g.appendChild(el);
+  });
+}
+
+function pickSubj(s) {
+  selSubj = s;
+  const t = T[currentLang];
+  const name = t.subs[s.key]||s.subject;
+  const v = document.getElementById('val-subj');
+  v.textContent = `${s.emoji}  ${name}`;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr2').classList.add('done-s');
+  document.getElementById('rtag-sj').textContent = name;
+  closeAllPanels();
+
+  // Unlock step 3
+  const c3 = document.getElementById('card3');
+  c3.classList.remove('locked');
+  const h3 = document.getElementById('hdr3');
+  h3.classList.add('pulse-once');
+  setTimeout(()=>h3.classList.remove('pulse-once'),800);
+
+  // Update photo header value
+  const vp = document.getElementById('val-photo');
+  vp.textContent = t.lblPhoto;
+  vp.classList.remove('ph');
+
+  // Open photo body
+  const pb = document.getElementById('photoBody');
+  pb.style.maxHeight = '520px';
+  pb.classList.add('open');
+
+  // Show ask section
+  document.getElementById('askSection').classList.add('visible');
+
+  updateStepper();
+  setTimeout(()=>c3.scrollIntoView({behavior:'smooth',block:'nearest'}),180);
+}
+
+// ── FILE ──
+function onFile(e) {
+  const f = e.target.files[0];
+  if (f) processFile(f);
+  e.target.value='';
+}
+
+function processFile(f) {
+  curFile=f;
+  const r=new FileReader();
+  r.onload=ev=>{
+    curB64=ev.target.result.split(',')[1];
+    document.getElementById('previewImg').src=ev.target.result;
+    document.getElementById('previewBlock').style.display='block';
+    document.getElementById('photoBtns').style.display='none';
+    const vp=document.getElementById('val-photo');
+    vp.textContent=T[currentLang].readyPhoto;
+    vp.classList.remove('ph'); vp.classList.add('dv');
+    document.getElementById('hdr3').classList.add('done-s');
+    updateStepper();
+  };
+  r.readAsDataURL(f);
+}
+
+function removeImage() {
+  curFile=null; curB64=null;
+  document.getElementById('previewBlock').style.display='none';
+  document.getElementById('photoBtns').style.display='grid';
+  const vp=document.getElementById('val-photo');
+  vp.textContent=T[currentLang].lblPhoto;
+  vp.classList.remove('dv');
+  document.getElementById('hdr3').classList.remove('done-s');
+  updateStepper();
+}
+
+// ── LANG ──
+function setLang(lang) {
+  currentLang=lang;
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+lang).classList.add('active');
+  applyLang(lang);
+}
+
+function applyLang(lang) {
+  const t=T[lang];
+  document.getElementById('h-title').innerHTML=t.heroTitle;
+  document.getElementById('h-sub').textContent=t.heroSub.replace(/<[^>]+>/g,'');
+  document.getElementById('sl1').textContent=t.sl1;
+  document.getElementById('sl2').textContent=t.sl2;
+  document.getElementById('sl3').textContent=t.sl3;
+  document.getElementById('lbl-cls').textContent=t.lblCls;
+  document.getElementById('lbl-subj').textContent=t.lblSubj;
+  document.getElementById('lbl-photo').textContent=t.lblPhoto;
+  document.getElementById('cam-title').textContent=t.camTitle;
+  document.getElementById('cam-hint').textContent=t.camHint;
+  document.getElementById('gal-title').textContent=t.galTitle;
+  document.getElementById('gal-hint').textContent=t.galHint;
+  document.getElementById('lbl-retake-cam').textContent=t.retakeCam;
+  document.getElementById('lbl-retake-gal').textContent=t.retakeGal;
+  document.getElementById('askInput').placeholder=t.placeholder;
+  document.getElementById('tip1').textContent=t.tip1;
+  document.getElementById('tip2').textContent=t.tip2;
+  document.getElementById('tip3').textContent=t.tip3;
+  document.getElementById('footerNote').innerHTML=t.footer;
+  document.getElementById('rtag-ai').textContent=t.aiTag;
+  if(!selClass){const v=document.getElementById('val-cls');v.textContent=t.phCls;v.classList.add('ph');}
+  if(!selSubj){const v=document.getElementById('val-subj');v.textContent=selClass?t.phSubj2:t.phSubj;v.classList.add('ph');}
+  if(!curB64){const v=document.getElementById('val-photo');if(!selSubj){v.textContent=t.phPhoto;v.classList.add('ph');}else{v.textContent=t.lblPhoto;}}
+}
+
+// ── ASK ──
+async function askQuestion() {
+  const q=document.getElementById('askInput').value.trim();
+  const err=document.getElementById('errorMsg');
+  err.classList.remove('visible');
+  const rc=document.getElementById('resultCard');
+  const ld=document.getElementById('loadingDots');
+  const rb=document.getElementById('resultBody');
+  rc.classList.add('visible'); ld.classList.add('visible'); rb.innerHTML='';
+
+  const t=T[currentLang];
+  const rCl=document.getElementById('rtag-cl');
+  if(selClass){rCl.textContent=selClass.num+' ('+selClass.label+')';rCl.style.display='';}
+  else rCl.style.display='none';
+
+  const ci=selClass?`Student Class: ${selClass.num} (${selClass.label})\n`:'';
+  const si=selSubj?`Subject: ${selSubj.subject}\n`:'';
+  const prompt=q?`${ci}${si}\n${q}\n\nPlease explain step by step in simple language a school student can understand. Answer in the same language as this message.`:`${ci}${si}\n${t.resultLang}`;
+
+  const btn=document.getElementById('askBtn'); btn.disabled=true;
+
+  try {
+    let parts=[{text:prompt}];
+    if(curB64&&curFile) parts.unshift({inline_data:{mime_type:curFile.type||'image/jpeg',data:curB64}});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.4,maxOutputTokens:1024}})
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message||'API error');
+    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'(No response)';
+    ld.classList.remove('visible');
+    typeText(rb,text);
+    rc.scrollIntoView({behavior:'smooth',block:'nearest'});
+  } catch(e) {
+    ld.classList.remove('visible');
+    err.textContent=`❌ ${e.message}`; err.classList.add('visible');
+    rc.classList.remove('visible');
+  }
+  btn.disabled=false;
+}
+
+function typeText(el,text){
+  let i=0; el.innerHTML='';
+  function n(){
+    if(i<text.length){el.innerHTML=esc(text.substring(0,i+1))+'<span class="typing-cursor"></span>';i++;setTimeout(n,i<100?12:6);}
+    else el.innerHTML=fmt(text);
+  } n();
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`(.*?)`/g,'<code>$1</code>').replace(/\n/g,'<br/>');}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  applyLang('en'); updateStepper();
+  document.getElementById('askInput').addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();askQuestion();}
+  });
+});
+</script>
+</body>
+</html>
