@@ -318,7 +318,98 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-/* ERROR */
+/* ANSWER ACTIONS BAR */
+.ans-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem 1rem;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+.ans-actions.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.ans-action-btn {
+  display: flex; align-items: center; gap: 0.38rem;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 100px;
+  padding: 0.45rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ans-action-btn:hover { color: var(--text); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.ans-action-btn:active { transform: translateY(0); }
+
+/* Individual button accent colors */
+.ans-action-btn.copy-btn:hover   { border-color: var(--accent);  color: var(--accent);  background: rgba(79,142,247,0.08); }
+.ans-action-btn.speak-btn:hover  { border-color: var(--green);   color: var(--green);   background: rgba(62,207,142,0.08); }
+.ans-action-btn.speak-btn.speaking { border-color: var(--green); color: var(--green); background: rgba(62,207,142,0.12); animation: speakPulse 1.4s ease-in-out infinite; }
+.ans-action-btn.follow-btn:hover { border-color: var(--accent2); color: var(--accent2); background: rgba(247,201,72,0.08); }
+
+@keyframes speakPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(62,207,142,0.4); }
+  50%     { box-shadow: 0 0 0 6px rgba(62,207,142,0); }
+}
+
+/* Copied feedback */
+.ans-action-btn.copied {
+  border-color: var(--green); color: var(--green);
+  background: rgba(62,207,142,0.1);
+}
+
+.ans-action-icon { font-size: 0.9rem; line-height: 1; }
+
+/* Follow-up input — slides in below actions */
+.followup-area {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1);
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+}
+.followup-area.open { max-height: 100px; }
+.followup-inner {
+  display: flex; gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+}
+.followup-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.followup-input::placeholder { color: var(--muted); }
+.followup-input:focus { border-color: var(--accent2); }
+.followup-send {
+  background: var(--accent2);
+  border: none; border-radius: 10px;
+  width: 40px; height: 40px;
+  font-size: 1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  box-shadow: 0 3px 10px rgba(247,201,72,0.3);
+}
+.followup-send:hover { transform: scale(1.08); }
+.followup-send:active { transform: scale(0.96); }
 .error-msg { background: rgba(247,79,79,0.1); border: 1px solid rgba(247,79,79,0.25); border-radius: 11px; padding: 0.75rem 1rem; font-size: 0.83rem; color: #f78f8f; display: none; margin-bottom: 1rem; }
 .error-msg.visible { display: block; }
 
@@ -551,6 +642,30 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     </div>
 
     <div class="result-body" id="resultBody"></div>
+
+    <!-- Answer Actions Bar -->
+    <div class="ans-actions" id="ansActions">
+      <button class="ans-action-btn copy-btn" id="copyBtn" onclick="copyAnswer()">
+        <span class="ans-action-icon">📋</span>
+        <span id="copyLabel">Copy</span>
+      </button>
+      <button class="ans-action-btn speak-btn" id="speakBtn" onclick="toggleSpeak()">
+        <span class="ans-action-icon">🔊</span>
+        <span id="speakLabel">Read Aloud</span>
+      </button>
+      <button class="ans-action-btn follow-btn" id="followBtn" onclick="toggleFollowup()">
+        <span class="ans-action-icon">💬</span>
+        <span id="followLabel">Ask Follow-up</span>
+      </button>
+    </div>
+
+    <!-- Follow-up input -->
+    <div class="followup-area" id="followupArea">
+      <div class="followup-inner">
+        <input class="followup-input" id="followupInput" type="text" placeholder="Ask something more about this answer…" />
+        <button class="followup-send" onclick="sendFollowup()">➤</button>
+      </div>
+    </div>
   </div>
 
   <div class="tips">
@@ -682,7 +797,8 @@ const T = {
     placeholderTextMode:'Question ready! Press ➤ to get the answer…',
     placeholderPhotoMode:'Ask anything about the photo, or just press ➤…',
     aiTag:'✓ AI Answer',
-    resultLang:'Please explain this image in simple English, step by step. I am a school student.',
+    copyLabel:'Copy', speakLabel:'Read Aloud', stopLabel:'Stop', followLabel:'Ask Follow-up',
+    followPlaceholder:'Ask something more about this answer…',
     tip1:'Type any question — theory, definition, formula, or concept.',
     tip2:'You can ask in Bengali, Hindi, or English.',
     tip3:'Works with typed questions AND photos of books, notes & worksheets.',
@@ -705,7 +821,8 @@ const T = {
     placeholderTextMode:'প্রশ্ন প্রস্তুত! উত্তর পেতে ➤ চাপো…',
     placeholderPhotoMode:'ছবি সম্পর্কে কিছু জিজ্ঞেস করো, অথবা ➤ চাপো…',
     aiTag:'✓ AI উত্তর',
-    resultLang:'এই ছবিটি দেখো এবং বাংলায় সহজ ভাষায় ধাপে ধাপে ব্যাখ্যা করো। আমি একজন স্কুল ছাত্র।',
+    copyLabel:'কপি', speakLabel:'পড়ে শোনাও', stopLabel:'থামো', followLabel:'আরও জিজ্ঞেস করো',
+    followPlaceholder:'এই উত্তর সম্পর্কে আরও কিছু জিজ্ঞেস করো…',
     tip1:'যেকোনো তাত্ত্বিক প্রশ্ন, সংজ্ঞা বা সূত্র লিখে জিজ্ঞেস করো।',
     tip2:'বাংলায়, হিন্দিতে বা ইংরেজিতে প্রশ্ন করতে পারো।',
     tip3:'লেখা প্রশ্ন এবং বইয়ের ছবি — দুটোতেই কাজ করে।',
@@ -728,7 +845,8 @@ const T = {
     placeholderTextMode:'सवाल तैयार है! जवाब पाने के लिए ➤ दबाओ…',
     placeholderPhotoMode:'फोटो के बारे में कुछ पूछो, या बस ➤ दबाओ…',
     aiTag:'✓ AI जवाब',
-    resultLang:'इस फोटो को देखो और हिंदी में सरल भाषा में कदम-दर-कदम समझाओ। मैं एक स्कूल छात्र हूँ।',
+    copyLabel:'कॉपी', speakLabel:'पढ़कर सुनाओ', stopLabel:'रोको', followLabel:'और पूछो',
+    followPlaceholder:'इस जवाब के बारे में और कुछ पूछो…',
     tip1:'कोई भी थ्योरी सवाल, परिभाषा या फॉर्मूला टाइप करके पूछो।',
     tip2:'हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
     tip3:'टाइप किए सवाल और किताब की फोटो — दोनों पर काम करता है।',
@@ -934,6 +1052,11 @@ function applyLang(lang) {
   document.getElementById('tip3').textContent=t.tip3;
   document.getElementById('footerNote').innerHTML=t.footer;
   document.getElementById('rtag-ai').textContent=t.aiTag;
+  // Action bar labels
+  if (t.copyLabel)   document.getElementById('copyLabel').textContent   = t.copyLabel;
+  if (t.speakLabel)  document.getElementById('speakLabel').textContent  = isSpeaking ? (t.stopLabel||'Stop') : t.speakLabel;
+  if (t.followLabel) document.getElementById('followLabel').textContent = t.followLabel;
+  if (t.followPlaceholder) document.getElementById('followupInput').placeholder = t.followPlaceholder;
   if(!selClass){const v=document.getElementById('val-cls');v.textContent=t.phCls;v.classList.add('ph');}
   if(!selSubj){const v=document.getElementById('val-subj');v.textContent=selClass?t.phSubj2:t.phSubj;v.classList.add('ph');}
   if(!selSubj){const v=document.getElementById('val-photo');if(!selSubj){v.textContent=t.phPhoto;v.classList.add('ph');}}
@@ -974,6 +1097,7 @@ async function retranslate(lang) {
       if (!res.ok || data.error) {
         rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Translation failed.'}</span>`;
       } else {
+        lastAnswerText = data.answer;
         typeText(rb, data.answer);
         rc.classList.remove('thinking');
         rc.classList.add('answered');
@@ -1064,6 +1188,8 @@ async function askQuestion() {
   rc.classList.add('visible', 'thinking');
   rb.classList.remove('reveal');
   rb.innerHTML = '';
+  hideActionsBar();
+  stopSpeak();
   rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   // Small delay so card is in DOM before animating
@@ -1119,6 +1245,7 @@ async function askQuestion() {
 
     // Brief pause so hiding animation plays before answer appears
     setTimeout(() => {
+      lastAnswerText = data.answer;
       typeText(rb, data.answer);
       rb.classList.add('reveal');
       rc.classList.remove('thinking');
@@ -1168,11 +1295,189 @@ function typeText(el, text) {
     } else {
       el.innerHTML = formatted;
       el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Show actions bar after answer is fully typed
+      showActionsBar();
     }
   }
   n();
 }
-function fmt(t) {
+// ── ANSWER ACTIONS ──
+let lastAnswerText = '';
+let speakUtterance = null;
+let isSpeaking = false;
+
+function showActionsBar() {
+  // Hide first in case retranslating
+  const bar = document.getElementById('ansActions');
+  bar.classList.remove('visible');
+  setTimeout(() => bar.classList.add('visible'), 100);
+}
+
+function hideActionsBar() {
+  document.getElementById('ansActions').classList.remove('visible');
+  // Also close follow-up if open
+  document.getElementById('followupArea').classList.remove('open');
+  stopSpeak();
+}
+
+// ── COPY ──
+function copyAnswer() {
+  if (!lastAnswerText) return;
+  const btn  = document.getElementById('copyBtn');
+  const lbl  = document.getElementById('copyLabel');
+  navigator.clipboard.writeText(lastAnswerText).then(() => {
+    btn.classList.add('copied');
+    lbl.textContent = 'Copied!';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      lbl.textContent = 'Copy';
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = lastAnswerText;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.classList.add('copied');
+    lbl.textContent = 'Copied!';
+    setTimeout(() => { btn.classList.remove('copied'); lbl.textContent = 'Copy'; }, 2000);
+  });
+}
+
+// ── READ ALOUD ──
+function toggleSpeak() {
+  if (isSpeaking) { stopSpeak(); return; }
+  if (!lastAnswerText || !window.speechSynthesis) return;
+
+  const btn = document.getElementById('speakBtn');
+  const lbl = document.getElementById('speakLabel');
+
+  // Strip markdown for clean speech
+  const cleanText = lastAnswerText
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,3}\s/g, '')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/💡/g, '.')
+    .trim();
+
+  speakUtterance = new SpeechSynthesisUtterance(cleanText);
+
+  // Match language
+  const langMap = { en: 'en-IN', bn: 'bn-IN', hi: 'hi-IN' };
+  speakUtterance.lang = langMap[currentLang] || 'en-IN';
+  speakUtterance.rate = 0.92;
+  speakUtterance.pitch = 1.05;
+
+  speakUtterance.onstart = () => {
+    isSpeaking = true;
+    btn.classList.add('speaking');
+    lbl.textContent = 'Stop';
+  };
+  speakUtterance.onend = speakUtterance.onerror = () => {
+    isSpeaking = false;
+    btn.classList.remove('speaking');
+    lbl.textContent = 'Read Aloud';
+  };
+
+  window.speechSynthesis.speak(speakUtterance);
+}
+
+function stopSpeak() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  isSpeaking = false;
+  const btn = document.getElementById('speakBtn');
+  const lbl = document.getElementById('speakLabel');
+  if (btn) { btn.classList.remove('speaking'); }
+  if (lbl) lbl.textContent = 'Read Aloud';
+}
+
+// ── FOLLOW-UP ──
+function toggleFollowup() {
+  const area  = document.getElementById('followupArea');
+  const input = document.getElementById('followupInput');
+  const btn   = document.getElementById('followBtn');
+  const isOpen = area.classList.contains('open');
+  if (isOpen) {
+    area.classList.remove('open');
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  } else {
+    area.classList.add('open');
+    btn.style.borderColor = 'var(--accent2)';
+    btn.style.color = 'var(--accent2)';
+    setTimeout(() => input.focus(), 350);
+  }
+}
+
+async function sendFollowup() {
+  const input = document.getElementById('followupInput');
+  const q = input.value.trim();
+  if (!q) return;
+
+  // Build follow-up payload — inject previous answer as context
+  const contextQ = `Previous answer for context:\n${lastAnswerText}\n\nFollow-up question: ${q}`;
+  const payload = {
+    ...lastPayload,
+    lang: currentLang,
+    mode: 'text',
+    question: contextQ,
+    imageBase64: undefined,
+    imageMime: undefined,
+  };
+
+  // Close follow-up input, reset
+  document.getElementById('followupArea').classList.remove('open');
+  document.getElementById('followBtn').style.borderColor = '';
+  document.getElementById('followBtn').style.color = '';
+  input.value = '';
+
+  // Trigger full answer flow
+  const rb = document.getElementById('resultBody');
+  const rc = document.getElementById('resultCard');
+  hideActionsBar();
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  rc.classList.remove('answered');
+  rc.classList.add('thinking');
+  showThinking();
+  startThinkingMessages();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const res  = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    stopThinkingMessages(); hideThinking();
+    setTimeout(() => {
+      if (!res.ok || data.error) {
+        rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Something went wrong.'}</span>`;
+      } else {
+        lastAnswerText = data.answer;
+        lastPayload = { ...payload, question: q }; // store clean question for retranslate
+        typeText(rb, data.answer);
+        rc.classList.remove('thinking'); rc.classList.add('answered');
+      }
+      rb.classList.add('reveal');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 320);
+  } catch (e) {
+    stopThinkingMessages(); hideThinking();
+    setTimeout(() => {
+      rb.innerHTML = `<span style="color:var(--danger)">❌ Connection error. Please try again.</span>`;
+      rb.classList.add('reveal');
+    }, 320);
+  }
+}
+
+// Enter key on follow-up input
+document.addEventListener('DOMContentLoaded', () => {
+  const fi = document.getElementById('followupInput');
+  if (fi) fi.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowup(); });
+});
+
+
   return t
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
