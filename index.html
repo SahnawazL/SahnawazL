@@ -151,17 +151,40 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .retake-btn:hover { border-color: var(--accent); color: var(--text); }
 .retake-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 
-/* ASK */
-.ask-section { margin-top: 0.4rem; opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
-.ask-section.visible { opacity: 1; transform: translateY(0); pointer-events: all; }
-.ask-wrap { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-.ask-input { flex: 1; background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; font-family: var(--font-body); font-size: 0.88rem; color: var(--text); outline: none; resize: none; height: 50px; line-height: 1.2; transition: border-color 0.2s; }
-.ask-input::placeholder { color: var(--muted); }
-.ask-input:focus { border-color: var(--accent); }
-.ask-btn { background: var(--accent); border: none; border-radius: 12px; width: 50px; height: 50px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 16px rgba(79,142,247,0.35); transition: all 0.2s; }
-.ask-btn:hover { transform: scale(1.05); background: #3a7ef6; }
-.ask-btn:active { transform: scale(0.97); }
-.ask-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+/* SMART UNIFIED INPUT */
+.smart-input-wrap {
+  display: flex; gap: 0.5rem; align-items: flex-end;
+}
+.smart-input {
+  flex: 1; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 0.9rem 1rem; font-family: var(--font-body);
+  font-size: 0.9rem; color: var(--text); outline: none; resize: none;
+  min-height: 52px; max-height: 160px; line-height: 1.5;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow-y: auto;
+}
+.smart-input::placeholder { color: var(--muted); }
+.smart-input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(247,201,72,0.1); }
+.photo-ctx-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.1); }
+.smart-send-btn {
+  background: var(--accent); border: none; border-radius: 14px;
+  width: 52px; height: 52px; font-size: 1.2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(79,142,247,0.35); transition: all 0.2s;
+}
+.smart-send-btn:hover { transform: scale(1.06); background: #3a7ef6; }
+.smart-send-btn:active { transform: scale(0.96); }
+.smart-send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* PHOTO ASK BAR — slides in when photo is ready */
+.photo-ask-bar {
+  margin-top: 0.65rem;
+  animation: slideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+/* Keep old .ask-section hidden (legacy safety) */
+.ask-section { display: none !important; }
 
 /* RESULT CARD */
 .result-card {
@@ -440,6 +463,75 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 /* FOOTER */
 .footer-note { text-align: center; font-size: 0.74rem; color: var(--muted); padding: 1rem 0 0.4rem; border-top: 1px solid var(--border); line-height: 1.5; }
 
+/* HISTORY PILL */
+.hist-pill-wrap { display: flex; justify-content: flex-end; margin-bottom: 0.6rem; }
+.hist-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 100px; padding: 0.32rem 0.75rem 0.32rem 0.55rem;
+  font-family: var(--font-body); font-size: 0.75rem; font-weight: 700;
+  color: var(--muted); cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
+}
+.hist-pill:hover { border-color: var(--accent); color: var(--text); background: rgba(79,142,247,0.07); transform: scale(1.03); }
+.hist-pill-icon { font-size: 0.85rem; line-height: 1; }
+.hist-badge {
+  background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 800;
+  min-width: 16px; height: 16px; border-radius: 100px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  animation: badgePop 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes badgePop { from{transform:scale(0)} to{transform:scale(1)} }
+
+/* HISTORY BACKDROP */
+.hist-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 400;
+  opacity: 0; pointer-events: none; transition: opacity 0.28s ease; backdrop-filter: blur(2px);
+}
+.hist-backdrop.open { opacity: 1; pointer-events: all; }
+
+/* HISTORY BOTTOM SHEET */
+.hist-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
+  background: var(--surface); border-top: 1.5px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  max-height: 60vh; display: flex; flex-direction: column;
+}
+.hist-sheet.open { transform: translateY(0); }
+.hist-sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 10px auto 0; flex-shrink: 0; }
+.hist-sheet-title {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1.1rem 0.5rem;
+  font-family: var(--font-head); font-size: 0.9rem; font-weight: 800; color: var(--text);
+  flex-shrink: 0; border-bottom: 1px solid var(--border);
+}
+.hist-close-btn {
+  background: var(--surface2); border: none; color: var(--muted);
+  width: 26px; height: 26px; border-radius: 50%; font-size: 0.7rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.hist-close-btn:hover { background: var(--border); color: var(--text); }
+.hist-list { overflow-y: auto; flex: 1; padding: 0.35rem 0 0.5rem; }
+.hist-list::-webkit-scrollbar { width: 3px; }
+.hist-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* HISTORY ROW — single slim line */
+.hist-row {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.52rem 1.1rem; cursor: pointer;
+  transition: background 0.15s; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-row:hover { background: rgba(79,142,247,0.07); }
+.hist-row:active { background: rgba(79,142,247,0.13); }
+.hist-num { font-family: var(--font-head); font-size: 0.7rem; font-weight: 800; color: var(--muted); flex-shrink: 0; min-width: 20px; }
+.hist-thumb { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+.hist-subj-chip { font-size: 0.6rem; font-weight: 700; background: rgba(79,142,247,0.13); color: var(--accent); border-radius: 100px; padding: 0.12rem 0.45rem; flex-shrink: 0; white-space: nowrap; }
+.hist-preview { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.hist-arrow { font-size: 0.65rem; color: var(--border); flex-shrink: 0; }
+
 /* UNLOCK PULSE */
 @keyframes unlockPulse { 0%{box-shadow:0 0 0 0 rgba(79,142,247,0.5)} 70%{box-shadow:0 0 0 12px rgba(79,142,247,0)} 100%{box-shadow:0 0 0 0 rgba(79,142,247,0)} }
 .pulse-once { animation: unlockPulse 0.75s ease both; }
@@ -461,7 +553,6 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .mode-tab.active-photo { border-color: var(--accent); background: rgba(79,142,247,0.12); color: var(--accent); }
 .mode-tab-icon { font-size: 1.05rem; line-height: 1; }
 
-/* TEXT QUESTION AREA */
 .text-question-body {
   overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-6px);
   transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease, transform 0.35s ease;
@@ -576,13 +667,18 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       </div>
     </div>
 
-    <!-- TEXT QUESTION MODE -->
-    <div class="text-question-body open" id="textQuestionBody" style="max-height:260px;">
+    <!-- TEXT QUESTION MODE: smart unified input -->
+    <div class="text-question-body open" id="textQuestionBody" style="max-height:400px;">
       <div class="text-question-inner">
-        <textarea class="text-q-input" id="textQInput" rows="4" placeholder="Type your question here… e.g. What is photosynthesis? How do I solve this equation?"></textarea>
+        <div class="smart-input-wrap" id="smartTextWrap">
+          <textarea class="smart-input" id="textQInput" rows="4" placeholder="Type your question here… e.g. What is photosynthesis? How do I solve this equation?"></textarea>
+          <button class="smart-send-btn" id="askBtnText" onclick="askQuestion()">➤</button>
+        </div>
         <div class="text-q-hint" id="textQHint">💡 Type any theory question, definition, or doubt — no photo needed!</div>
       </div>
     </div>
+
+    <!-- PHOTO MODE: upload area + optional context input at bottom -->
     <div class="photo-body" id="photoBody">
       <div class="photo-inner">
         <!-- preview (hidden until photo) -->
@@ -596,7 +692,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
             <button class="retake-btn">🖼️ <span id="lbl-retake-gal">Change</span><input type="file" id="galIn2" accept="image/*" onchange="onFile(event)"/></button>
           </div>
         </div>
-        <!-- buttons -->
+        <!-- upload buttons -->
         <div class="photo-btns" id="photoBtns">
           <div class="photo-btn cam-btn">
             <span class="pbtn-icon">📷</span>
@@ -611,19 +707,38 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
             <input type="file" id="galIn" accept="image/*" onchange="onFile(event)"/>
           </div>
         </div>
+        <!-- photo mode context + send bar (appears after photo is chosen) -->
+        <div class="photo-ask-bar" id="photoAskBar" style="display:none;">
+          <div class="smart-input-wrap">
+            <textarea class="smart-input photo-ctx-input" id="askInput" rows="1" placeholder="Ask anything about the photo, or just press ➤…"></textarea>
+            <button class="smart-send-btn" id="askBtnPhoto" onclick="askQuestion()">➤</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ASK (appears after subject chosen) -->
-  <div class="ask-section" id="askSection">
-    <div class="ask-wrap">
-      <textarea class="ask-input" id="askInput" rows="1" placeholder="Ask anything, or just press ➤ to explain the image…"></textarea>
-      <button class="ask-btn" id="askBtn" onclick="askQuestion()">➤</button>
-    </div>
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- HISTORY PILL -->
+  <div class="hist-pill-wrap" id="histPillWrap" style="display:none;">
+    <button class="hist-pill" id="histPill" onclick="toggleHistSheet()">
+      <span class="hist-pill-icon">📚</span>
+      <span class="hist-pill-label">History</span>
+      <span class="hist-badge" id="histBadge">0</span>
+    </button>
   </div>
 
-  <div class="error-msg" id="errorMsg"></div>
+  <!-- HISTORY BOTTOM SHEET -->
+  <div class="hist-backdrop" id="histBackdrop" onclick="closeHistSheet()"></div>
+  <div class="hist-sheet" id="histSheet">
+    <div class="hist-sheet-handle"></div>
+    <div class="hist-sheet-title">
+      <span>📚 Session History</span>
+      <button class="hist-close-btn" onclick="closeHistSheet()">✕</button>
+    </div>
+    <div class="hist-list" id="histList"></div>
+  </div>
 
   <div class="result-card" id="resultCard">
     <div class="result-hdr">
@@ -698,6 +813,133 @@ let openDP   = 0;
 let currentMode = 'text'; // 'text' or 'photo'
 let lastPayload = null;   // stores last question payload for retranslation
 
+// ── SESSION HISTORY ──
+let sessionHistory = []; // [{id, mode, question, imageDataUrl, imageMime, subject, subjectEmoji, className, answer, answerHtml, payload}]
+
+function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
+  const id = sessionHistory.length + 1;
+  const subj = selSubj ? (T[currentLang].subs[selSubj.key] || selSubj.subject) : '';
+  const subjEmoji = selSubj ? selSubj.emoji : '';
+  sessionHistory.push({
+    id, mode: payload.mode,
+    question: payload.question || '',
+    imageDataUrl: imageDataUrl || null,
+    subject: subj, subjectEmoji: subjEmoji,
+    className: payload.className || '',
+    answer: answerText, answerHtml,
+    payload: { ...payload }
+  });
+  updateHistPill();
+}
+
+function updateHistPill() {
+  const wrap = document.getElementById('histPillWrap');
+  const badge = document.getElementById('histBadge');
+  if (sessionHistory.length > 0) {
+    wrap.style.display = 'flex';
+    badge.textContent = sessionHistory.length;
+    // re-trigger pop animation
+    badge.style.animation = 'none';
+    requestAnimationFrame(() => { badge.style.animation = ''; });
+  }
+}
+
+function toggleHistSheet() {
+  const sheet = document.getElementById('histSheet');
+  const backdrop = document.getElementById('histBackdrop');
+  if (sheet.classList.contains('open')) {
+    closeHistSheet();
+  } else {
+    buildHistList();
+    sheet.classList.add('open');
+    backdrop.classList.add('open');
+  }
+}
+
+function closeHistSheet() {
+  document.getElementById('histSheet').classList.remove('open');
+  document.getElementById('histBackdrop').classList.remove('open');
+}
+
+function buildHistList() {
+  const list = document.getElementById('histList');
+  list.innerHTML = '';
+  // newest first
+  [...sessionHistory].reverse().forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    row.onclick = () => restoreHistItem(item);
+
+    // Q number
+    const num = document.createElement('span');
+    num.className = 'hist-num';
+    num.textContent = 'Q' + item.id;
+
+    // thumbnail (photo mode only)
+    let thumbEl = null;
+    if (item.mode === 'photo' && item.imageDataUrl) {
+      thumbEl = document.createElement('img');
+      thumbEl.className = 'hist-thumb';
+      thumbEl.src = item.imageDataUrl;
+      thumbEl.alt = '';
+    }
+
+    // subject chip
+    const chip = document.createElement('span');
+    chip.className = 'hist-subj-chip';
+    chip.textContent = item.subjectEmoji + ' ' + item.subject;
+
+    // preview text
+    const prev = document.createElement('span');
+    prev.className = 'hist-preview';
+    if (item.mode === 'photo' && !item.question) {
+      prev.textContent = '📷 Photo question';
+    } else {
+      prev.textContent = item.question.replace(/\n/g, ' ');
+    }
+
+    // arrow
+    const arrow = document.createElement('span');
+    arrow.className = 'hist-arrow';
+    arrow.textContent = '▶';
+
+    row.appendChild(num);
+    if (thumbEl) row.appendChild(thumbEl);
+    row.appendChild(chip);
+    row.appendChild(prev);
+    row.appendChild(arrow);
+    list.appendChild(row);
+  });
+}
+
+function restoreHistItem(item) {
+  closeHistSheet();
+  const rc = document.getElementById('resultCard');
+  const rb = document.getElementById('resultBody');
+  const rCl = document.getElementById('rtag-cl');
+  const rSj = document.getElementById('rtag-sj');
+
+  // Restore header tags
+  if (item.className) { rCl.textContent = item.className; rCl.style.display = ''; }
+  if (item.subject) rSj.textContent = item.subject;
+
+  // Show card instantly with saved answer (no API call)
+  rc.classList.add('visible', 'answered');
+  rc.classList.remove('thinking', 'animate-in');
+  rb.innerHTML = item.answerHtml;
+  rb.classList.add('reveal');
+  lastAnswerText = item.answer;
+  lastPayload = item.payload;
+
+  // Restore image preview if photo mode
+  if (item.mode === 'photo' && item.imageDataUrl) {
+    curB64 = item.payload.imageBase64 || curB64;
+  }
+
+  showActionsBar();
+  setTimeout(() => rc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
 // ── MODE TOGGLE ──
 function setMode(mode) {
   currentMode = mode;
@@ -712,21 +954,28 @@ function setMode(mode) {
   tabPhoto.className = 'mode-tab' + (mode==='photo' ? ' active-photo' : '');
 
   if (mode === 'text') {
-    textBody.style.maxHeight = '260px';
+    // Show big unified text input, hide photo area
+    textBody.style.maxHeight = '400px';
     textBody.classList.add('open');
     photoBody.style.maxHeight = '0';
     photoBody.classList.remove('open');
     step3icon.textContent = '📝';
-    document.getElementById('askInput').placeholder = t.placeholderTextMode;
-    // update step 3 header based on text content
+    // Auto-focus text input
+    setTimeout(() => {
+      const ti = document.getElementById('textQInput');
+      if (ti) ti.focus();
+    }, 360);
     updateStep3HeaderText();
   } else {
+    // Hide text area, show photo upload
     textBody.style.maxHeight = '0';
     textBody.classList.remove('open');
-    photoBody.style.maxHeight = curB64 ? '400px' : '320px';
+    photoBody.style.maxHeight = curB64 ? '520px' : '320px';
     photoBody.classList.add('open');
     step3icon.textContent = '📷';
-    document.getElementById('askInput').placeholder = t.placeholderPhotoMode;
+    // Show photo-ask-bar only if image is already loaded
+    const bar = document.getElementById('photoAskBar');
+    if (bar) bar.style.display = curB64 ? 'block' : 'none';
     updateStep3HeaderPhoto();
   }
   updateStepper();
@@ -985,9 +1234,6 @@ function pickSubj(s) {
   // Default to text mode
   setMode('text');
 
-  // Show ask section
-  document.getElementById('askSection').classList.add('visible');
-
   updateStepper();
   setTimeout(()=>document.getElementById('card3').scrollIntoView({behavior:'smooth',block:'nearest'}),180);
 }
@@ -1007,6 +1253,14 @@ function processFile(f) {
     document.getElementById('previewImg').src=ev.target.result;
     document.getElementById('previewBlock').style.display='block';
     document.getElementById('photoBtns').style.display='none';
+    // Expand photo body and show the ask bar now that image is ready
+    document.getElementById('photoBody').style.maxHeight='520px';
+    const bar = document.getElementById('photoAskBar');
+    if (bar) {
+      bar.style.display = 'block';
+      // focus context input after a moment
+      setTimeout(() => { const ai = document.getElementById('askInput'); if(ai) ai.focus(); }, 300);
+    }
     updateStep3HeaderPhoto();
     updateStepper();
   };
@@ -1017,6 +1271,12 @@ function removeImage() {
   curFile=null; curB64=null;
   document.getElementById('previewBlock').style.display='none';
   document.getElementById('photoBtns').style.display='grid';
+  const bar = document.getElementById('photoAskBar');
+  if (bar) bar.style.display = 'none';
+  // clear context input
+  const ai = document.getElementById('askInput');
+  if (ai) ai.value = '';
+  document.getElementById('photoBody').style.maxHeight='320px';
   updateStep3HeaderPhoto();
   updateStepper();
 }
@@ -1055,7 +1315,8 @@ function applyLang(lang) {
   document.getElementById('mode-tab-photo-label').textContent=t.modeTabPhoto;
   document.getElementById('textQInput').placeholder=t.textPlaceholder;
   document.getElementById('textQHint').textContent=t.textHint;
-  document.getElementById('askInput').placeholder=currentMode==='text'?t.placeholderTextMode:t.placeholderPhotoMode;
+  const aiEl = document.getElementById('askInput');
+  if (aiEl) aiEl.placeholder = t.placeholderPhotoMode;
   document.getElementById('tip1').textContent=t.tip1;
   document.getElementById('tip2').textContent=t.tip2;
   document.getElementById('tip3').textContent=t.tip3;
@@ -1180,7 +1441,6 @@ function _cycleThinkingMsg() {
 // ── ASK ──
 async function askQuestion() {
   const t = T[currentLang];
-  const extraQ = document.getElementById('askInput').value.trim();
   const err = document.getElementById('errorMsg');
   err.classList.remove('visible');
   const rc = document.getElementById('resultCard');
@@ -1190,8 +1450,10 @@ async function askQuestion() {
   if (selClass) { rCl.textContent = selClass.num + ' (' + selClass.label + ')'; rCl.style.display = ''; }
   else rCl.style.display = 'none';
 
-  const btn = document.getElementById('askBtn');
-  btn.disabled = true;
+  // Disable all send buttons
+  ['askBtnText','askBtnPhoto'].forEach(id => {
+    const b = document.getElementById(id); if(b) b.disabled = true;
+  });
 
   // ── Validate FIRST before showing anything ──
   let payload = {
@@ -1201,25 +1463,33 @@ async function askQuestion() {
   };
 
   if (currentMode === 'text') {
+    // The big unified textarea IS the question
     const typedQ = document.getElementById('textQInput').value.trim();
-    if (!typedQ && !extraQ) {
+    if (!typedQ) {
       showError('❌ Please type your question first.');
-      btn.disabled = false;
+      ['askBtnText','askBtnPhoto'].forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; });
       return;
     }
     payload.mode = 'text';
-    payload.question = typedQ + (extraQ ? '\n\nExtra context: ' + extraQ : '');
+    payload.question = typedQ;
   } else {
+    // Photo mode: image is required; askInput is optional extra context
     if (!curB64 || !curFile) {
       showError('❌ Please add a photo first, or switch to "Type Question" mode.');
-      btn.disabled = false;
+      ['askBtnText','askBtnPhoto'].forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; });
       return;
     }
+    const extraCtx = (document.getElementById('askInput') || {}).value || '';
     payload.mode = 'photo';
     payload.imageBase64 = curB64;
     payload.imageMime = curFile.type || 'image/jpeg';
-    payload.question = extraQ || '';
+    payload.question = extraCtx.trim();
   }
+
+  // Capture image data URL now (before any state changes)
+  const _imageDataUrl = (currentMode === 'photo' && curB64)
+    ? document.getElementById('previewImg').src
+    : null;
 
   // Save payload so language switcher can retranslate
   lastPayload = { ...payload };
@@ -1254,7 +1524,7 @@ async function askQuestion() {
     // Brief pause so hiding animation plays before answer appears
     setTimeout(() => {
       lastAnswerText = data.answer;
-      typeText(rb, data.answer);
+      typeText(rb, data.answer, payload, _imageDataUrl);
       rb.classList.add('reveal');
       rc.classList.remove('thinking');
       rc.classList.add('answered');
@@ -1269,7 +1539,7 @@ async function askQuestion() {
     rc.classList.remove('visible', 'thinking', 'answered', 'animate-in');
   }
 
-  btn.disabled = false;
+  ['askBtnText','askBtnPhoto'].forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; });
 }
 
 function showError(msg) {
@@ -1282,10 +1552,9 @@ function showError(msg) {
   lastPayload = null;
 }
 
-function typeText(el, text) {
+function typeText(el, text, payload, imageDataUrl) {
   // Format markdown → HTML first, then type the plain visible characters
   const formatted = fmt(text);
-  // Strip HTML tags to get plain visible text for character counting
   const plain = text;
   const words = plain.split(' ');
   let shown = 0;
@@ -1303,6 +1572,8 @@ function typeText(el, text) {
     } else {
       el.innerHTML = formatted;
       el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Save to session history (only for real asks, not retranslations)
+      if (payload) saveToHistory(payload, text, formatted, imageDataUrl || null);
       // Show actions bar after answer is fully typed
       showActionsBar();
     }
@@ -1503,12 +1774,18 @@ function fmt(t) {
 
 window.addEventListener('DOMContentLoaded', () => {
   applyLang('en'); updateStepper();
-  document.getElementById('askInput').addEventListener('keydown', e => {
+  // Text mode: Enter sends, Shift+Enter = newline
+  document.getElementById('textQInput').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
   });
   document.getElementById('textQInput').addEventListener('input', () => {
     updateStep3HeaderText();
     updateStepper();
+  });
+  // Photo context bar: Enter sends
+  const aiEl = document.getElementById('askInput');
+  if (aiEl) aiEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
   });
   const fi = document.getElementById('followupInput');
   if (fi) fi.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowup(); });
