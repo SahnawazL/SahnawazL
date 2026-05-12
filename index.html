@@ -163,24 +163,160 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .ask-btn:active { transform: scale(0.97); }
 .ask-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-/* RESULT */
-.result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; margin-bottom: 1.4rem; animation: fadeUp 0.4s ease both; }
+/* RESULT CARD */
+.result-card {
+  display: none;
+  margin-bottom: 1.4rem;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transform: translateY(24px);
+  opacity: 0;
+  transition: transform 0.55s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease;
+}
 .result-card.visible { display: block; }
-.result-hdr { background: var(--surface2); padding: 0.8rem 1.1rem; display: flex; align-items: center; gap: 0.4rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.result-card.animate-in { transform: translateY(0); opacity: 1; }
+
+/* Glowing border while thinking */
+.result-card.thinking {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1.5px rgba(79,142,247,0.5),
+    0 0 24px rgba(79,142,247,0.15),
+    0 8px 32px rgba(0,0,0,0.3);
+}
+.result-card.answered {
+  border-color: rgba(62,207,142,0.3);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  transition: border-color 0.6s ease, box-shadow 0.6s ease;
+}
+
+/* Header */
+.result-hdr {
+  background: var(--surface2);
+  padding: 0.75rem 1.1rem;
+  display: flex; align-items: center; gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
 .rtag { border-radius: 100px; font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.6rem; letter-spacing: 0.04em; }
 .rtag-ai { background: rgba(62,207,142,0.14); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
 .rtag-cl { background: rgba(79,142,247,0.13); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
 .rtag-sj { background: rgba(247,201,72,0.12); color: var(--accent2); border: 1px solid rgba(247,201,72,0.2); }
-.result-body { padding: 1.1rem; font-size: 0.9rem; line-height: 1.75; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+
+/* PREMIUM THINKING STATE */
+.thinking-panel {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.2rem 1.5rem 2rem;
+  gap: 1.4rem;
+}
+.thinking-panel.visible { display: flex; }
+
+/* Orbital spinner */
+.ai-spinner {
+  position: relative;
+  width: 56px; height: 56px;
+}
+.ai-spinner-core {
+  position: absolute; inset: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79,142,247,0.35), rgba(79,142,247,0.05));
+  animation: corePulse 1.8s ease-in-out infinite;
+}
+@keyframes corePulse {
+  0%,100% { transform: scale(0.85); opacity: 0.6; }
+  50%      { transform: scale(1.1);  opacity: 1;   }
+}
+.ai-spinner-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: rgba(79,142,247,0.3);
+  animation: spin 1.1s linear infinite;
+}
+.ai-spinner-ring2 {
+  position: absolute; inset: 6px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-bottom-color: var(--green);
+  border-left-color: rgba(62,207,142,0.2);
+  animation: spin 1.7s linear infinite reverse;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Thinking message */
+.thinking-msg {
+  text-align: center;
+}
+.thinking-label {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.3rem;
+  min-height: 1.4em;
+  transition: opacity 0.4s ease;
+}
+.thinking-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* Shimmer bars */
+.shimmer-lines {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+.shimmer-bar {
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    var(--surface2) 25%,
+    rgba(79,142,247,0.12) 50%,
+    var(--surface2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+.shimmer-bar:nth-child(1) { width: 88%; animation-delay: 0s; }
+.shimmer-bar:nth-child(2) { width: 100%; animation-delay: 0.15s; }
+.shimmer-bar:nth-child(3) { width: 72%; animation-delay: 0.3s; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Answer body */
+.result-body {
+  padding: 1.2rem 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--text);
+  word-break: break-word;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s;
+}
+.result-body.reveal { opacity: 1; transform: translateY(0); }
 .result-body strong { color: var(--accent2); }
 .result-body code { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.38rem; font-size: 0.8rem; color: var(--green); }
-.typing-cursor { display: inline-block; width: 2px; height: 1em; background: var(--accent); vertical-align: text-bottom; animation: blink 0.7s infinite; margin-left: 2px; }
+
+/* Typing cursor */
+.typing-cursor {
+  display: inline-block; width: 2px; height: 1em;
+  background: var(--accent); vertical-align: text-bottom;
+  animation: blink 0.65s infinite; margin-left: 2px; border-radius: 1px;
+}
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-.loading-dots { display: none; padding: 1.1rem; gap: 0.4rem; }
-.loading-dots.visible { display: flex; align-items: center; }
-.loading-dots span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: db 1.2s ease-in-out infinite; }
-.loading-dots span:nth-child(2){animation-delay:0.15s} .loading-dots span:nth-child(3){animation-delay:0.3s}
-@keyframes db { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
 
 /* ERROR */
 .error-msg { background: rgba(247,79,79,0.1); border: 1px solid rgba(247,79,79,0.25); border-radius: 11px; padding: 0.75rem 1rem; font-size: 0.83rem; color: #f78f8f; display: none; margin-bottom: 1rem; }
@@ -395,7 +531,25 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <span class="rtag rtag-cl" id="rtag-cl"></span>
       <span class="rtag rtag-sj" id="rtag-sj"></span>
     </div>
-    <div class="loading-dots" id="loadingDots"><span></span><span></span><span></span></div>
+
+    <!-- Premium thinking state -->
+    <div class="thinking-panel" id="thinkingPanel">
+      <div class="ai-spinner">
+        <div class="ai-spinner-ring"></div>
+        <div class="ai-spinner-ring2"></div>
+        <div class="ai-spinner-core"></div>
+      </div>
+      <div class="thinking-msg">
+        <div class="thinking-label" id="thinkingLabel">Reading your question…</div>
+        <div class="thinking-sub" id="thinkingSub">StudyLens AI is thinking</div>
+      </div>
+      <div class="shimmer-lines">
+        <div class="shimmer-bar"></div>
+        <div class="shimmer-bar"></div>
+        <div class="shimmer-bar"></div>
+      </div>
+    </div>
+
     <div class="result-body" id="resultBody"></div>
   </div>
 
@@ -791,15 +945,18 @@ function applyLang(lang) {
 
 // ── RETRANSLATE ──
 async function retranslate(lang) {
-  const rb  = document.getElementById('resultBody');
-  const ld  = document.getElementById('loadingDots');
-  const rc  = document.getElementById('resultCard');
-  const t   = T[lang];
+  const rb = document.getElementById('resultBody');
+  const rc = document.getElementById('resultCard');
+  const t  = T[lang];
 
-  // Show loading in result card
+  rb.classList.remove('reveal');
   rb.innerHTML = '';
-  ld.classList.add('visible');
+  rc.classList.remove('answered');
+  rc.classList.add('thinking');
   document.getElementById('rtag-ai').textContent = t.aiTag;
+  showThinking();
+  startThinkingMessages();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const payload = { ...lastPayload, lang };
 
@@ -810,18 +967,81 @@ async function retranslate(lang) {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    ld.classList.remove('visible');
+    stopThinkingMessages();
+    hideThinking();
 
-    if (!res.ok || data.error) {
-      rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Translation failed. Please try again.'}</span>`;
-      return;
-    }
-    typeText(rb, data.answer);
-    rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+      if (!res.ok || data.error) {
+        rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Translation failed.'}</span>`;
+      } else {
+        typeText(rb, data.answer);
+        rc.classList.remove('thinking');
+        rc.classList.add('answered');
+      }
+      rb.classList.add('reveal');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 320);
   } catch (e) {
-    ld.classList.remove('visible');
-    rb.innerHTML = `<span style="color:var(--danger)">❌ Translation failed. Please check your connection.</span>`;
+    stopThinkingMessages();
+    hideThinking();
+    setTimeout(() => {
+      rb.innerHTML = `<span style="color:var(--danger)">❌ Translation failed. Check your connection.</span>`;
+      rb.classList.add('reveal');
+    }, 320);
   }
+}
+
+// ── THINKING ENGINE ──
+const THINKING_MSGS = {
+  en: [
+    { label: 'Reading your question…',      sub: 'StudyLens AI is thinking' },
+    { label: 'Understanding the topic…',    sub: 'Connecting concepts for you' },
+    { label: 'Building your answer…',       sub: 'Step by step, just for you' },
+    { label: 'Almost ready…',               sub: 'Adding the final touches' },
+  ],
+  bn: [
+    { label: 'তোমার প্রশ্ন পড়ছি…',          sub: 'StudyLens AI ভাবছে' },
+    { label: 'বিষয়টি বুঝছি…',               sub: 'তোমার জন্য সংযোগ তৈরি হচ্ছে' },
+    { label: 'উত্তর তৈরি হচ্ছে…',            sub: 'ধাপে ধাপে, শুধু তোমার জন্য' },
+    { label: 'প্রায় প্রস্তুত…',              sub: 'শেষ মুহূর্তের কাজ চলছে' },
+  ],
+  hi: [
+    { label: 'तुम्हारा सवाल पढ़ रहे हैं…',   sub: 'StudyLens AI सोच रहा है' },
+    { label: 'विषय को समझ रहे हैं…',         sub: 'तुम्हारे लिए जोड़ रहे हैं' },
+    { label: 'जवाब तैयार हो रहा है…',        sub: 'कदम-दर-कदम, सिर्फ तुम्हारे लिए' },
+    { label: 'लगभग तैयार…',                  sub: 'आखिरी काम चल रहा है' },
+  ],
+};
+
+let _thinkingTimer = null;
+let _thinkingIdx   = 0;
+
+function showThinking() {
+  document.getElementById('thinkingPanel').classList.add('visible');
+}
+function hideThinking() {
+  document.getElementById('thinkingPanel').classList.remove('visible');
+}
+function startThinkingMessages() {
+  _thinkingIdx = 0;
+  _cycleThinkingMsg();
+}
+function stopThinkingMessages() {
+  if (_thinkingTimer) { clearTimeout(_thinkingTimer); _thinkingTimer = null; }
+}
+function _cycleThinkingMsg() {
+  const msgs = THINKING_MSGS[currentLang] || THINKING_MSGS.en;
+  const m = msgs[_thinkingIdx % msgs.length];
+  const lbl = document.getElementById('thinkingLabel');
+  const sub = document.getElementById('thinkingSub');
+  if (lbl) { lbl.style.opacity = '0'; setTimeout(() => { lbl.textContent = m.label; lbl.style.opacity = '1'; }, 200); }
+  if (sub) sub.textContent = m.sub;
+  _thinkingIdx++;
+  // Cycle every 2.2s — feels patient and calm
+  if (_thinkingIdx < msgs.length) {
+    _thinkingTimer = setTimeout(_cycleThinkingMsg, 2200);
+  }
+  // Stay on last message until answer arrives
 }
 
 // ── ASK ──
@@ -831,11 +1051,7 @@ async function askQuestion() {
   const err = document.getElementById('errorMsg');
   err.classList.remove('visible');
   const rc = document.getElementById('resultCard');
-  const ld = document.getElementById('loadingDots');
   const rb = document.getElementById('resultBody');
-  rc.classList.add('visible');
-  ld.classList.add('visible');
-  rb.innerHTML = '';
 
   const rCl = document.getElementById('rtag-cl');
   if (selClass) { rCl.textContent = selClass.num + ' (' + selClass.label + ')'; rCl.style.display = ''; }
@@ -844,7 +1060,18 @@ async function askQuestion() {
   const btn = document.getElementById('askBtn');
   btn.disabled = true;
 
-  // Build request payload for our secure backend
+  // Show result card with slide-in animation
+  rc.classList.add('visible', 'thinking');
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Small delay so card is in DOM before animating
+  requestAnimationFrame(() => requestAnimationFrame(() => rc.classList.add('animate-in')));
+
+  // Start thinking messages cycle
+  showThinking();
+  startThinkingMessages();
   let payload = {
     lang: currentLang,
     className: selClass ? `${selClass.num} (${selClass.label})` : '',
@@ -887,17 +1114,24 @@ async function askQuestion() {
       throw new Error(data.error || `Server error (${res.status})`);
     }
 
-    ld.classList.remove('visible');
-    typeText(rb, data.answer);
-    // Immediate scroll when answer arrives — typeText also scrolls as it grows
-    rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Mark lang bar so switcher shows retranslate hint
-    document.querySelector('.lang-bar').classList.add('has-answer');
+    stopThinkingMessages();
+    hideThinking();
+
+    // Brief pause so hiding animation plays before answer appears
+    setTimeout(() => {
+      typeText(rb, data.answer);
+      rb.classList.add('reveal');
+      rc.classList.remove('thinking');
+      rc.classList.add('answered');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector('.lang-bar').classList.add('has-answer');
+    }, 320);
 
   } catch (e) {
-    ld.classList.remove('visible');
+    stopThinkingMessages();
+    hideThinking();
     showError(e.message || '❌ Something went wrong. Please try again.');
-    rc.classList.remove('visible');
+    rc.classList.remove('visible', 'thinking', 'answered', 'animate-in');
   }
 
   btn.disabled = false;
@@ -906,11 +1140,9 @@ async function askQuestion() {
 function showError(msg) {
   const err = document.getElementById('errorMsg');
   const rc  = document.getElementById('resultCard');
-  const ld  = document.getElementById('loadingDots');
   err.textContent = msg;
   err.classList.add('visible');
-  rc.classList.remove('visible');
-  ld.classList.remove('visible');
+  rc.classList.remove('visible', 'thinking', 'answered', 'animate-in');
   document.querySelector('.lang-bar').classList.remove('has-answer');
   lastPayload = null;
 }
