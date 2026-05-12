@@ -817,7 +817,7 @@ async function retranslate(lang) {
       return;
     }
     typeText(rb, data.answer);
-    rc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     ld.classList.remove('visible');
     rb.innerHTML = `<span style="color:var(--danger)">❌ Translation failed. Please check your connection.</span>`;
@@ -889,7 +889,8 @@ async function askQuestion() {
 
     ld.classList.remove('visible');
     typeText(rb, data.answer);
-    rc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Immediate scroll when answer arrives — typeText also scrolls as it grows
+    rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
     // Mark lang bar so switcher shows retranslate hint
     document.querySelector('.lang-bar').classList.add('has-answer');
 
@@ -915,18 +916,30 @@ function showError(msg) {
 }
 
 function typeText(el, text) {
-  let i = 0; el.innerHTML = '';
+  // Format markdown → HTML first, then type the plain visible characters
+  const formatted = fmt(text);
+  // Strip HTML tags to get plain visible text for character counting
+  const plain = text;
+  const words = plain.split(' ');
+  let shown = 0;
+  el.innerHTML = '';
+
   function n() {
-    if (i < text.length) {
-      el.innerHTML = esc(text.substring(0, i + 1)) + '<span class="typing-cursor"></span>';
-      i++;
-      setTimeout(n, i < 80 ? 10 : 5);
+    if (shown < words.length) {
+      // Show formatted version up to current word count
+      const partial = words.slice(0, shown + 1).join(' ');
+      el.innerHTML = fmt(partial) + '<span class="typing-cursor"></span>';
+      shown++;
+      // Auto-scroll result card into view as content grows
+      el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(n, shown < 30 ? 35 : shown < 80 ? 22 : 12);
     } else {
-      el.innerHTML = fmt(text);
+      el.innerHTML = formatted;
+      el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  } n();
+  }
+  n();
 }
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmt(t) {
   return t
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
