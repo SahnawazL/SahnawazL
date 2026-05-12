@@ -818,7 +818,8 @@ let sessionHistory = []; // [{id, mode, question, imageDataUrl, imageMime, subje
 
 function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
   const id = sessionHistory.length + 1;
-  const subj = selSubj ? (T[currentLang].subs[selSubj.key] || selSubj.subject) : '';
+  // Use selSubj at call time if available, otherwise fall back to payload.subject
+  const subj = selSubj ? (T[currentLang].subs[selSubj.key] || selSubj.subject) : (payload.subject || '');
   const subjEmoji = selSubj ? selSubj.emoji : '';
   sessionHistory.push({
     id, mode: payload.mode,
@@ -1368,7 +1369,7 @@ async function retranslate(lang) {
         rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Translation failed.'}</span>`;
       } else {
         lastAnswerText = data.answer;
-        typeText(rb, data.answer);
+        typeText(rb, data.answer, null, null); // null = don't add to history (retranslation)
         rc.classList.remove('thinking');
         rc.classList.add('answered');
       }
@@ -1735,7 +1736,7 @@ async function sendFollowup() {
       } else {
         lastAnswerText = data.answer;
         lastPayload = { ...payload, question: q }; // store clean question for retranslate
-        typeText(rb, data.answer);
+        typeText(rb, data.answer, { ...payload, question: q }, null);
         rc.classList.remove('thinking'); rc.classList.add('answered');
       }
       rb.classList.add('reveal');
