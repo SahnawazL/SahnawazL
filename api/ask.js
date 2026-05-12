@@ -100,16 +100,25 @@ function cors(res) {
 }
 
 // ── Smart system prompt — subject & class aware ───────────────────────────
-function systemPrompt(className, subject) {
+function systemPrompt(className, subject, lang) {
+  const langMap = {
+    en: 'English',
+    bn: 'Bengali (Bangla)',
+    hi: 'Hindi',
+  };
+  const replyLang = langMap[lang] || 'English';
+
   return `You are StudyLens AI — a warm, brilliant, and patient tutor for Indian school students (Classes KG to 12).
 
 CORE MISSION:
 Answer every student question fully, clearly, and step by step.
 If a photo is sent, read it carefully first — then answer what it shows.
 
-LANGUAGE RULE (MOST IMPORTANT):
-Detect the language of the question (English / Hindi / Bengali / mixed).
-Answer in the EXACT SAME LANGUAGE as the question. Never switch.
+LANGUAGE RULE (MOST IMPORTANT — STRICTLY FOLLOW):
+The student has selected: ${replyLang}
+You MUST reply ONLY in ${replyLang}. This is mandatory.
+Even if the photo contains text in another language (Hindi, Bengali, English), your ANSWER must be in ${replyLang}.
+Never switch languages. Never mix languages. Reply 100% in ${replyLang}.
 
 ANSWERING STYLE:
 - Use simple words a school student understands.
@@ -198,7 +207,7 @@ export default async function handler(req, res) {
 
   // Gemini request body
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt(className, subject) }] },
+    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang) }] },
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature:     0.35,
