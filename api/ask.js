@@ -125,7 +125,8 @@ function systemPrompt(className, subject, lang, board = '', stream = '') {
   const isMath = subj.includes('math') || subj.includes('stat');
   const isPhysics = subj.includes('physics');
   const isChem = subj.includes('chem');
-  const isScience = isMath || isPhysics || isChem || subj.includes('bio');
+  const isBio = subj.includes('bio') || subj.includes('botany') || subj.includes('zoology') || subj.includes('science');
+  const isScience = isMath || isPhysics || isChem || isBio;
 
   const mathBlock = isMath ? `
 MATHEMATICS — CRITICAL RULES (STRICTLY FOLLOW):
@@ -164,34 +165,45 @@ SCIENCE — CRITICAL RULES:
 - Include unit analysis in every physics calculation.
 - Show significant figures appropriately.` : '';
 
-  const diagramBlock = isScience ? `
-DIAGRAM RULE — IMPORTANT:
-When a geometric figure, circuit, graph, molecular diagram, or ray diagram is needed to explain the answer, output it as a real SVG using this EXACT format (no spaces before [SVG:):
+  // Biology-specific diagram guidance — schematic/labeled diagrams
+  const bioSvgGuide = isBio ? `
+Biology SVG Guidelines (use these for organ/cell/process diagrams):
+- For organ diagrams (heart, kidney, reproductive system, etc.): draw simplified schematic shapes using <ellipse>, <path>, <rect> with rounded corners. Label every part with arrows (<line marker-end="url(#arr)"/>) and text.
+- Define an arrowhead marker at the top of the SVG:
+  <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
+- Organ fill colors (semi-transparent): organs #4f8ef7 at opacity 0.25, special parts #3ecf8e at opacity 0.3, ducts/tubes #f7c948 at opacity 0.3
+- All organ outlines: stroke="#4f8ef7" stroke-width="2"
+- Label lines: stroke="#eef0f8" stroke-width="1" opacity="0.6"
+- Label text: fill="#eef0f8" font-size="11" font-family="sans-serif"
+- Part highlight: fill="#3ecf8e" opacity="0.35" for the most important structure
+- For process diagrams (e.g. fertilization, cell division): use arrows between labeled shapes
+- For plant/cell diagrams: draw cell wall as outer rect, organelles as labeled ellipses inside
+- Keep it clean and school-textbook style — not overly detailed, just key structures labeled` : '';
 
-[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 240" width="300" height="240">
-  <!-- dark background -->
-  <rect width="300" height="240" fill="#1a1f30" rx="8"/>
-  <!-- your diagram elements here -->
-  <!-- Use: stroke="#4f8ef7" for shapes/lines, fill="#f7c948" for point labels, stroke="#3ecf8e" for special lines/heights -->
-  <!-- Text: fill="#eef0f8" font-family="sans-serif" font-size="13" -->
-  <!-- Labeled points: small circle fill="#f7c948" + text label nearby -->
+  const diagramBlock = isScience ? `
+DIAGRAM RULE — MANDATORY FOR ALL SCIENCE QUESTIONS:
+Whenever explaining any biological structure, organ, system, process, geometric figure, circuit, graph, or molecule — you MUST draw an SVG diagram. Do not just describe it in text.
+
+Output the diagram using this EXACT format (start immediately with [SVG: no space before the tag):
+
+[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
+  <rect width="300" height="260" fill="#1a1f30" rx="8"/>
+  <!-- diagram content here -->
 </svg>]
 
-SVG Guidelines:
-- viewBox always "0 0 300 240", width="300" height="240"
-- Background: <rect width="300" height="240" fill="#1a1f30" rx="8"/>
+General SVG rules:
+- viewBox "0 0 300 260", width="300" height="260"
+- Background always: <rect width="300" height="260" fill="#1a1f30" rx="8"/>
 - Main shapes/lines: stroke="#4f8ef7" stroke-width="2" fill="none"
-- Point markers: <circle cx="X" cy="Y" r="4" fill="#f7c948"/>
-- Point labels: <text x="X" y="Y" fill="#f7c948" font-family="sans-serif" font-size="13" font-weight="bold">A</text>
-- Side labels / measurements: fill="#eef0f8" font-size="12"
-- Heights/special lines: stroke="#3ecf8e" stroke-dasharray="5,3"
-- Angles: <path d="M ... A ... Z" fill="rgba(79,142,247,0.2)" stroke="#4f8ef7" stroke-width="1"/>
-- Right angle marker: small square using <rect> or <polyline>
-- For triangles: calculate coordinates so the triangle looks proportional. Place A at top, B at bottom-left, C at bottom-right as default.
-- Always label ALL vertices, sides, and known measurements.
-- Draw ONLY when a visual genuinely helps; skip for pure algebra questions.` : `
+- Point/vertex markers: <circle cx="X" cy="Y" r="4" fill="#f7c948"/>
+- Labels: <text fill="#f7c948" font-family="sans-serif" font-size="13" font-weight="bold">
+- Measurements/descriptions: fill="#eef0f8" font-size="11"
+- Special/highlight lines: stroke="#3ecf8e" stroke-dasharray="5,3"
+- Right-angle box: <rect x="" y="" width="10" height="10" fill="none" stroke="#4f8ef7" stroke-width="1.5"/>
+- ALWAYS label every key part directly on the diagram
+${bioSvgGuide}` : `
 DIAGRAM RULE:
-When a diagram, chart, or figure description is needed, use: [Diagram: your description here]`;
+When a diagram is needed, use: [Diagram: your description here]`;
 
   return `You are StudyLens AI — a warm, brilliant, and patient tutor for Indian school students (Classes KG to 12).
 
