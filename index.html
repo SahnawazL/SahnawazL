@@ -2471,15 +2471,18 @@ async function sendFollowup() {
   const q = input.value.trim();
   if (!q) return;
 
-  // Build follow-up payload — inject previous answer as context
-  const contextQ = `Previous answer for context:\n${lastAnswerText}\n\nFollow-up question: ${q}`;
+  // Build follow-up payload — preserve image context if original was a photo
+  const wasPhoto = lastPayload && lastPayload.mode === 'photo' && lastPayload.imageBase64;
+  const contextQ = wasPhoto
+    ? `${q}\n\n(This is a follow-up about the same image you already analysed. Answer this specific question about that image.)`
+    : `Previous answer for context:\n${lastAnswerText}\n\nFollow-up question: ${q}`;
   const payload = {
     ...lastPayload,
     lang: currentLang,
-    mode: 'text',
+    mode: wasPhoto ? 'photo' : 'text',
     question: contextQ,
-    imageBase64: undefined,
-    imageMime: undefined,
+    imageBase64: wasPhoto ? lastPayload.imageBase64 : undefined,
+    imageMime: wasPhoto ? lastPayload.imageMime : undefined,
   };
 
   // Close follow-up input, reset
