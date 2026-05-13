@@ -1,0 +1,2936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>StudyLens — AI Homework Helper</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/mhchem.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1f2435;
+  --border: #2a2f42;
+  --accent: #4f8ef7;
+  --accent2: #f7c948;
+  --green: #3ecf8e;
+  --text: #eef0f8;
+  --muted: #7a82a0;
+  --danger: #f74f4f;
+  --radius: 16px;
+  --font-head: 'Baloo 2', sans-serif;
+  --font-body: 'Hind', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+/* LANG BAR */
+.lang-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: rgba(15,17,23,0.97); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1.2rem;
+}
+.logo-text { font-family: var(--font-head); font-weight: 800; font-size: 1.2rem; color: var(--text); display: flex; align-items: center; gap: 0.4rem; }
+.logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: glow 2s ease-in-out infinite; }
+@keyframes glow { 0%,100%{opacity:1;box-shadow:0 0 8px var(--accent)} 50%{opacity:0.6;box-shadow:0 0 18px var(--accent)} }
+.lang-switcher { display: flex; gap: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.22rem; }
+.lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600; padding: 0.28rem 0.55rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
+.lang-btn.active { background: var(--accent); color: #fff; }
+.lang-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+.has-answer .lang-btn:not(.active):hover::after {
+  content: ' ↺';
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* APP */
+.app { padding-top: 60px; max-width: 500px; margin: 0 auto; padding-left: 1rem; padding-right: 1rem; padding-bottom: 3rem; }
+
+/* HERO */
+.hero-section { text-align: center; padding: 2.2rem 0 1.4rem; }
+.hero-icon { font-size: 3.2rem; display: block; margin-bottom: 0.7rem; animation: bounceIn 0.6s ease both; }
+@keyframes bounceIn { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+.hero-title { font-family: var(--font-head); font-size: 1.85rem; font-weight: 800; line-height: 1.15; margin-bottom: 0.55rem; animation: fadeUp 0.5s 0.15s ease both; opacity: 0; }
+.hero-title .highlight { color: var(--accent); }
+.hero-sub { font-size: 0.9rem; color: var(--muted); line-height: 1.6; max-width: 340px; margin: 0 auto; animation: fadeUp 0.5s 0.25s ease both; opacity: 0; }
+@keyframes fadeUp { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* STEPPER */
+.stepper { display: flex; align-items: center; justify-content: center; margin: 1.4rem 0 1.8rem; animation: fadeUp 0.5s 0.3s ease both; opacity: 0; }
+.step-node { display: flex; flex-direction: column; align-items: center; gap: 0.32rem; }
+.step-circle { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; color: var(--muted); transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1); position: relative; z-index: 1; }
+.step-circle .chk { display: none; font-size: 0.85rem; }
+.step-circle .nm { display: block; }
+.step-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); transition: color 0.3s; white-space: nowrap; }
+.step-node.active .step-circle { border-color: var(--accent); background: rgba(79,142,247,0.15); color: var(--accent); box-shadow: 0 0 0 4px rgba(79,142,247,0.12),0 0 16px rgba(79,142,247,0.2); }
+.step-node.active .step-label { color: var(--accent); }
+.step-node.done .step-circle { border-color: var(--green); background: rgba(62,207,142,0.15); color: var(--green); box-shadow: 0 0 0 4px rgba(62,207,142,0.1); }
+.step-node.done .step-circle .chk { display: block; }
+.step-node.done .step-circle .nm { display: none; }
+.step-node.done .step-label { color: var(--green); }
+.step-line { width: 40px; height: 2px; background: var(--border); margin: 0 3px 20px; border-radius: 2px; position: relative; overflow: hidden; }
+.step-line::after { content:''; position: absolute; left:0; top:0; height:100%; width:0; background: var(--green); border-radius: 2px; transition: width 0.5s ease; }
+.step-line.filled::after { width: 100%; }
+
+/* STEP CARDS */
+.step-card { margin-bottom: 0.8rem; border-radius: var(--radius); }
+.step-card.locked { opacity: 0.35; pointer-events: none; transition: opacity 0.4s; }
+.step-card-hdr {
+  width: 100%; background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 0.9rem 1.1rem;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, border-radius 0.15s; gap: 0.75rem; user-select: none;
+}
+.step-card-hdr:hover { border-color: var(--accent); background: rgba(79,142,247,0.04); }
+.step-card-hdr.open { border-color: var(--accent); border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; background: rgba(79,142,247,0.06); }
+.step-card-hdr.done-s { border-color: rgba(62,207,142,0.45); background: rgba(62,207,142,0.03); }
+.step-card-hdr.done-s:hover { border-color: var(--green); background: rgba(62,207,142,0.07); }
+.hdr-left { display: flex; align-items: center; gap: 0.65rem; flex: 1; min-width: 0; }
+.hdr-icon { font-size: 1.15rem; flex-shrink: 0; }
+.hdr-text { display: flex; flex-direction: column; gap: 0.04rem; min-width: 0; }
+.hdr-label { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); line-height: 1; }
+.hdr-val { font-family: var(--font-head); font-size: 0.98rem; font-weight: 700; color: var(--text); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-val.ph { color: var(--muted); font-weight: 500; font-size: 0.88rem; }
+.hdr-val.dv { color: var(--green); }
+.chevron { font-size: 0.72rem; color: var(--muted); transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1); flex-shrink: 0; }
+.step-card-hdr.open .chevron { transform: rotate(180deg); }
+
+/* DROP PANEL */
+.drop-panel { background: var(--surface); border: 1.5px solid var(--accent); border-top: none; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); overflow: hidden; max-height: 0; transition: max-height 0.38s cubic-bezier(0.4,0,0.2,1); }
+.drop-panel.open { max-height: 420px; }
+
+/* CLASS GRID */
+.class-grid { padding: 0.55rem; display: grid; grid-template-columns: repeat(4,1fr); gap: 0.4rem; overflow-y: auto; max-height: 340px; }
+.class-grid::-webkit-scrollbar { width: 3px; } .class-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.cls-chip { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; padding: 0.5rem 0.2rem; text-align: center; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 0.12rem; }
+.cls-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
+.cls-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 2px rgba(79,142,247,0.18); }
+.cls-num { font-family: var(--font-head); font-size: 0.82rem; font-weight: 800; color: var(--text); line-height: 1; }
+.cls-chip.sel .cls-num { color: var(--accent); }
+.cls-sub { font-size: 0.54rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; line-height: 1; }
+.cls-chip.sel .cls-sub { color: rgba(79,142,247,0.8); }
+
+/* BOARD SELECTOR */
+.board-grid { padding: 0.65rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.board-chip { background: var(--surface2); border: 2px solid var(--border); border-radius: 13px; padding: 0.9rem 0.5rem 0.75rem; text-align: center; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+.board-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
+.board-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+.board-name { font-family: var(--font-head); font-size: 1.05rem; font-weight: 800; color: var(--text); line-height: 1; }
+.board-chip.sel .board-name { color: var(--accent); }
+.board-desc { font-size: 0.6rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.3; }
+.board-chip.sel .board-desc { color: rgba(79,142,247,0.8); }
+
+/* STREAM SELECTOR */
+.stream-grid { padding: 0.65rem; display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; }
+.stream-chip { background: var(--surface2); border: 2px solid var(--border); border-radius: 13px; padding: 0.85rem 0.3rem 0.7rem; text-align: center; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 0.28rem; }
+.stream-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
+.stream-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+.stream-emoji { font-size: 1.5rem; line-height: 1; }
+.stream-name { font-family: var(--font-head); font-size: 0.82rem; font-weight: 800; color: var(--text); line-height: 1; }
+.stream-chip.sel .stream-name { color: var(--accent); }
+
+/* SUBJECT GRID */
+.subj-grid { padding: 0.55rem; display: grid; grid-template-columns: repeat(3,1fr); gap: 0.45rem; overflow-y: auto; max-height: 360px; }
+.subj-grid::-webkit-scrollbar { width: 3px; } .subj-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.subj-chip { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 11px; padding: 0.62rem 0.25rem; text-align: center; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 0.28rem; }
+.subj-chip:hover { border-color: var(--accent2); background: rgba(247,201,72,0.07); }
+.subj-chip.sel { border-color: var(--accent2); background: rgba(247,201,72,0.12); box-shadow: 0 0 0 2px rgba(247,201,72,0.15); }
+.subj-emoji { font-size: 1.35rem; line-height: 1; }
+.subj-name { font-size: 0.62rem; font-weight: 700; color: var(--text); text-align: center; line-height: 1.2; }
+.subj-chip.sel .subj-name { color: var(--accent2); }
+
+/* PHOTO BODY — slides in */
+.photo-body { overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-8px); transition: max-height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease, transform 0.4s ease; }
+.photo-body.open { opacity: 1; transform: translateY(0); }
+.photo-inner { padding: 0.7rem 0.7rem 0.5rem; }
+.photo-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+.photo-btn { border-radius: 13px; padding: 1.2rem 0.6rem 1rem; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; border: 1.5px solid; }
+.photo-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
+.photo-btn:active { transform: translateY(0); }
+.photo-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.cam-btn { background: linear-gradient(135deg,rgba(79,142,247,0.1),rgba(79,142,247,0.04)); border-color: rgba(79,142,247,0.45); }
+.gal-btn { background: linear-gradient(135deg,rgba(62,207,142,0.1),rgba(62,207,142,0.04)); border-color: rgba(62,207,142,0.45); }
+.cam-btn:hover { border-color: var(--accent); background: rgba(79,142,247,0.13); }
+.gal-btn:hover { border-color: var(--green); background: rgba(62,207,142,0.13); }
+.pbtn-icon { font-size: 2rem; line-height: 1; }
+.pbtn-title { font-family: var(--font-head); font-size: 0.95rem; font-weight: 700; }
+.cam-btn .pbtn-title { color: var(--accent); }
+.gal-btn .pbtn-title { color: var(--green); }
+.pbtn-hint { font-size: 0.68rem; color: var(--muted); line-height: 1.3; }
+
+/* PREVIEW */
+.preview-block { display: none; }
+.preview-img-wrap { position: relative; border-radius: 11px; overflow: hidden; border: 1.5px solid var(--border); margin-bottom: 0.55rem; }
+.preview-img-wrap img { width: 100%; max-height: 210px; object-fit: cover; display: block; }
+.remove-btn { position: absolute; top: 8px; right: 8px; background: var(--danger); border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 5; }
+.retake-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.retake-btn { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 9px; padding: 0.5rem; font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.3rem; position: relative; overflow: hidden; transition: all 0.18s; }
+.retake-btn:hover { border-color: var(--accent); color: var(--text); }
+.retake-btn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+/* SMART UNIFIED INPUT */
+.smart-input-wrap {
+  display: flex; gap: 0.5rem; align-items: flex-end;
+}
+.smart-input {
+  flex: 1; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 0.9rem 1rem; font-family: var(--font-body);
+  font-size: 0.9rem; color: var(--text); outline: none; resize: none;
+  min-height: 52px; max-height: 160px; line-height: 1.5;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow-y: auto;
+}
+.smart-input::placeholder { color: var(--muted); }
+.smart-input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(247,201,72,0.1); }
+.photo-ctx-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,0.1); }
+.smart-send-btn {
+  background: var(--accent); border: none; border-radius: 14px;
+  width: 52px; height: 52px; font-size: 1.2rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(79,142,247,0.35); transition: all 0.2s;
+}
+.smart-send-btn:hover { transform: scale(1.06); background: #3a7ef6; }
+.smart-send-btn:active { transform: scale(0.96); }
+.smart-send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* PHOTO ASK BAR — slides in when photo is ready */
+.photo-ask-bar {
+  margin-top: 0.65rem;
+  animation: slideIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+/* Keep old .ask-section hidden (legacy safety) */
+.ask-section { display: none !important; }
+
+/* RESULT CARD */
+.result-card {
+  display: none;
+  margin-bottom: 1.4rem;
+  border-radius: 20px;
+  overflow: visible;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transform: translateY(24px);
+  opacity: 0;
+  transition: transform 0.55s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease;
+}
+.result-card.visible { display: block; }
+.result-card.animate-in { transform: translateY(0); opacity: 1; }
+
+/* Glowing border while thinking */
+.result-card.thinking {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1.5px rgba(79,142,247,0.5),
+    0 0 24px rgba(79,142,247,0.15),
+    0 8px 32px rgba(0,0,0,0.3);
+}
+.result-card.answered {
+  border-color: rgba(62,207,142,0.3);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+  transition: border-color 0.6s ease, box-shadow 0.6s ease;
+}
+
+/* Header */
+.result-hdr {
+  background: var(--surface2);
+  padding: 0.75rem 1.1rem;
+  display: flex; align-items: center; gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.rtag { border-radius: 100px; font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.6rem; letter-spacing: 0.04em; }
+.rtag-ai { background: rgba(62,207,142,0.14); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+.rtag-cl { background: rgba(79,142,247,0.13); color: var(--accent); border: 1px solid rgba(79,142,247,0.2); }
+.rtag-sj { background: rgba(247,201,72,0.12); color: var(--accent2); border: 1px solid rgba(247,201,72,0.2); }
+
+/* PREMIUM THINKING STATE */
+.thinking-panel {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.2rem 1.5rem 2rem;
+  gap: 1.4rem;
+}
+.thinking-panel.visible { display: flex; }
+
+/* Orbital spinner */
+.ai-spinner {
+  position: relative;
+  width: 56px; height: 56px;
+}
+.ai-spinner-core {
+  position: absolute; inset: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79,142,247,0.35), rgba(79,142,247,0.05));
+  animation: corePulse 1.8s ease-in-out infinite;
+}
+@keyframes corePulse {
+  0%,100% { transform: scale(0.85); opacity: 0.6; }
+  50%      { transform: scale(1.1);  opacity: 1;   }
+}
+.ai-spinner-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: rgba(79,142,247,0.3);
+  animation: spin 1.1s linear infinite;
+}
+.ai-spinner-ring2 {
+  position: absolute; inset: 6px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-bottom-color: var(--green);
+  border-left-color: rgba(62,207,142,0.2);
+  animation: spin 1.7s linear infinite reverse;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Thinking message */
+.thinking-msg {
+  text-align: center;
+}
+.thinking-label {
+  font-family: var(--font-head);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.3rem;
+  min-height: 1.4em;
+  transition: opacity 0.4s ease;
+}
+.thinking-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* Shimmer bars */
+.shimmer-lines {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+.shimmer-bar {
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    var(--surface2) 25%,
+    rgba(79,142,247,0.12) 50%,
+    var(--surface2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+.shimmer-bar:nth-child(1) { width: 88%; animation-delay: 0s; }
+.shimmer-bar:nth-child(2) { width: 100%; animation-delay: 0.15s; }
+.shimmer-bar:nth-child(3) { width: 72%; animation-delay: 0.3s; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Answer body */
+.result-body {
+  padding: 1.2rem 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--text);
+  word-break: break-word;
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s;
+}
+.result-body.reveal { opacity: 1; transform: translateY(0); }
+.result-body strong { color: var(--accent2); }
+.result-body code { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.38rem; font-size: 0.8rem; color: var(--green); }
+
+/* Typing cursor */
+.typing-cursor {
+  display: inline-block; width: 2px; height: 1em;
+  background: var(--accent); vertical-align: text-bottom;
+  animation: blink 0.65s infinite; margin-left: 2px; border-radius: 1px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ANSWER ACTIONS BAR */
+.ans-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem 0.9rem;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+.ans-actions.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.ans-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 0.65rem 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+.ans-action-btn:active { transform: scale(0.96); }
+
+/* Individual button accent colors on tap/hover */
+.ans-action-btn.copy-btn:hover,
+.ans-action-btn.copy-btn:focus   { border-color: var(--accent);  color: var(--accent);  background: rgba(79,142,247,0.08); }
+.ans-action-btn.speak-btn:hover,
+.ans-action-btn.speak-btn:focus  { border-color: var(--green);   color: var(--green);   background: rgba(62,207,142,0.08); }
+.ans-action-btn.speak-btn.speaking {
+  border-color: var(--green); color: var(--green);
+  background: rgba(62,207,142,0.12);
+  animation: speakPulse 1.4s ease-in-out infinite;
+}
+.ans-action-btn.follow-btn:hover,
+.ans-action-btn.follow-btn:focus { border-color: var(--accent2); color: var(--accent2); background: rgba(247,201,72,0.08); }
+
+@keyframes speakPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(62,207,142,0.4); }
+  50%     { box-shadow: 0 0 0 6px rgba(62,207,142,0); }
+}
+
+/* Copied feedback */
+.ans-action-btn.copied {
+  border-color: var(--green); color: var(--green);
+  background: rgba(62,207,142,0.1);
+}
+
+.ans-action-icon { font-size: 1.2rem; line-height: 1; }
+
+/* Follow-up input — slides in below actions */
+.followup-area {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1);
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+}
+.followup-area.open { max-height: 100px; }
+.followup-inner {
+  display: flex; gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+}
+.followup-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.followup-input::placeholder { color: var(--muted); }
+.followup-input:focus { border-color: var(--accent2); }
+.followup-send {
+  background: var(--accent2);
+  border: none; border-radius: 10px;
+  width: 40px; height: 40px;
+  font-size: 1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  box-shadow: 0 3px 10px rgba(247,201,72,0.3);
+}
+.followup-send:hover { transform: scale(1.08); }
+.followup-send:active { transform: scale(0.96); }
+.error-msg { background: rgba(247,79,79,0.1); border: 1px solid rgba(247,79,79,0.25); border-radius: 11px; padding: 0.75rem 1rem; font-size: 0.83rem; color: #f78f8f; display: none; margin-bottom: 1rem; }
+.error-msg.visible { display: block; }
+
+/* TIPS */
+.tips { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.4rem; margin-top: 0.5rem; }
+.tip { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 0.65rem 0.9rem; font-size: 0.8rem; color: var(--muted); display: flex; align-items: flex-start; gap: 0.5rem; }
+.tip-icon { font-size: 0.95rem; flex-shrink: 0; }
+.tip span { line-height: 1.4; }
+
+/* RICH ANSWER FORMATTING */
+.ans-h1 { font-family: var(--font-head); font-size: 1.1rem; font-weight: 800; color: var(--text); margin: 0.9rem 0 0.35rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+.ans-h2 { font-family: var(--font-head); font-size: 1rem; font-weight: 800; color: var(--accent); margin: 0.8rem 0 0.3rem; }
+.ans-h3 { font-family: var(--font-head); font-size: 0.92rem; font-weight: 700; color: var(--accent2); margin: 0.6rem 0 0.25rem; }
+.ans-step { display: flex; gap: 0.5rem; margin: 0.3rem 0; align-items: flex-start; }
+.ans-num {
+  background: var(--accent); color: #fff;
+  font-size: 0.65rem; font-weight: 800;
+  min-width: 20px; height: 20px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 0.15rem;
+}
+.ans-bullet { display: flex; gap: 0.4rem; margin: 0.2rem 0; align-items: flex-start; color: var(--text); }
+.ans-bullet span:first-child { color: var(--green); flex-shrink: 0; margin-top: 0.05rem; }
+.ans-takeaway { background: rgba(62,207,142,0.08); border: 1px solid rgba(62,207,142,0.2); border-radius: 10px; padding: 0.7rem 0.9rem; margin: 0.9rem 0 0.2rem; font-weight: 600; color: var(--green); font-size: 0.88rem; line-height: 1.6; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Inline code */
+.ans-inline-code { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 0.12rem 0.38rem; font-size: 0.8rem; color: var(--green); font-family: 'Courier New', monospace; }
+
+/* Code block */
+.ans-code-block {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 0.6rem 0;
+  overflow: hidden;
+  position: relative;
+}
+.code-lang-label {
+  display: block;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 0.35rem 0.85rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+}
+.ans-code-block pre {
+  margin: 0; padding: 0.75rem 0.9rem;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.ans-code-block pre code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem; color: #e6edf3; line-height: 1.6;
+  white-space: pre;
+}
+
+/* Markdown table */
+.ans-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.6rem 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.ans-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+  min-width: 280px;
+}
+.ans-table th {
+  background: var(--surface2);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.ans-table td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--text);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.ans-table tr:last-child td { border-bottom: none; }
+.ans-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+/* KaTeX math rendering */
+.katex { font-size: 0.95em !important; }
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.3rem 0;
+  margin: 0 !important;
+  -webkit-overflow-scrolling: touch;
+}
+.katex-display > .katex { text-align: left !important; }
+/* Prevent KaTeX from expanding beyond its container */
+.katex .base { max-width: none; }
+/* Scrollable math formula wrapper */
+.katex-scroll-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  padding-bottom: 4px;
+}
+
+/* Formula block — display math */
+.ans-formula {
+  background: rgba(79,142,247,0.07);
+  border: 1.5px solid rgba(79,142,247,0.2);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  -webkit-overflow-scrolling: touch;
+  /* Subtle scroll hint shadow on right when content overflows */
+  background-image: linear-gradient(to right, rgba(79,142,247,0.07), rgba(79,142,247,0.07)),
+                    linear-gradient(to right, rgba(79,142,247,0.07), transparent),
+                    linear-gradient(to left,  rgba(79,142,247,0.18), transparent);
+  background-attachment: local, scroll, scroll;
+  background-position: left center, left center, right center;
+  background-repeat: no-repeat;
+  background-size: 20px 100%, 20px 100%, 20px 100%;
+}
+
+/* Chemistry equation block */
+.ans-chem {
+  background: rgba(62,207,142,0.07);
+  border: 1.5px solid rgba(62,207,142,0.25);
+  border-left: 4px solid var(--green);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  -webkit-overflow-scrolling: touch;
+}
+.ans-chem-label {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--green); margin-bottom: 0.3rem;
+}
+
+/* Diagram description block */
+.ans-diagram {
+  background: rgba(247,201,72,0.07);
+  border: 1.5px solid rgba(247,201,72,0.25);
+  border-left: 4px solid var(--accent2);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+.ans-diagram-label {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent2); margin-bottom: 0.3rem;
+}
+
+/* FOOTER */
+.footer-note { text-align: center; font-size: 0.74rem; color: var(--muted); padding: 1rem 0 0.4rem; border-top: 1px solid var(--border); line-height: 1.5; }
+
+/* QUIZ BUTTON */
+.ans-action-btn.quiz-btn:hover,
+.ans-action-btn.quiz-btn:focus { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.08); }
+.ans-action-btn.quiz-btn.active { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.12); }
+
+/* QUIZ CARD */
+.quiz-card {
+  margin: 0 0.9rem 0.9rem;
+  border: 1.5px solid rgba(167,139,250,0.35);
+  border-radius: 16px;
+  background: rgba(167,139,250,0.05);
+  overflow: hidden;
+  animation: fadeUp 0.4s ease both;
+}
+.quiz-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(167,139,250,0.2);
+}
+.quiz-title {
+  font-family: var(--font-head); font-size: 0.85rem; font-weight: 800;
+  color: #a78bfa; display: flex; align-items: center; gap: 0.4rem;
+}
+.quiz-score-badge {
+  font-size: 0.7rem; font-weight: 700; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 100px; padding: 0.15rem 0.55rem;
+}
+.quiz-body { padding: 0.6rem 0.9rem 0.8rem; display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* Individual question */
+.quiz-q {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 13px; padding: 0.75rem 0.85rem; transition: border-color 0.3s;
+}
+.quiz-q.correct  { border-color: var(--green); background: rgba(62,207,142,0.06); }
+.quiz-q.wrong    { border-color: var(--danger); background: rgba(247,79,79,0.06); }
+.quiz-q-text { font-size: 0.84rem; font-weight: 600; color: var(--text); margin-bottom: 0.55rem; line-height: 1.4; }
+.quiz-q-num  { font-size: 0.7rem; font-weight: 700; color: #a78bfa; margin-bottom: 0.25rem; }
+
+/* Options */
+.quiz-options { display: flex; flex-direction: column; gap: 0.35rem; }
+.quiz-opt {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.75rem; border-radius: 9px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-size: 0.8rem; color: var(--text); cursor: pointer;
+  transition: all 0.18s; text-align: left; font-family: var(--font-body);
+  font-weight: 500;
+}
+.quiz-opt:hover:not(:disabled) { border-color: #a78bfa; background: rgba(167,139,250,0.08); }
+.quiz-opt:disabled { cursor: default; }
+.quiz-opt.opt-correct { border-color: var(--green); background: rgba(62,207,142,0.12); color: var(--green); font-weight: 700; }
+.quiz-opt.opt-wrong   { border-color: var(--danger); background: rgba(247,79,79,0.1); color: #f78f8f; }
+.quiz-opt.opt-reveal  { border-color: var(--green); background: rgba(62,207,142,0.07); color: var(--green); font-weight: 600; }
+.quiz-opt-letter { font-weight: 800; font-size: 0.75rem; color: #a78bfa; flex-shrink: 0; width: 16px; }
+.quiz-opt.opt-correct .quiz-opt-letter,
+.quiz-opt.opt-reveal  .quiz-opt-letter { color: var(--green); }
+.quiz-opt.opt-wrong   .quiz-opt-letter { color: var(--danger); }
+
+/* Explanation */
+.quiz-explanation {
+  margin-top: 0.5rem; font-size: 0.76rem; color: var(--muted);
+  background: var(--surface); border-radius: 8px;
+  padding: 0.45rem 0.65rem; line-height: 1.5;
+  border-left: 3px solid var(--green);
+  display: none;
+}
+.quiz-explanation.show { display: block; }
+
+/* Result bar */
+.quiz-result-bar {
+  margin: 0.2rem 0 0; padding: 0.65rem 0.85rem;
+  border-radius: 11px; font-size: 0.82rem; font-weight: 700;
+  text-align: center; display: none;
+}
+.quiz-result-bar.show { display: block; }
+.quiz-result-bar.great  { background: rgba(62,207,142,0.12); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+.quiz-result-bar.ok     { background: rgba(247,201,72,0.1);  color: var(--accent2); border: 1px solid rgba(247,201,72,0.25); }
+.quiz-result-bar.retry  { background: rgba(247,79,79,0.08);  color: #f78f8f; border: 1px solid rgba(247,79,79,0.2); }
+
+/* Retry button */
+.quiz-retry-btn {
+  display: none; width: 100%; margin-top: 0.5rem;
+  background: none; border: 1.5px solid rgba(167,139,250,0.4);
+  color: #a78bfa; border-radius: 10px; padding: 0.55rem;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; transition: all 0.18s;
+}
+.quiz-retry-btn.show { display: block; }
+.quiz-retry-btn:hover { background: rgba(167,139,250,0.1); border-color: #a78bfa; }
+
+/* Loading shimmer inside quiz card */
+.quiz-loading {
+  padding: 1.2rem 0.9rem;
+  display: flex; flex-direction: column; gap: 0.6rem; align-items: center;
+}
+.quiz-loading-text {
+  font-size: 0.8rem; color: #a78bfa; font-weight: 600;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.quiz-shimmer {
+  width: 100%; height: 9px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface2) 25%, rgba(167,139,250,0.15) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.quiz-shimmer:nth-child(2) { width: 88%; animation-delay: 0.1s; }
+.quiz-shimmer:nth-child(3) { width: 70%; animation-delay: 0.2s; }
+
+/* HISTORY PILL */
+.hist-pill-wrap { display: flex; justify-content: flex-end; margin-bottom: 0.6rem; }
+.hist-pill {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 100px; padding: 0.32rem 0.75rem 0.32rem 0.55rem;
+  font-family: var(--font-body); font-size: 0.75rem; font-weight: 700;
+  color: var(--muted); cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
+}
+.hist-pill:hover { border-color: var(--accent); color: var(--text); background: rgba(79,142,247,0.07); transform: scale(1.03); }
+.hist-pill-icon { font-size: 0.85rem; line-height: 1; }
+.hist-badge {
+  background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 800;
+  min-width: 16px; height: 16px; border-radius: 100px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  animation: badgePop 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes badgePop { from{transform:scale(0)} to{transform:scale(1)} }
+
+/* HISTORY BACKDROP */
+.hist-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 400;
+  opacity: 0; pointer-events: none; transition: opacity 0.28s ease; backdrop-filter: blur(2px);
+}
+.hist-backdrop.open { opacity: 1; pointer-events: all; }
+
+/* HISTORY BOTTOM SHEET */
+.hist-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
+  background: var(--surface); border-top: 1.5px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  transform: translateY(100%); transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  max-height: 60vh; display: flex; flex-direction: column;
+}
+.hist-sheet.open { transform: translateY(0); }
+.hist-sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 10px auto 0; flex-shrink: 0; }
+.hist-sheet-title {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1.1rem 0.5rem;
+  font-family: var(--font-head); font-size: 0.9rem; font-weight: 800; color: var(--text);
+  flex-shrink: 0; border-bottom: 1px solid var(--border);
+}
+.hist-close-btn {
+  background: var(--surface2); border: none; color: var(--muted);
+  width: 26px; height: 26px; border-radius: 50%; font-size: 0.7rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.hist-close-btn:hover { background: var(--border); color: var(--text); }
+.hist-list { overflow-y: auto; flex: 1; padding: 0.35rem 0 0.5rem; }
+.hist-list::-webkit-scrollbar { width: 3px; }
+.hist-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* HISTORY ROW — single slim line */
+.hist-row {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.52rem 1.1rem; cursor: pointer;
+  transition: background 0.15s; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.hist-row:last-child { border-bottom: none; }
+.hist-row:hover { background: rgba(79,142,247,0.07); }
+.hist-row:active { background: rgba(79,142,247,0.13); }
+.hist-num { font-family: var(--font-head); font-size: 0.7rem; font-weight: 800; color: var(--muted); flex-shrink: 0; min-width: 20px; }
+.hist-thumb { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+.hist-subj-chip { font-size: 0.6rem; font-weight: 700; background: rgba(79,142,247,0.13); color: var(--accent); border-radius: 100px; padding: 0.12rem 0.45rem; flex-shrink: 0; white-space: nowrap; }
+.hist-preview { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.hist-arrow { font-size: 0.65rem; color: var(--border); flex-shrink: 0; }
+
+/* UNLOCK PULSE */
+@keyframes unlockPulse { 0%{box-shadow:0 0 0 0 rgba(79,142,247,0.5)} 70%{box-shadow:0 0 0 12px rgba(79,142,247,0)} 100%{box-shadow:0 0 0 0 rgba(79,142,247,0)} }
+.pulse-once { animation: unlockPulse 0.75s ease both; }
+
+/* MODE TOGGLE */
+.mode-toggle-wrap {
+  padding: 0.6rem 0.7rem 0.3rem;
+  display: flex; gap: 0.45rem;
+}
+.mode-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.38rem;
+  padding: 0.6rem 0.5rem; border-radius: 11px; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700;
+  color: var(--muted); transition: all 0.22s; user-select: none;
+}
+.mode-tab:hover { border-color: var(--accent); color: var(--text); }
+.mode-tab.active-type { border-color: var(--accent2); background: rgba(247,201,72,0.12); color: var(--accent2); }
+.mode-tab.active-photo { border-color: var(--accent); background: rgba(79,142,247,0.12); color: var(--accent); }
+.mode-tab-icon { font-size: 1.05rem; line-height: 1; }
+
+.text-question-body {
+  overflow: hidden; max-height: 0; opacity: 0; transform: translateY(-6px);
+  transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease, transform 0.35s ease;
+}
+.text-question-body.open { opacity: 1; transform: translateY(0); }
+.text-question-inner { padding: 0.6rem 0.7rem 0.75rem; }
+.text-q-input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 0.9rem 1rem; font-family: var(--font-body);
+  font-size: 0.9rem; color: var(--text); outline: none; resize: none;
+  min-height: 110px; line-height: 1.6; transition: border-color 0.2s;
+  display: block;
+}
+.text-q-input::placeholder { color: var(--muted); }
+.text-q-input:focus { border-color: var(--accent2); }
+.text-q-hint { font-size: 0.72rem; color: var(--muted); margin-top: 0.45rem; padding: 0 0.2rem; line-height: 1.4; }
+.text-q-ready { border-color: rgba(247,201,72,0.5) !important; }
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <div class="logo-text"><span class="logo-dot"></span>StudyLens</div>
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
+    <button class="lang-btn" onclick="setLang('bn')" id="btn-bn">বাং</button>
+    <button class="lang-btn" onclick="setLang('hi')" id="btn-hi">हिं</button>
+    <button class="lang-btn" onclick="setLang('as')" id="btn-as">অসম</button>
+  </div>
+</div>
+
+<div class="app">
+
+  <div class="hero-section">
+    <span class="hero-icon">📚</span>
+    <h1 class="hero-title" id="h-title">Your <span class="highlight">AI Study</span> Helper</h1>
+    <p class="hero-sub" id="h-sub">Select your class & subject, then add your question photo — get a clear step-by-step answer instantly.</p>
+  </div>
+
+  <!-- STEPPER (3 steps for class 1-10; 4 steps for 11/12) -->
+  <div class="stepper" id="stepperWrap">
+    <div class="step-node active" id="sn1">
+      <div class="step-circle"><span class="nm">1</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl1">Board</div>
+    </div>
+    <div class="step-line" id="sl-line1"></div>
+    <div class="step-node" id="sn2">
+      <div class="step-circle"><span class="nm">2</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl2">Class</div>
+    </div>
+    <div class="step-line" id="sl-line2"></div>
+    <div class="step-node" id="sn3">
+      <div class="step-circle"><span class="nm">3</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl3">Subject</div>
+    </div>
+    <div class="step-line" id="sl-line3" style="display:none;"></div>
+    <div class="step-node" id="sn4" style="display:none;">
+      <div class="step-circle"><span class="nm">4</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl4">Question</div>
+    </div>
+  </div>
+
+  <!-- STEP 1: BOARD -->
+  <div class="step-card" id="card1">
+    <div class="step-card-hdr" id="hdr1" onclick="togglePanel(1)">
+      <div class="hdr-left">
+        <span class="hdr-icon">🏫</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-board">Select Board</span>
+          <span class="hdr-val ph" id="val-board">Tap to choose your board…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev1">▼</span>
+    </div>
+    <div class="drop-panel" id="dp1">
+      <div class="board-grid" id="boardGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: CLASS — locked until board done -->
+  <div class="step-card locked" id="card2">
+    <div class="step-card-hdr" id="hdr2" onclick="togglePanel(2)">
+      <div class="hdr-left">
+        <span class="hdr-icon">🎓</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-cls">Select Class</span>
+          <span class="hdr-val ph" id="val-cls">Choose your board first…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev2">▼</span>
+    </div>
+    <div class="drop-panel" id="dp2">
+      <div class="class-grid" id="classGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: STREAM — only shown for class 11 & 12 -->
+  <div class="step-card locked" id="card3" style="display:none;">
+    <div class="step-card-hdr" id="hdr3" onclick="togglePanel(3)">
+      <div class="hdr-left">
+        <span class="hdr-icon">🌊</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-stream">Select Stream</span>
+          <span class="hdr-val ph" id="val-stream">Choose your stream…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev3">▼</span>
+    </div>
+    <div class="drop-panel" id="dp3">
+      <div class="stream-grid" id="streamGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 4 (or 3 for class 1-10): SUBJECT — locked until class/stream done -->
+  <div class="step-card locked" id="card4">
+    <div class="step-card-hdr" id="hdr4" onclick="togglePanel(4)">
+      <div class="hdr-left">
+        <span class="hdr-icon">📌</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-subj">Choose Subject</span>
+          <span class="hdr-val ph" id="val-subj">Choose your class first…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev4">▼</span>
+    </div>
+    <div class="drop-panel" id="dp4">
+      <div class="subj-grid" id="subjGrid"></div>
+    </div>
+  </div>
+  <!-- STEP 5 (or 3 for 1-10, 4 for 11/12): QUESTION — locked until subject done -->
+  <div class="step-card locked" id="card5">
+    <div class="step-card-hdr done-s" id="hdr5" style="cursor:default; pointer-events:none;">
+      <div class="hdr-left">
+        <span class="hdr-icon" id="step3-icon">📷</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-photo">Add Your Question</span>
+          <span class="hdr-val ph" id="val-photo">Choose subject first…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE TOGGLE (shown after subject selected) -->
+    <div class="mode-toggle-wrap" id="modeToggleWrap" style="display:none;">
+      <div class="mode-tab active-type" id="tab-text" onclick="setMode('text')">
+        <span class="mode-tab-icon">📝</span>
+        <span id="mode-tab-text-label">Type Question</span>
+      </div>
+      <div class="mode-tab" id="tab-photo" onclick="setMode('photo')">
+        <span class="mode-tab-icon">📷</span>
+        <span id="mode-tab-photo-label">Add Photo</span>
+      </div>
+    </div>
+
+    <!-- TEXT QUESTION MODE: smart unified input -->
+    <div class="text-question-body open" id="textQuestionBody" style="max-height:400px;">
+      <div class="text-question-inner">
+        <div class="smart-input-wrap" id="smartTextWrap">
+          <textarea class="smart-input" id="textQInput" rows="4" placeholder="Type your question here… e.g. What is photosynthesis? How do I solve this equation?"></textarea>
+          <button class="smart-send-btn" id="askBtnText" onclick="askQuestion()">➤</button>
+        </div>
+        <div class="text-q-hint" id="textQHint">💡 Type any theory question, definition, or doubt — no photo needed!</div>
+      </div>
+    </div>
+
+    <!-- PHOTO MODE: upload area + optional context input at bottom -->
+    <div class="photo-body" id="photoBody">
+      <div class="photo-inner">
+        <!-- preview (hidden until photo) -->
+        <div class="preview-block" id="previewBlock">
+          <div class="preview-img-wrap">
+            <button class="remove-btn" onclick="removeImage()">✕</button>
+            <img id="previewImg" src="" alt="Preview"/>
+          </div>
+          <div class="retake-row">
+            <button class="retake-btn">📷 <span id="lbl-retake-cam">Retake</span><input type="file" id="camIn2" accept="image/*" capture="environment" onchange="onFile(event)"/></button>
+            <button class="retake-btn">🖼️ <span id="lbl-retake-gal">Change</span><input type="file" id="galIn2" accept="image/*" onchange="onFile(event)"/></button>
+          </div>
+        </div>
+        <!-- upload buttons -->
+        <div class="photo-btns" id="photoBtns">
+          <div class="photo-btn cam-btn">
+            <span class="pbtn-icon">📷</span>
+            <span class="pbtn-title" id="cam-title">Camera</span>
+            <span class="pbtn-hint" id="cam-hint">Open camera directly</span>
+            <input type="file" id="camIn" accept="image/*" capture="environment" onchange="onFile(event)"/>
+          </div>
+          <div class="photo-btn gal-btn">
+            <span class="pbtn-icon">🖼️</span>
+            <span class="pbtn-title" id="gal-title">Gallery</span>
+            <span class="pbtn-hint" id="gal-hint">Pick from gallery</span>
+            <input type="file" id="galIn" accept="image/*" onchange="onFile(event)"/>
+          </div>
+        </div>
+        <!-- photo mode context + send bar (appears after photo is chosen) -->
+        <div class="photo-ask-bar" id="photoAskBar" style="display:none;">
+          <div class="smart-input-wrap">
+            <textarea class="smart-input photo-ctx-input" id="askInput" rows="1" placeholder="Ask anything about the photo, or just press ➤…"></textarea>
+            <button class="smart-send-btn" id="askBtnPhoto" onclick="askQuestion()">➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- HISTORY PILL -->
+  <div class="hist-pill-wrap" id="histPillWrap" style="display:none;">
+    <button class="hist-pill" id="histPill" onclick="toggleHistSheet()">
+      <span class="hist-pill-icon">📚</span>
+      <span class="hist-pill-label">History</span>
+      <span class="hist-badge" id="histBadge">0</span>
+    </button>
+  </div>
+
+  <!-- HISTORY BOTTOM SHEET -->
+  <div class="hist-backdrop" id="histBackdrop" onclick="closeHistSheet()"></div>
+  <div class="hist-sheet" id="histSheet">
+    <div class="hist-sheet-handle"></div>
+    <div class="hist-sheet-title">
+      <span>📚 Session History</span>
+      <button class="hist-close-btn" onclick="closeHistSheet()">✕</button>
+    </div>
+    <div class="hist-list" id="histList"></div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-hdr">
+      <span class="rtag rtag-ai" id="rtag-ai">✓ AI Answer</span>
+      <span class="rtag rtag-cl" id="rtag-cl"></span>
+      <span class="rtag rtag-sj" id="rtag-sj"></span>
+    </div>
+
+    <!-- Premium thinking state -->
+    <div class="thinking-panel" id="thinkingPanel">
+      <div class="ai-spinner">
+        <div class="ai-spinner-ring"></div>
+        <div class="ai-spinner-ring2"></div>
+        <div class="ai-spinner-core"></div>
+      </div>
+      <div class="thinking-msg">
+        <div class="thinking-label" id="thinkingLabel">Reading your question…</div>
+        <div class="thinking-sub" id="thinkingSub">StudyLens AI is thinking</div>
+      </div>
+      <div class="shimmer-lines">
+        <div class="shimmer-bar"></div>
+        <div class="shimmer-bar"></div>
+        <div class="shimmer-bar"></div>
+      </div>
+    </div>
+
+    <div class="result-body" id="resultBody"></div>
+
+    <!-- Answer Actions Bar -->
+    <div class="ans-actions" id="ansActions">
+      <button class="ans-action-btn copy-btn" id="copyBtn" onclick="copyAnswer()">
+        <span class="ans-action-icon">📋</span>
+        <span id="copyLabel">Copy</span>
+      </button>
+      <button class="ans-action-btn speak-btn" id="speakBtn" onclick="toggleSpeak()">
+        <span class="ans-action-icon">🔊</span>
+        <span id="speakLabel">Read Aloud</span>
+      </button>
+      <button class="ans-action-btn follow-btn" id="followBtn" onclick="toggleFollowup()">
+        <span class="ans-action-icon">💬</span>
+        <span id="followLabel">Ask Follow-up</span>
+      </button>
+      <button class="ans-action-btn quiz-btn" id="quizBtn" onclick="startQuiz()">
+        <span class="ans-action-icon">🧠</span>
+        <span id="quizLabel">Quiz Me</span>
+      </button>
+    </div>
+
+    <!-- Follow-up input -->
+    <div class="followup-area" id="followupArea">
+      <div class="followup-inner">
+        <input class="followup-input" id="followupInput" type="text" placeholder="Ask something more about this answer…" />
+        <button class="followup-send" onclick="sendFollowup()">➤</button>
+      </div>
+    </div>
+
+    <!-- Quiz Card — slides in below actions -->
+    <div class="quiz-card" id="quizCard" style="display:none;">
+      <div class="quiz-header">
+        <div class="quiz-title">🧠 Quick Quiz</div>
+        <div class="quiz-score-badge" id="quizScoreBadge">0 / 3</div>
+      </div>
+      <div class="quiz-body" id="quizBody">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="tips">
+    <div class="tip"><span class="tip-icon">💡</span><span id="tip1">Take a clear, well-lit photo. Make sure the text is readable.</span></div>
+    <div class="tip"><span class="tip-icon">🗣️</span><span id="tip2">You can ask in your own language — Bengali, Hindi, or English.</span></div>
+    <div class="tip"><span class="tip-icon">📷</span><span id="tip3">Works with printed books, handwritten notes, and worksheets.</span></div>
+  </div>
+
+  <div class="footer-note" id="footerNote">Made for students, parents &amp; learners in India 🇮🇳<br/>Powered by Google Gemini AI</div>
+
+</div>
+
+<script>
+// API key is now on the server — never exposed in frontend
+let currentLang = 'en';
+let selBoard = null;  // {id, name, shortName}
+let selClass = null;
+let selStream = null; // {id, name, emoji} — only for class 11/12
+let selSubj  = null;
+let curFile  = null;
+let curB64   = null;
+let openDP   = 0;
+let currentMode = 'text'; // 'text' or 'photo'
+let lastPayload = null;   // stores last question payload for retranslation
+
+// Is the selected class 11 or 12?
+function isHigherSecondary() {
+  return selClass && (selClass.id === 'c11' || selClass.id === 'c12');
+}
+
+// ── SESSION HISTORY ──
+let sessionHistory = []; // [{id, mode, question, imageDataUrl, imageMime, subject, subjectEmoji, className, answer, answerHtml, payload}]
+
+function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
+  const id = sessionHistory.length + 1;
+  const subj = selSubj ? (T[currentLang].subs[selSubj.key] || selSubj.subject) : (payload.subject || '');
+  const subjEmoji = selSubj ? selSubj.emoji : '';
+  // Safety: if answerHtml is empty, generate it from answerText
+  const safeHtml = (answerHtml && answerHtml.trim()) ? answerHtml : fmt(answerText);
+  const entry = {
+    id, mode: payload.mode,
+    question: payload.question || '',
+    imageDataUrl: imageDataUrl || null,
+    subject: subj, subjectEmoji: subjEmoji,
+    className: payload.className || '',
+    answer: answerText,
+    answerHtml: safeHtml,
+    payload: { ...payload }
+  };
+  sessionHistory.push(entry);
+  console.log('[History] Saved Q' + id + ':', entry.question.slice(0, 40), '| html length:', safeHtml.length);
+  updateHistPill();
+}
+
+function updateHistPill() {
+  const wrap = document.getElementById('histPillWrap');
+  const badge = document.getElementById('histBadge');
+  if (sessionHistory.length > 0) {
+    wrap.style.display = 'flex';
+    badge.textContent = sessionHistory.length;
+    // re-trigger pop animation
+    badge.style.animation = 'none';
+    requestAnimationFrame(() => { badge.style.animation = ''; });
+  }
+}
+
+function toggleHistSheet() {
+  const sheet = document.getElementById('histSheet');
+  const backdrop = document.getElementById('histBackdrop');
+  if (sheet.classList.contains('open')) {
+    closeHistSheet();
+  } else {
+    buildHistList();
+    sheet.classList.add('open');
+    backdrop.classList.add('open');
+  }
+}
+
+function closeHistSheet() {
+  document.getElementById('histSheet').classList.remove('open');
+  document.getElementById('histBackdrop').classList.remove('open');
+}
+
+function buildHistList() {
+  const list = document.getElementById('histList');
+  list.innerHTML = '';
+  // newest first
+  [...sessionHistory].reverse().forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    row.onclick = () => restoreHistItem(item);
+
+    // Q number
+    const num = document.createElement('span');
+    num.className = 'hist-num';
+    num.textContent = 'Q' + item.id;
+
+    // thumbnail (photo mode only)
+    let thumbEl = null;
+    if (item.mode === 'photo' && item.imageDataUrl) {
+      thumbEl = document.createElement('img');
+      thumbEl.className = 'hist-thumb';
+      thumbEl.src = item.imageDataUrl;
+      thumbEl.alt = '';
+    }
+
+    // subject chip
+    const chip = document.createElement('span');
+    chip.className = 'hist-subj-chip';
+    chip.textContent = item.subjectEmoji + ' ' + item.subject;
+
+    // preview text
+    const prev = document.createElement('span');
+    prev.className = 'hist-preview';
+    if (item.mode === 'photo' && !item.question) {
+      prev.textContent = '📷 Photo question';
+    } else {
+      prev.textContent = item.question.replace(/\n/g, ' ');
+    }
+
+    // arrow
+    const arrow = document.createElement('span');
+    arrow.className = 'hist-arrow';
+    arrow.textContent = '▶';
+
+    row.appendChild(num);
+    if (thumbEl) row.appendChild(thumbEl);
+    row.appendChild(chip);
+    row.appendChild(prev);
+    row.appendChild(arrow);
+    list.appendChild(row);
+  });
+}
+
+function restoreHistItem(item) {
+  closeHistSheet();
+
+  const rc  = document.getElementById('resultCard');
+  const rb  = document.getElementById('resultBody');
+  const rCl = document.getElementById('rtag-cl');
+  const rSj = document.getElementById('rtag-sj');
+
+  // 1. Header tags
+  rCl.textContent = item.className || '';
+  rCl.style.display = item.className ? '' : 'none';
+  rSj.textContent = item.subject || '';
+
+  // 2. Force card fully visible — bypass transition entirely with inline styles
+  rc.className = 'result-card visible answered';
+  rc.style.cssText = 'display:block; opacity:1; transform:translateY(0);';
+
+  // 3. Inject answer — force result-body visible too
+  rb.style.cssText = 'opacity:1; transform:translateY(0);';
+  rb.innerHTML = item.answerHtml || ('<p>' + item.answer + '</p>');
+  rb.classList.add('reveal');
+
+  // 4. Hide thinking panel just in case
+  const tp = document.getElementById('thinkingPanel');
+  if (tp) tp.classList.remove('visible');
+
+  // 5. Restore state for copy/speak/follow-up
+  lastAnswerText = item.answer;
+  lastPayload    = item.payload;
+
+  // 6. Show actions bar
+  showActionsBar();
+
+  // 7. Scroll to it
+  setTimeout(() => rc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+}
+
+// ── MODE TOGGLE ──
+function setMode(mode) {
+  currentMode = mode;
+  const t = T[currentLang];
+  const tabText = document.getElementById('tab-text');
+  const tabPhoto = document.getElementById('tab-photo');
+  const textBody = document.getElementById('textQuestionBody');
+  const photoBody = document.getElementById('photoBody');
+  const step3icon = document.getElementById('step3-icon');
+
+  tabText.className = 'mode-tab' + (mode==='text' ? ' active-type' : '');
+  tabPhoto.className = 'mode-tab' + (mode==='photo' ? ' active-photo' : '');
+
+  if (mode === 'text') {
+    // Show big unified text input, hide photo area
+    textBody.style.maxHeight = '400px';
+    textBody.classList.add('open');
+    photoBody.style.maxHeight = '0';
+    photoBody.classList.remove('open');
+    step3icon.textContent = '📝';
+    // Auto-focus text input
+    setTimeout(() => {
+      const ti = document.getElementById('textQInput');
+      if (ti) ti.focus();
+    }, 360);
+    updateStep3HeaderText();
+  } else {
+    // Hide text area, show photo upload
+    textBody.style.maxHeight = '0';
+    textBody.classList.remove('open');
+    photoBody.style.maxHeight = curB64 ? '520px' : '320px';
+    photoBody.classList.add('open');
+    step3icon.textContent = '📷';
+    // Show photo-ask-bar only if image is already loaded
+    const bar = document.getElementById('photoAskBar');
+    if (bar) bar.style.display = curB64 ? 'block' : 'none';
+    updateStep3HeaderPhoto();
+  }
+  updateStepper();
+}
+
+function updateStep3HeaderText() {
+  const t = T[currentLang];
+  const typed = document.getElementById('textQInput').value.trim();
+  const vp = document.getElementById('val-photo');
+  if (typed) {
+    vp.textContent = t.readyText;
+    vp.classList.remove('ph'); vp.classList.add('dv');
+    document.getElementById('hdr3').classList.add('done-s');
+  } else {
+    vp.textContent = t.lblPhoto;
+    vp.classList.remove('dv','ph');
+    document.getElementById('hdr3').classList.remove('done-s');
+  }
+}
+
+function updateStep3HeaderPhoto() {
+  const t = T[currentLang];
+  const vp = document.getElementById('val-photo');
+  if (curB64) {
+    vp.textContent = t.readyPhoto;
+    vp.classList.remove('ph'); vp.classList.add('dv');
+    document.getElementById('hdr3').classList.add('done-s');
+  } else {
+    vp.textContent = t.lblPhoto;
+    vp.classList.remove('dv','ph');
+    document.getElementById('hdr3').classList.remove('done-s');
+  }
+}
+
+const BOARDS = [
+  { id: 'asseb', name: 'ASSEB (State)', shortName: 'ASSEB', desc: 'Assam State Board', hint: 'SEBA (1–10) · AHSEC (11–12)' },
+  { id: 'cbse',  name: 'CBSE',          shortName: 'CBSE',  desc: 'Central Board',    hint: 'NCERT Curriculum' },
+];
+
+const CLASSES = [
+  {id:'kg1',num:'KG 1',label:'Nursery'},{id:'kg2',num:'KG 2',label:'LKG/UKG'},
+  {id:'c1',num:'1st',label:'Class 1'},{id:'c2',num:'2nd',label:'Class 2'},
+  {id:'c3',num:'3rd',label:'Class 3'},{id:'c4',num:'4th',label:'Class 4'},
+  {id:'c5',num:'5th',label:'Class 5'},{id:'c6',num:'6th',label:'Class 6'},
+  {id:'c7',num:'7th',label:'Class 7'},{id:'c8',num:'8th',label:'Class 8'},
+  {id:'c9',num:'9th',label:'Class 9'},{id:'c10',num:'10th',label:'Class 10'},
+  {id:'c11',num:'11th',label:'Class 11'},{id:'c12',num:'12th',label:'Class 12'},
+];
+
+const STREAMS = [
+  { id: 'science',  emoji: '🔬', name: 'Science'  },
+  { id: 'arts',     emoji: '🎨', name: 'Arts'     },
+  { id: 'commerce', emoji: '💼', name: 'Commerce' },
+];
+
+// Subject data by board + stream (or just class range for 1-10)
+const SUBJECT_MAP = {
+  // KG1 (Nursery/LKG) — age 3-4
+  kg1: [
+    {key:'eng',       emoji:'🔤', subject:'English (Alphabet & Phonics)'},
+    {key:'prewriting',emoji:'✏️', subject:'Pre-Writing Strokes'},
+    {key:'math',      emoji:'🔢', subject:'Numbers & Counting (1–20)'},
+    {key:'shapes',    emoji:'🔷', subject:'Shapes & Colours'},
+    {key:'evs',       emoji:'🌿', subject:'My World (EVS / General Awareness)'},
+    {key:'rhymes',    emoji:'🎵', subject:'Nursery Rhymes & Oral Skills'},
+    {key:'artcraft',  emoji:'🎨', subject:'Art & Craft / Drawing'},
+    {key:'hindi',     emoji:'हि', subject:'Hindi (Basic)'},
+    {key:'assamese',  emoji:'অ',  subject:'Assamese (Basic)'},
+    {key:'bengali',   emoji:'বা', subject:'Bengali (Basic)'},
+    {key:'lifeskills',emoji:'🌟', subject:'Life Skills & Habits'},
+  ],
+  // KG2 (UKG) — age 4-5
+  kg2: [
+    {key:'eng',       emoji:'🔤', subject:'English (Reading & Writing)'},
+    {key:'phonics',   emoji:'🔊', subject:'Phonics & Word Formation'},
+    {key:'math',      emoji:'🔢', subject:'Maths (Numbers up to 100)'},
+    {key:'shapes',    emoji:'🔷', subject:'Shapes, Patterns & Colours'},
+    {key:'evs',       emoji:'🌿', subject:'Environmental Science (EVS)'},
+    {key:'gk',        emoji:'🌍', subject:'General Awareness / GK'},
+    {key:'rhymes',    emoji:'🎵', subject:'Rhymes, Stories & Oral Skills'},
+    {key:'artcraft',  emoji:'🎨', subject:'Art, Craft & Drawing'},
+    {key:'hindi',     emoji:'हि', subject:'Hindi'},
+    {key:'assamese',  emoji:'অ',  subject:'Assamese'},
+    {key:'bengali',   emoji:'বা', subject:'Bengali'},
+    {key:'lifeskills',emoji:'🌟', subject:'Life Skills & Good Habits'},
+  ],
+  // Class 1–10 (any board)
+  any_lower: [
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'science',emoji:'🔬', subject:'Science'},
+    {key:'eng1',   emoji:'🔤', subject:'English (First Language)'},
+    {key:'eng2',   emoji:'📝', subject:'English (Second Language)'},
+    {key:'assamese',emoji:'অ', subject:'Assamese'},
+    {key:'bengali',emoji:'বা', subject:'Bengali'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
+    {key:'evs',    emoji:'🌿', subject:'EVS'},
+    {key:'sst',    emoji:'🗺️', subject:'Social Studies'},
+    {key:'gk',     emoji:'🌍', subject:'General Knowledge'},
+    {key:'computer',emoji:'💻',subject:'Computer Science'},
+    {key:'moral',  emoji:'🙏', subject:'Moral Science'},
+    {key:'history',emoji:'🏛️', subject:'History & Civics'},
+    {key:'geo',    emoji:'🧭', subject:'Geography'},
+    {key:'sanskrit',emoji:'🕉️',subject:'Sanskrit'},
+    {key:'arabic', emoji:'📖', subject:'Arabic'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+  ],
+  asseb_science: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'physics',emoji:'⚛️', subject:'Physics'},
+    {key:'chemistry',emoji:'🧪',subject:'Chemistry'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'biology',emoji:'🧬', subject:'Biology'},
+    {key:'computer',emoji:'💻',subject:'Computer Science'},
+    {key:'envscience',emoji:'🌿',subject:'Environmental Science'},
+    {key:'biotech',emoji:'🔭', subject:'Biotechnology'},
+    {key:'stats',  emoji:'📊', subject:'Statistics'},
+  ],
+  asseb_arts: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'history',emoji:'🏛️', subject:'History'},
+    {key:'polsci', emoji:'🏛️', subject:'Political Science'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'geo',    emoji:'🧭', subject:'Geography'},
+    {key:'education',emoji:'📚',subject:'Education'},
+    {key:'psychology',emoji:'🧠',subject:'Psychology'},
+    {key:'sociology',emoji:'👥',subject:'Sociology'},
+    {key:'logic',  emoji:'💡', subject:'Logic & Philosophy'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'stats',  emoji:'📊', subject:'Statistics'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+    {key:'sanskrit',emoji:'🕉️',subject:'Sanskrit Adhyayan'},
+  ],
+  asseb_commerce: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'accountancy',emoji:'📒',subject:'Accountancy'},
+    {key:'bizstudies',emoji:'💼',subject:'Business Studies'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics/Business Maths'},
+    {key:'salesmgmt',emoji:'🤝',subject:'Sales Management'},
+    {key:'insurance',emoji:'🔐',subject:'Insurance'},
+    {key:'finance',emoji:'💵', subject:'Finance'},
+    {key:'ecogeo', emoji:'🌐', subject:'Economic Geography'},
+    {key:'computer',emoji:'💻',subject:'Computer Applications'},
+    {key:'entrep', emoji:'🚀', subject:'Entrepreneurship'},
+    {key:'stats',  emoji:'📊', subject:'Statistics'},
+  ],
+  cbse_science: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'physics',emoji:'⚛️', subject:'Physics'},
+    {key:'chemistry',emoji:'🧪',subject:'Chemistry'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'biology',emoji:'🧬', subject:'Biology'},
+    {key:'computer',emoji:'💻',subject:'Computer Science'},
+    {key:'infoprac',emoji:'📱',subject:'Informatics Practices'},
+    {key:'biotech',emoji:'🔭', subject:'Biotechnology'},
+    {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
+  ],
+  cbse_arts: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
+    {key:'history',emoji:'🏛️', subject:'History'},
+    {key:'polsci', emoji:'🏛️', subject:'Political Science'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'geo',    emoji:'🧭', subject:'Geography'},
+    {key:'psychology',emoji:'🧠',subject:'Psychology'},
+    {key:'sociology',emoji:'👥',subject:'Sociology'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'finearts',emoji:'🎨',subject:'Fine Arts'},
+    {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
+  ],
+  cbse_commerce: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
+    {key:'accountancy',emoji:'📒',subject:'Accountancy'},
+    {key:'bizstudies',emoji:'💼',subject:'Business Studies'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'infoprac',emoji:'📱',subject:'Informatics Practices'},
+    {key:'entrep', emoji:'🚀', subject:'Entrepreneurship'},
+    {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
+  ],
+};
+
+function getSubjects() {
+  if (selClass && (selClass.id === 'kg1')) return SUBJECT_MAP.kg1;
+  if (selClass && (selClass.id === 'kg2')) return SUBJECT_MAP.kg2;
+  if (!isHigherSecondary()) return SUBJECT_MAP.any_lower;
+  const board  = selBoard ? selBoard.id : 'asseb';
+  const stream = selStream ? selStream.id : null;
+  if (!stream) return [];
+  return SUBJECT_MAP[`${board}_${stream}`] || SUBJECT_MAP.any_lower;
+}
+
+const T = {
+  en:{
+    heroTitle:'Your <span class="highlight">AI Study</span> Helper',
+    heroSub:'Select your class & subject, type your question or add a photo — get a clear answer instantly.',
+    lblCls:'Select Class',phCls:'Tap to choose your class…',selCls:'Class',
+    lblSubj:'Choose Subject',phSubj:'Choose your class first…',phSubj2:'Tap to choose your subject…',
+    lblPhoto:'Add Your Question',phPhoto:'Choose subject first…',readyPhoto:'✓ Photo ready',readyText:'✓ Question typed',
+    camTitle:'Camera',camHint:'Open camera directly',galTitle:'Gallery',galHint:'Pick from gallery',
+    retakeCam:'Retake',retakeGal:'Change',
+    sl1:'Class',sl2:'Subject',sl3:'Question',
+    modeTabText:'Type Question',modeTabPhoto:'Add Photo',
+    textPlaceholder:'Type your question here…\ne.g. What is photosynthesis? How do I solve 2x + 5 = 11?',
+    textHint:'💡 Any theory question, definition, or doubt — no photo needed!',
+    placeholder:'Add more detail, or just press ➤…',
+    placeholderTextMode:'Question ready! Press ➤ to get the answer…',
+    placeholderPhotoMode:'Ask anything about the photo, or just press ➤…',
+    aiTag:'✓ AI Answer',
+    copyLabel:'Copy', speakLabel:'Read Aloud', stopLabel:'Stop', followLabel:'Ask Follow-up',
+    followPlaceholder:'Ask something more about this answer…',
+    tip1:'Type any question — theory, definition, formula, or concept.',
+    tip2:'You can ask in Assamese, Bengali, Hindi, or English.',
+    tip3:'Works with typed questions AND photos of books, notes & worksheets.',
+    footer:'Made for students, parents &amp; learners in India 🇮🇳<br/>Powered by Google Gemini AI',
+    subs:{math:'Maths',science:'Science',eng1:'English 1',eng2:'English 2',bn1:'Bengali 1',bn2:'Bengali 2',hindi:'Hindi',evs:'EVS',sst:'SST',gk:'GK',computer:'Computer',moral:'Moral Sci.',history:'History',geo:'Geography',conv:'Conversation'},
+  },
+  bn:{
+    heroTitle:'তোমার <span class="highlight">AI পড়ার</span> সাথী',
+    heroSub:'ক্লাস ও বিষয় বেছে নাও, প্রশ্ন লেখো বা ছবি যোগ করো — এক্ষুনি সহজ উত্তর পাও।',
+    lblCls:'ক্লাস বেছে নাও',phCls:'তোমার ক্লাস বেছে নিতে ট্যাপ করো…',selCls:'ক্লাস',
+    lblSubj:'বিষয় বেছে নাও',phSubj:'আগে ক্লাস বেছে নাও…',phSubj2:'তোমার বিষয় বেছে নিতে ট্যাপ করো…',
+    lblPhoto:'তোমার প্রশ্ন যোগ করো',phPhoto:'আগে বিষয় বেছে নাও…',readyPhoto:'✓ ছবি প্রস্তুত',readyText:'✓ প্রশ্ন লেখা হয়েছে',
+    camTitle:'ক্যামেরা',camHint:'সরাসরি ক্যামেরা খোলো',galTitle:'গ্যালারি',galHint:'গ্যালারি থেকে বেছে নাও',
+    retakeCam:'আবার তোলো',retakeGal:'পরিবর্তন করো',
+    sl1:'ক্লাস',sl2:'বিষয়',sl3:'প্রশ্ন',
+    modeTabText:'প্রশ্ন লেখো',modeTabPhoto:'ছবি যোগ করো',
+    textPlaceholder:'এখানে প্রশ্ন লেখো…\nযেমন: সালোকসংশ্লেষণ কী? এই অঙ্কটা কীভাবে করবো?',
+    textHint:'💡 যেকোনো তাত্ত্বিক প্রশ্ন, সংজ্ঞা বা সন্দেহ — ছবি ছাড়াই!',
+    placeholder:'আরও কিছু লেখো, অথবা ➤ চাপো…',
+    placeholderTextMode:'প্রশ্ন প্রস্তুত! উত্তর পেতে ➤ চাপো…',
+    placeholderPhotoMode:'ছবি সম্পর্কে কিছু জিজ্ঞেস করো, অথবা ➤ চাপো…',
+    aiTag:'✓ AI উত্তর',
+    copyLabel:'কপি', speakLabel:'পড়ে শোনাও', stopLabel:'থামো', followLabel:'আরও জিজ্ঞেস করো',
+    followPlaceholder:'এই উত্তর সম্পর্কে আরও কিছু জিজ্ঞেস করো…',
+    tip1:'যেকোনো তাত্ত্বিক প্রশ্ন, সংজ্ঞা বা সূত্র লিখে জিজ্ঞেস করো।',
+    tip2:'বাংলায়, হিন্দিতে বা ইংরেজিতে প্রশ্ন করতে পারো।',
+    tip3:'লেখা প্রশ্ন এবং বইয়ের ছবি — দুটোতেই কাজ করে।',
+    footer:'ভারতের শিক্ষার্থী, অভিভাবক ও শিক্ষানুরাগীদের জন্য 🇮🇳<br/>Google Gemini AI দ্বারা পরিচালিত',
+    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংরেজি ১',eng2:'ইংরেজি ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দি',evs:'পরিবেশ বিদ্যা',sst:'সমাজবিজ্ঞান',gk:'সাধারণ জ্ঞান',computer:'কম্পিউটার',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
+  },
+  hi:{
+    heroTitle:'तुम्हारा <span class="highlight">AI पढ़ाई</span> साथी',
+    heroSub:'अपनी क्लास और विषय चुनो, सवाल टाइप करो या फोटो डालो — तुरंत आसान जवाब पाओ।',
+    lblCls:'कक्षा चुनो',phCls:'अपनी कक्षा चुनने के लिए टैप करो…',selCls:'कक्षा',
+    lblSubj:'विषय चुनो',phSubj:'पहले कक्षा चुनो…',phSubj2:'अपना विषय चुनने के लिए टैप करो…',
+    lblPhoto:'अपना सवाल डालो',phPhoto:'पहले विषय चुनो…',readyPhoto:'✓ फोटो तैयार',readyText:'✓ सवाल टाइप हो गया',
+    camTitle:'कैमरा',camHint:'सीधे कैमरा खोलो',galTitle:'गैलरी',galHint:'गैलरी से चुनो',
+    retakeCam:'फिर खींचो',retakeGal:'बदलो',
+    sl1:'कक्षा',sl2:'विषय',sl3:'सवाल',
+    modeTabText:'सवाल टाइप करो',modeTabPhoto:'फोटो डालो',
+    textPlaceholder:'यहाँ सवाल लिखो…\nजैसे: प्रकाश संश्लेषण क्या है? यह समीकरण कैसे हल करें?',
+    textHint:'💡 कोई भी थ्योरी सवाल, परिभाषा या शंका — बिना फोटो के!',
+    placeholder:'और कुछ लिखो, या बस ➤ दबाओ…',
+    placeholderTextMode:'सवाल तैयार है! जवाब पाने के लिए ➤ दबाओ…',
+    placeholderPhotoMode:'फोटो के बारे में कुछ पूछो, या बस ➤ दबाओ…',
+    aiTag:'✓ AI जवाब',
+    copyLabel:'कॉपी', speakLabel:'पढ़कर सुनाओ', stopLabel:'रोको', followLabel:'और पूछो',
+    followPlaceholder:'इस जवाब के बारे में और कुछ पूछो…',
+    tip1:'कोई भी थ्योरी सवाल, परिभाषा या फॉर्मूला टाइप करके पूछो।',
+    tip2:'हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
+    tip3:'टाइप किए सवाल और किताब की फोटो — दोनों पर काम करता है।',
+    footer:'भारत के छात्रों, माता-पिता और सीखने वालों के लिए 🇮🇳<br/>Google Gemini AI द्वारा संचालित',
+    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংৰাজী ১',eng2:'ইংৰাজী ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দী',evs:'পৰিবেশ',sst:'সমাজ বিজ্ঞান',gk:'সাধাৰণ জ্ঞান',computer:'কম্পিউটাৰ',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
+  },
+  as:{
+    heroTitle:'তোমাৰ <span class="highlight">AI পঢ়াৰ</span> সঙ্গী',
+    heroSub:'শ্ৰেণী আৰু বিষয় বাছো, প্ৰশ্ন লিখা বা ফটো যোগ কৰা — তৎক্ষণাৎ সহজ উত্তৰ পোৱা।',
+    lblCls:'শ্ৰেণী বাছো',phCls:'তোমাৰ শ্ৰেণী বাছিবলৈ টেপ কৰা…',selCls:'শ্ৰেণী',
+    lblSubj:'বিষয় বাছো',phSubj:'আগতে শ্ৰেণী বাছা…',phSubj2:'তোমাৰ বিষয় বাছিবলৈ টেপ কৰা…',
+    lblPhoto:'তোমাৰ প্ৰশ্ন যোগ কৰা',phPhoto:'আগতে বিষয় বাছা…',readyPhoto:'✓ ফটো প্ৰস্তুত',readyText:'✓ প্ৰশ্ন লিখা হৈছে',
+    camTitle:'কেমেৰা',camHint:'পোনপটীয়াকৈ কেমেৰা খোলা',galTitle:'গেলাৰী',galHint:'গেলাৰীৰ পৰা বাছা',
+    retakeCam:'পুনৰ তোলা',retakeGal:'সলনি কৰা',
+    sl1:'শ্ৰেণী',sl2:'বিষয়',sl3:'প্ৰশ্ন',
+    modeTabText:'প্ৰশ্ন লিখা',modeTabPhoto:'ফটো যোগ কৰা',
+    textPlaceholder:'ইয়াত প্ৰশ্ন লিখা…\nযেনে: সালোক-সংশ্লেষণ কি? এই সমীকৰণটো কেনেকৈ সমাধান কৰিম?',
+    textHint:'💡 যিকোনো তাত্ত্বিক প্ৰশ্ন, সংজ্ঞা বা সন্দেহ — ফটো নোহোৱাকৈ!',
+    placeholder:'আৰু কিবা লিখা, অথবা ➤ টিপা…',
+    placeholderTextMode:'প্ৰশ্ন প্ৰস্তুত! উত্তৰ পাবলৈ ➤ টিপা…',
+    placeholderPhotoMode:'ফটোৰ বিষয়ে কিবা সুধা, অথবা ➤ টিপা…',
+    aiTag:'✓ AI উত্তৰ',
+    copyLabel:'কপি', speakLabel:'পঢ়ি শুনোৱা', stopLabel:'থমা', followLabel:'আৰু সুধা',
+    followPlaceholder:'এই উত্তৰৰ বিষয়ে আৰু কিবা সুধা…',
+    tip1:'যিকোনো তাত্ত্বিক প্ৰশ্ন, সংজ্ঞা বা সূত্ৰ লিখি সুধা।',
+    tip2:'অসমীয়া, বাংলা, হিন্দী বা ইংৰাজীত প্ৰশ্ন কৰিব পাৰা।',
+    tip3:'লিখা প্ৰশ্ন আৰু কিতাপৰ ফটো — দুয়োটাতে কাম কৰে।',
+    footer:'ভাৰতৰ শিক্ষাৰ্থী, অভিভাৱক আৰু শিকাৰুসকলৰ বাবে 🇮🇳<br/>Google Gemini AI দ্বাৰা পৰিচালিত',
+    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংৰাজী ১',eng2:'ইংৰাজী ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দী',evs:'পৰিবেশ বিদ্যা',sst:'সমাজ বিজ্ঞান',gk:'সাধাৰণ জ্ঞান',computer:'কম্পিউটাৰ',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
+  }
+};
+
+// ── STEPPER ──
+function updateStepper() {
+  const hs = isHigherSecondary();
+  // Show/hide stream step nodes and lines
+  document.getElementById('sl-line3').style.display = hs ? '' : 'none';
+  document.getElementById('sn4').style.display       = hs ? '' : 'none';
+  document.getElementById('card3').style.display     = hs ? '' : 'none';
+
+  // Relabel steps
+  if (hs) {
+    document.getElementById('sl1').textContent = 'Board';
+    document.getElementById('sl2').textContent = 'Class';
+    document.getElementById('sl3').textContent = 'Stream';
+    document.getElementById('sl4').textContent = 'Question';
+    // sn3 circles show 3 (stream), sn4 shows 4 (question)
+  } else {
+    document.getElementById('sl1').textContent = 'Board';
+    document.getElementById('sl2').textContent = 'Class';
+    document.getElementById('sl3').textContent = 'Question';
+  }
+
+  const s1d = !!selBoard;
+  const s2d = !!selClass;
+  const s3d = hs ? !!selStream : (currentMode === 'photo' ? !!curB64 : !!document.getElementById('textQInput').value.trim());
+  const s4d = hs ? (currentMode === 'photo' ? !!curB64 : !!document.getElementById('textQInput').value.trim()) : false;
+
+  const stateOf = (done, prevDone) => done ? 'done' : prevDone ? 'active' : '';
+  document.getElementById('sn1').className = 'step-node ' + (s1d ? 'done' : 'active');
+  document.getElementById('sn2').className = 'step-node ' + stateOf(s2d, s1d);
+  document.getElementById('sn3').className = 'step-node ' + stateOf(s3d, s2d);
+  if (hs) document.getElementById('sn4').className = 'step-node ' + stateOf(s4d, s3d);
+
+  document.getElementById('sl-line1').classList.toggle('filled', s1d);
+  document.getElementById('sl-line2').classList.toggle('filled', s2d);
+  if (hs) document.getElementById('sl-line3').classList.toggle('filled', s3d);
+}
+
+// ── PANEL TOGGLE ──
+function togglePanel(n) {
+  if (n === 2 && !selBoard) return;
+  if (n === 3 && !selClass) return;
+  if (n === 4 && (!selClass || (isHigherSecondary() && !selStream))) return;
+  const dp = document.getElementById('dp'+n);
+  const hdr = document.getElementById('hdr'+n);
+  const isOpen = dp.classList.contains('open');
+  closeAllPanels();
+  if (!isOpen) {
+    if (n===1) buildBoardGrid();
+    else if (n===2) buildClassGrid();
+    else if (n===3) buildStreamGrid();
+    else buildSubjGrid();
+    dp.classList.add('open');
+    hdr.classList.add('open');
+    openDP = n;
+  }
+}
+
+function closeAllPanels() {
+  [1,2,3,4].forEach(n => {
+    const dp = document.getElementById('dp'+n);
+    const hdr = document.getElementById('hdr'+n);
+    if (dp) dp.classList.remove('open');
+    if (hdr) hdr.classList.remove('open');
+  });
+  openDP = 0;
+}
+
+document.addEventListener('click', e => {
+  const cards = [1,2,3,4].map(n => document.getElementById('card'+n)).filter(Boolean);
+  if (!cards.some(c => c.contains(e.target))) closeAllPanels();
+});
+
+// ── BOARD GRID ──
+function buildBoardGrid() {
+  const g = document.getElementById('boardGrid'); g.innerHTML = '';
+  BOARDS.forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'board-chip' + (selBoard && selBoard.id === b.id ? ' sel' : '');
+    el.innerHTML = `<span class="board-name">${b.name}</span><span class="board-desc">${b.hint}</span>`;
+    el.onclick = () => pickBoard(b);
+    g.appendChild(el);
+  });
+}
+
+function pickBoard(b) {
+  selBoard = b;
+  selClass = null; selStream = null; selSubj = null;
+  const v = document.getElementById('val-board');
+  v.textContent = b.name + ' — ' + b.desc;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr1').classList.add('done-s');
+  closeAllPanels();
+
+  // Reset downstream
+  document.getElementById('val-cls').textContent = 'Tap to choose your class…';
+  document.getElementById('val-cls').className = 'hdr-val ph';
+  document.getElementById('hdr2').classList.remove('done-s');
+  document.getElementById('val-subj').textContent = 'Choose your class first…';
+  document.getElementById('val-subj').className = 'hdr-val ph';
+  document.getElementById('hdr4').classList.remove('done-s');
+  document.getElementById('card3').style.display = 'none';
+
+  // Unlock class card
+  const c2 = document.getElementById('card2');
+  c2.classList.remove('locked');
+  const h2 = document.getElementById('hdr2');
+  h2.classList.add('pulse-once');
+  setTimeout(() => h2.classList.remove('pulse-once'), 800);
+
+  updateStepper();
+  setTimeout(() => togglePanel(2), 320);
+}
+
+// ── CLASS GRID ──
+function buildClassGrid() {
+  const g = document.getElementById('classGrid'); g.innerHTML='';
+  CLASSES.forEach(cls => {
+    const el = document.createElement('div');
+    el.className = 'cls-chip' + (selClass&&selClass.id===cls.id?' sel':'');
+    el.innerHTML = `<span class="cls-num">${cls.num}</span><span class="cls-sub">${cls.label}</span>`;
+    el.onclick = () => pickClass(cls);
+    g.appendChild(el);
+  });
+}
+
+function pickClass(cls) {
+  selClass = cls;
+  selStream = null; selSubj = null;
+  const t = T[currentLang];
+  const v = document.getElementById('val-cls');
+  v.textContent = `${cls.num} (${cls.label})`;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr2').classList.add('done-s');
+  closeAllPanels();
+
+  // Reset subject
+  const vs = document.getElementById('val-subj');
+  vs.textContent = 'Choose your class first…';
+  vs.className = 'hdr-val ph';
+  document.getElementById('hdr4').classList.remove('done-s');
+  document.getElementById('card4').classList.add('locked');
+  document.getElementById('card5').classList.add('locked');
+  document.getElementById('modeToggleWrap').style.display = 'none';
+
+  if (isHigherSecondary()) {
+    // Show stream step, lock subject until stream picked
+    document.getElementById('card3').style.display = '';
+    document.getElementById('card3').classList.remove('locked');
+    document.getElementById('val-stream').textContent = 'Choose your stream…';
+    document.getElementById('val-stream').className = 'hdr-val ph';
+    document.getElementById('hdr3').classList.remove('done-s');
+    updateStepper();
+    setTimeout(() => togglePanel(3), 320);
+  } else {
+    // Hide stream, go directly to subject
+    document.getElementById('card3').style.display = 'none';
+    const vs2 = document.getElementById('val-subj');
+    vs2.textContent = t.phSubj2 || 'Tap to choose your subject…';
+
+    const c4 = document.getElementById('card4');
+    c4.classList.remove('locked');
+    const h4 = document.getElementById('hdr4');
+    h4.classList.add('pulse-once');
+    setTimeout(() => h4.classList.remove('pulse-once'), 800);
+    updateStepper();
+    setTimeout(() => togglePanel(4), 320);
+  }
+}
+
+// ── STREAM GRID ──
+function buildStreamGrid() {
+  const g = document.getElementById('streamGrid'); g.innerHTML = '';
+  STREAMS.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'stream-chip' + (selStream && selStream.id === s.id ? ' sel' : '');
+    el.innerHTML = `<span class="stream-emoji">${s.emoji}</span><span class="stream-name">${s.name}</span>`;
+    el.onclick = () => pickStream(s);
+    g.appendChild(el);
+  });
+}
+
+function pickStream(s) {
+  selStream = s;
+  selSubj = null;
+  const v = document.getElementById('val-stream');
+  v.textContent = `${s.emoji}  ${s.name}`;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr3').classList.add('done-s');
+  closeAllPanels();
+
+  // Reset subject
+  const vs = document.getElementById('val-subj');
+  vs.textContent = 'Tap to choose your subject…';
+  vs.className = 'hdr-val ph';
+  document.getElementById('hdr4').classList.remove('done-s');
+
+  // Unlock subject
+  const c4 = document.getElementById('card4');
+  c4.classList.remove('locked');
+  const h4 = document.getElementById('hdr4');
+  h4.classList.add('pulse-once');
+  setTimeout(() => h4.classList.remove('pulse-once'), 800);
+  updateStepper();
+  setTimeout(() => togglePanel(4), 320);
+}
+
+// ── SUBJECT GRID ──
+function buildSubjGrid() {
+  const g = document.getElementById('subjGrid'); g.innerHTML='';
+  const subs = getSubjects();
+  subs.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'subj-chip' + (selSubj&&selSubj.key===s.key?' sel':'');
+    el.innerHTML = `<span class="subj-emoji">${s.emoji}</span><span class="subj-name">${s.subject}</span>`;
+    el.onclick = () => pickSubj(s);
+    g.appendChild(el);
+  });
+}
+
+function pickSubj(s) {
+  selSubj = s;
+  const t = T[currentLang];
+  const v = document.getElementById('val-subj');
+  v.textContent = `${s.emoji}  ${s.subject}`;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr4').classList.add('done-s');
+  document.getElementById('rtag-sj').textContent = s.subject;
+  closeAllPanels();
+
+  // Unlock question card
+  const c5 = document.getElementById('card5');
+  c5.classList.remove('locked');
+  const h5 = document.getElementById('hdr5');
+  h5.classList.add('pulse-once');
+  setTimeout(()=>h5.classList.remove('pulse-once'),800);
+
+  // Update photo header value
+  const vp = document.getElementById('val-photo');
+  vp.textContent = t.lblPhoto;
+  vp.classList.remove('ph');
+
+  // Show mode toggle
+  document.getElementById('modeToggleWrap').style.display = 'flex';
+
+  // Default to text mode
+  setMode('text');
+
+  updateStepper();
+  setTimeout(()=>document.getElementById('card5').scrollIntoView({behavior:'smooth',block:'nearest'}),180);
+}
+
+// ── FILE ──
+function onFile(e) {
+  const f = e.target.files[0];
+  if (f) processFile(f);
+  e.target.value='';
+}
+
+function processFile(f) {
+  curFile=f;
+  const r=new FileReader();
+  r.onload=ev=>{
+    curB64=ev.target.result.split(',')[1];
+    document.getElementById('previewImg').src=ev.target.result;
+    document.getElementById('previewBlock').style.display='block';
+    document.getElementById('photoBtns').style.display='none';
+    // Expand photo body and show the ask bar now that image is ready
+    document.getElementById('photoBody').style.maxHeight='520px';
+    const bar = document.getElementById('photoAskBar');
+    if (bar) {
+      bar.style.display = 'block';
+      // focus context input after a moment
+      setTimeout(() => { const ai = document.getElementById('askInput'); if(ai) ai.focus(); }, 300);
+    }
+    updateStep3HeaderPhoto();
+    updateStepper();
+  };
+  r.readAsDataURL(f);
+}
+
+function removeImage() {
+  curFile=null; curB64=null;
+  document.getElementById('previewBlock').style.display='none';
+  document.getElementById('photoBtns').style.display='grid';
+  const bar = document.getElementById('photoAskBar');
+  if (bar) bar.style.display = 'none';
+  // clear context input
+  const ai = document.getElementById('askInput');
+  if (ai) ai.value = '';
+  document.getElementById('photoBody').style.maxHeight='320px';
+  updateStep3HeaderPhoto();
+  updateStepper();
+}
+
+// ── LANG ──
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + lang).classList.add('active');
+  applyLang(lang);
+
+  // If an answer is currently showing, retranslate it
+  const rc = document.getElementById('resultCard');
+  if (lastPayload && rc.classList.contains('visible')) {
+    retranslate(lang);
+  }
+}
+
+function applyLang(lang) {
+  const t=T[lang];
+  document.getElementById('h-title').innerHTML=t.heroTitle;
+  document.getElementById('h-sub').textContent=t.heroSub.replace(/<[^>]+>/g,'');
+  document.getElementById('sl1').textContent='Board';
+  document.getElementById('sl2').textContent=t.sl1; // Class
+  document.getElementById('sl3').textContent=isHigherSecondary() ? 'Stream' : t.sl2; // Subject or Stream
+  const sl4 = document.getElementById('sl4');
+  if (sl4) sl4.textContent=t.sl3; // Question
+  document.getElementById('lbl-board').textContent='Select Board';
+  document.getElementById('lbl-cls').textContent=t.lblCls;
+  document.getElementById('lbl-subj').textContent=t.lblSubj;
+  document.getElementById('lbl-photo').textContent=t.lblPhoto;
+  document.getElementById('cam-title').textContent=t.camTitle;
+  document.getElementById('cam-hint').textContent=t.camHint;
+  document.getElementById('gal-title').textContent=t.galTitle;
+  document.getElementById('gal-hint').textContent=t.galHint;
+  document.getElementById('lbl-retake-cam').textContent=t.retakeCam;
+  document.getElementById('lbl-retake-gal').textContent=t.retakeGal;
+  document.getElementById('mode-tab-text-label').textContent=t.modeTabText;
+  document.getElementById('mode-tab-photo-label').textContent=t.modeTabPhoto;
+  document.getElementById('textQInput').placeholder=t.textPlaceholder;
+  document.getElementById('textQHint').textContent=t.textHint;
+  const aiEl = document.getElementById('askInput');
+  if (aiEl) aiEl.placeholder = t.placeholderPhotoMode;
+  document.getElementById('tip1').textContent=t.tip1;
+  document.getElementById('tip2').textContent=t.tip2;
+  document.getElementById('tip3').textContent=t.tip3;
+  document.getElementById('footerNote').innerHTML=t.footer;
+  document.getElementById('rtag-ai').textContent=t.aiTag;
+  if (t.copyLabel)   document.getElementById('copyLabel').textContent   = t.copyLabel;
+  if (t.speakLabel)  document.getElementById('speakLabel').textContent  = isSpeaking ? (t.stopLabel||'Stop') : t.speakLabel;
+  if (t.followLabel) document.getElementById('followLabel').textContent = t.followLabel;
+  if (t.followPlaceholder) document.getElementById('followupInput').placeholder = t.followPlaceholder;
+  if(!selBoard){const v=document.getElementById('val-board');v.textContent='Tap to choose your board…';v.classList.add('ph');}
+  if(!selClass){const v=document.getElementById('val-cls');v.textContent=selBoard?t.phCls:'Choose your board first…';v.classList.add('ph');}
+  if(!selSubj){const v=document.getElementById('val-subj');v.textContent=selClass?t.phSubj2:t.phSubj;v.classList.add('ph');}
+  if(!selSubj){const v=document.getElementById('val-photo');if(!selSubj){v.textContent=t.phPhoto;v.classList.add('ph');}}
+  else {
+    if(currentMode==='text') updateStep3HeaderText();
+    else updateStep3HeaderPhoto();
+  }
+}
+
+// ── RETRANSLATE ──
+async function retranslate(lang) {
+  const rb = document.getElementById('resultBody');
+  const rc = document.getElementById('resultCard');
+  const t  = T[lang];
+
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  rc.classList.remove('answered');
+  rc.classList.add('thinking');
+  document.getElementById('rtag-ai').textContent = t.aiTag;
+  showThinking();
+  startThinkingMessages();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const payload = { ...lastPayload, lang };
+
+  try {
+    const res  = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    stopThinkingMessages();
+    hideThinking();
+
+    setTimeout(() => {
+      if (!res.ok || data.error) {
+        rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Translation failed.'}</span>`;
+      } else {
+        lastAnswerText = data.answer;
+        typeText(rb, data.answer, null, null); // null = don't add to history (retranslation)
+        rc.classList.remove('thinking');
+        rc.classList.add('answered');
+      }
+      rb.classList.add('reveal');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 320);
+  } catch (e) {
+    stopThinkingMessages();
+    hideThinking();
+    setTimeout(() => {
+      rb.innerHTML = `<span style="color:var(--danger)">❌ Translation failed. Check your connection.</span>`;
+      rb.classList.add('reveal');
+    }, 320);
+  }
+}
+
+// ── THINKING ENGINE ──
+const THINKING_MSGS = {
+  en: [
+    { label: 'Reading your question…',      sub: 'StudyLens AI is thinking' },
+    { label: 'Understanding the topic…',    sub: 'Connecting concepts for you' },
+    { label: 'Building your answer…',       sub: 'Step by step, just for you' },
+    { label: 'Almost ready…',               sub: 'Adding the final touches' },
+  ],
+  bn: [
+    { label: 'তোমার প্রশ্ন পড়ছি…',          sub: 'StudyLens AI ভাবছে' },
+    { label: 'বিষয়টি বুঝছি…',               sub: 'তোমার জন্য সংযোগ তৈরি হচ্ছে' },
+    { label: 'উত্তর তৈরি হচ্ছে…',            sub: 'ধাপে ধাপে, শুধু তোমার জন্য' },
+    { label: 'প্রায় প্রস্তুত…',              sub: 'শেষ মুহূর্তের কাজ চলছে' },
+  ],
+  hi: [
+    { label: 'तुम्हारा सवाल पढ़ रहे हैं…',   sub: 'StudyLens AI सोच रहा है' },
+    { label: 'विषय को समझ रहे हैं…',         sub: 'तुम्हारे लिए जोड़ रहे हैं' },
+    { label: 'जवाब तैयार हो रहा है…',        sub: 'कदम-दर-कदम, सिर्फ तुम्हारे लिए' },
+    { label: 'लगभग तैयार…',                  sub: 'आखिरी काम चल रहा है' },
+  ],
+  as: [
+    { label: 'তোমাৰ প্ৰশ্ন পঢ়িছো…',         sub: 'StudyLens AI চিন্তা কৰিছে' },
+    { label: 'বিষয়টো বুজিছো…',              sub: 'তোমাৰ বাবে সংযোগ তৈয়াৰ হৈছে' },
+    { label: 'উত্তৰ তৈয়াৰ হৈছে…',           sub: 'পদক্ষেপে পদক্ষেপে, মাত্ৰ তোমাৰ বাবে' },
+    { label: 'প্ৰায় প্ৰস্তুত…',             sub: 'শেষৰ কাম চলিছে' },
+  ],
+};
+
+let _thinkingTimer = null;
+let _thinkingIdx   = 0;
+
+function showThinking() {
+  document.getElementById('thinkingPanel').classList.add('visible');
+}
+function hideThinking() {
+  document.getElementById('thinkingPanel').classList.remove('visible');
+}
+function startThinkingMessages() {
+  _thinkingIdx = 0;
+  _cycleThinkingMsg();
+}
+function stopThinkingMessages() {
+  if (_thinkingTimer) { clearTimeout(_thinkingTimer); _thinkingTimer = null; }
+}
+function _cycleThinkingMsg() {
+  const msgs = THINKING_MSGS[currentLang] || THINKING_MSGS.en;
+  const m = msgs[_thinkingIdx % msgs.length];
+  const lbl = document.getElementById('thinkingLabel');
+  const sub = document.getElementById('thinkingSub');
+  if (lbl) { lbl.style.opacity = '0'; setTimeout(() => { lbl.textContent = m.label; lbl.style.opacity = '1'; }, 200); }
+  if (sub) sub.textContent = m.sub;
+  _thinkingIdx++;
+  // Cycle every 2.2s — feels patient and calm
+  if (_thinkingIdx < msgs.length) {
+    _thinkingTimer = setTimeout(_cycleThinkingMsg, 2200);
+  }
+  // Stay on last message until answer arrives
+}
+
+// ── ASK ──
+async function askQuestion() {
+  const t = T[currentLang];
+  const err = document.getElementById('errorMsg');
+  err.classList.remove('visible');
+  const rc = document.getElementById('resultCard');
+  const rb = document.getElementById('resultBody');
+
+  const rCl = document.getElementById('rtag-cl');
+  if (selClass) { 
+    let clsLabel = selClass.num + ' (' + selClass.label + ')';
+    if (selBoard) clsLabel = selBoard.shortName + ' · ' + clsLabel;
+    if (selStream) clsLabel += ' · ' + selStream.name;
+    rCl.textContent = clsLabel; 
+    rCl.style.display = ''; 
+  }
+  else rCl.style.display = 'none';
+
+  // Disable all send buttons
+  ['askBtnText','askBtnPhoto'].forEach(id => {
+    const b = document.getElementById(id); if(b) b.disabled = true;
+  });
+
+  // ── Validate FIRST before showing anything ──
+  // ── Classify subject type for better AI prompting ──
+  function getSubjectType(subj) {
+    if (!subj) return 'general';
+    const k = subj.key || '';
+    const s = (subj.subject || '').toLowerCase();
+    if (['math','stats'].includes(k) || s.includes('math') || s.includes('statistic')) return 'math';
+    if (['physics'].includes(k) || s.includes('physics')) return 'physics';
+    if (['chemistry'].includes(k) || s.includes('chemistry')) return 'chemistry';
+    if (['biology','biotech'].includes(k) || s.includes('biology') || s.includes('biotech')) return 'biology';
+    if (['computer','infoprac'].includes(k) || s.includes('computer') || s.includes('programming')) return 'computer';
+    if (['accountancy','bizstudies','economics','finance','insurance','salesmgmt','entrep'].includes(k)) return 'commerce';
+    if (['history','polsci','geo','sociology','psychology','education','logic','sst'].includes(k)) return 'humanities';
+    if (['eng','eng1','eng2','hindi','assamese','bengali','mil','sanskrit','arabic'].includes(k)) return 'language';
+    if (['evs','envscience'].includes(k) || s.includes('environment')) return 'environment';
+    return 'general';
+  }
+
+  let payload = {
+    lang: currentLang,
+    board: selBoard ? selBoard.name : '',
+    className: selClass ? `${selClass.num} (${selClass.label})` : '',
+    stream: selStream ? selStream.name : '',
+    subject: selSubj ? selSubj.subject : '',
+    subjectType: getSubjectType(selSubj),
+  };
+
+  if (currentMode === 'text') {
+    // The big unified textarea IS the question
+    const typedQ = document.getElementById('textQInput').value.trim();
+    if (!typedQ) {
+      showError('❌ Please type your question first.');
+      ['askBtnText','askBtnPhoto'].forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; });
+      return;
+    }
+    payload.mode = 'text';
+    payload.question = typedQ;
+  } else {
+    // Photo mode: image is required; askInput is optional extra context
+    if (!curB64 || !curFile) {
+      showError('❌ Please add a photo first, or switch to "Type Question" mode.');
+      ['askBtnText','askBtnPhoto'].forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; });
+      return;
+    }
+    const extraCtx = (document.getElementById('askInput') || {}).value || '';
+    payload.mode = 'photo';
+    payload.imageBase64 = curB64;
+    payload.imageMime = curFile.type || 'image/jpeg';
+    payload.question = extraCtx.trim();
+  }
+
+  // Capture image data URL now (before any state changes)
+  const _imageDataUrl = (currentMode === 'photo' && curB64)
+    ? document.getElementById('previewImg').src
+    : null;
+
+  // Save payload so language switcher can retranslate
+  lastPayload = { ...payload };
+
+  // ── Now show the card and start thinking ──
+  rc.classList.add('visible', 'thinking');
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  hideActionsBar();
+  stopSpeak();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  requestAnimationFrame(() => requestAnimationFrame(() => rc.classList.add('animate-in')));
+  showThinking();
+  startThinkingMessages();
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `Server error (${res.status})`);
+    }
+
+    stopThinkingMessages();
+    hideThinking();
+
+    // Brief pause so hiding animation plays before answer appears
+    setTimeout(() => {
+      lastAnswerText = data.answer;
+      typeText(rb, data.answer, payload, _imageDataUrl);
+      rb.classList.add('reveal');
+      rc.classList.remove('thinking');
+      rc.classList.add('answered');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector('.lang-bar').classList.add('has-answer');
+    }, 320);
+
+  } catch (e) {
+    stopThinkingMessages();
+    hideThinking();
+    showError(e.message || '❌ Something went wrong. Please try again.');
+    rc.classList.remove('visible', 'thinking', 'answered', 'animate-in');
+  }
+
+  ['askBtnText','askBtnPhoto'].forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; });
+}
+
+function showError(msg) {
+  const err = document.getElementById('errorMsg');
+  const rc  = document.getElementById('resultCard');
+  err.textContent = msg;
+  err.classList.add('visible');
+  rc.classList.remove('visible', 'thinking', 'answered', 'animate-in');
+  document.querySelector('.lang-bar').classList.remove('has-answer');
+  lastPayload = null;
+}
+
+function typeText(el, text, payload, imageDataUrl) {
+  // Format markdown → HTML first
+  const formatted = fmt(text);
+
+  // For short answers, just show immediately with a quick fade
+  if (text.length < 200) {
+    el.innerHTML = formatted;
+    el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (payload) saveToHistory(payload, text, formatted, imageDataUrl || null);
+    showActionsBar();
+    return;
+  }
+
+  // For longer answers: type plain text (stripped of markdown/math) char by char,
+  // then swap to the fully-formatted version when done — avoids re-rendering KaTeX on every frame.
+  const plain = text
+    .replace(/\$\$([\s\S]+?)\$\$/g, '…')
+    .replace(/\\\[([\s\S]+?)\\\]/g, '…')
+    .replace(/\$([^\$\n]{1,400}?)\$/g, '…')
+    .replace(/\\\(([^)]{1,400}?)\\\)/g, '…')
+    .replace(/\\ce\{[^}]*\}/g, '…')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/^#{1,3}\s+/gm, '')
+    .trim();
+
+  const words = plain.split(' ');
+  let shown = 0;
+  el.innerHTML = '';
+
+  function n() {
+    if (shown < words.length) {
+      const partial = words.slice(0, shown + 1).join(' ');
+      el.innerHTML = partial + '<span class="typing-cursor"></span>';
+      shown++;
+      el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Faster typing speed: front-load speed, then accelerate
+      const delay = shown < 20 ? 28 : shown < 60 ? 16 : 8;
+      setTimeout(n, delay);
+    } else {
+      // Swap to full formatted version
+      el.innerHTML = formatted;
+      el.closest('.result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (payload) saveToHistory(payload, text, formatted, imageDataUrl || null);
+      showActionsBar();
+    }
+  }
+  n();
+}
+// ── ANSWER ACTIONS ──
+let lastAnswerText = '';
+let speakUtterance = null;
+let isSpeaking = false;
+
+function showActionsBar() {
+  // Hide first in case retranslating
+  const bar = document.getElementById('ansActions');
+  bar.classList.remove('visible');
+  setTimeout(() => bar.classList.add('visible'), 100);
+}
+
+function hideActionsBar() {
+  document.getElementById('ansActions').classList.remove('visible');
+  // Also close follow-up if open
+  document.getElementById('followupArea').classList.remove('open');
+  // Hide quiz card
+  const qc = document.getElementById('quizCard');
+  if (qc) qc.style.display = 'none';
+  const qb = document.getElementById('quizBtn');
+  if (qb) qb.classList.remove('active');
+  quizState = { questions: [], answers: [], score: 0, done: false };
+  stopSpeak();
+}
+
+// ── COPY ──
+function copyAnswer() {
+  if (!lastAnswerText) return;
+  const btn  = document.getElementById('copyBtn');
+  const lbl  = document.getElementById('copyLabel');
+  navigator.clipboard.writeText(lastAnswerText).then(() => {
+    btn.classList.add('copied');
+    lbl.textContent = 'Copied!';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      lbl.textContent = 'Copy';
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = lastAnswerText;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.classList.add('copied');
+    lbl.textContent = 'Copied!';
+    setTimeout(() => { btn.classList.remove('copied'); lbl.textContent = 'Copy'; }, 2000);
+  });
+}
+
+// ── READ ALOUD ──
+function toggleSpeak() {
+  if (isSpeaking) { stopSpeak(); return; }
+  if (!lastAnswerText || !window.speechSynthesis) return;
+
+  const btn = document.getElementById('speakBtn');
+  const lbl = document.getElementById('speakLabel');
+
+  // Strip markdown for clean speech
+  const cleanText = lastAnswerText
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,3}\s/g, '')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/💡/g, '.')
+    .trim();
+
+  speakUtterance = new SpeechSynthesisUtterance(cleanText);
+
+  // Match language
+  const langMap = { en: 'en-IN', bn: 'bn-IN', hi: 'hi-IN', as: 'as-IN' };
+  speakUtterance.lang = langMap[currentLang] || 'en-IN';
+  speakUtterance.rate = 0.92;
+  speakUtterance.pitch = 1.05;
+
+  speakUtterance.onstart = () => {
+    isSpeaking = true;
+    btn.classList.add('speaking');
+    lbl.textContent = 'Stop';
+  };
+  speakUtterance.onend = speakUtterance.onerror = () => {
+    isSpeaking = false;
+    btn.classList.remove('speaking');
+    lbl.textContent = 'Read Aloud';
+  };
+
+  window.speechSynthesis.speak(speakUtterance);
+}
+
+function stopSpeak() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  isSpeaking = false;
+  const btn = document.getElementById('speakBtn');
+  const lbl = document.getElementById('speakLabel');
+  if (btn) { btn.classList.remove('speaking'); }
+  if (lbl) lbl.textContent = 'Read Aloud';
+}
+
+// ── FOLLOW-UP ──
+function toggleFollowup() {
+  const area  = document.getElementById('followupArea');
+  const input = document.getElementById('followupInput');
+  const btn   = document.getElementById('followBtn');
+  const isOpen = area.classList.contains('open');
+  if (isOpen) {
+    area.classList.remove('open');
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  } else {
+    area.classList.add('open');
+    btn.style.borderColor = 'var(--accent2)';
+    btn.style.color = 'var(--accent2)';
+    setTimeout(() => input.focus(), 350);
+  }
+}
+
+async function sendFollowup() {
+  const input = document.getElementById('followupInput');
+  const q = input.value.trim();
+  if (!q) return;
+
+  // Build follow-up payload — inject previous answer as context
+  const contextQ = `Previous answer for context:\n${lastAnswerText}\n\nFollow-up question: ${q}`;
+  const payload = {
+    ...lastPayload,
+    lang: currentLang,
+    mode: 'text',
+    question: contextQ,
+    imageBase64: undefined,
+    imageMime: undefined,
+  };
+
+  // Close follow-up input, reset
+  document.getElementById('followupArea').classList.remove('open');
+  document.getElementById('followBtn').style.borderColor = '';
+  document.getElementById('followBtn').style.color = '';
+  input.value = '';
+
+  // Trigger full answer flow
+  const rb = document.getElementById('resultBody');
+  const rc = document.getElementById('resultCard');
+  hideActionsBar();
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  rc.classList.remove('answered');
+  rc.classList.add('thinking');
+  showThinking();
+  startThinkingMessages();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const res  = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    stopThinkingMessages(); hideThinking();
+    setTimeout(() => {
+      if (!res.ok || data.error) {
+        rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Something went wrong.'}</span>`;
+      } else {
+        lastAnswerText = data.answer;
+        lastPayload = { ...payload, question: q }; // store clean question for retranslate
+        typeText(rb, data.answer, { ...payload, question: q }, null);
+        rc.classList.remove('thinking'); rc.classList.add('answered');
+      }
+      rb.classList.add('reveal');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 320);
+  } catch (e) {
+    stopThinkingMessages(); hideThinking();
+    setTimeout(() => {
+      rb.innerHTML = `<span style="color:var(--danger)">❌ Connection error. Please try again.</span>`;
+      rb.classList.add('reveal');
+    }, 320);
+  }
+}
+
+// Enter key on follow-up input — merged into main DOMContentLoaded below
+
+function fmt(t) {
+  // ── Helper: render a LaTeX string with KaTeX (mhchem loaded, so \ce{} works inside math too)
+  function renderKatex(expr, display) {
+    if (typeof katex === 'undefined') return display ? `<div class="ans-formula"><code>${expr}</code></div>` : `<code>${expr}</code>`;
+    try {
+      const rendered = katex.renderToString(expr, { displayMode: display, throwOnError: false, strict: false });
+      if (display) {
+        return rendered; // wrapped in .ans-formula div by caller
+      }
+      return rendered;
+    } catch(e) {
+      return display ? `<div class="ans-formula"><code>${expr}</code></div>` : `<code>${expr}</code>`;
+    }
+  }
+
+  // ── Helper: extract balanced braces content starting AFTER the opening {
+  function extractBalanced(str, start) {
+    let depth = 1, i = start;
+    while (i < str.length && depth > 0) {
+      if (str[i] === '{') depth++;
+      else if (str[i] === '}') depth--;
+      i++;
+    }
+    return str.slice(start, i - 1);
+  }
+
+  const blocks = []; // {type:'dmath'|'imath'|'chem'|'chemblock'|'code', content:string, lang?:string}
+
+  // ── Step 0: Protect fenced code blocks ```lang ... ```
+  t = t.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'code', content: code.trim(), lang: lang || '' });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 1: Protect $$ ... $$ display math (may contain \ce{} — KaTeX handles it natively)
+  t = t.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'dmath', content: math.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 2: Protect \[ ... \] display math
+  t = t.replace(/\\\[([\s\S]+?)\\\]/g, (_, math) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'dmath', content: math.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 3: Protect $ ... $ inline math (improved: avoid matching currency $100)
+  t = t.replace(/(?<!\w)\$([^\$\n]{1,400}?)\$(?!\d)/g, (_, math) => {
+    // Skip if it looks like currency (digits only or starts with digit)
+    if (/^\d/.test(math.trim())) return `$${math}$`;
+    const idx = blocks.length;
+    blocks.push({ type: 'imath', content: math.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 4: Protect \( ... \) inline math
+  t = t.replace(/\\\(([^)]{1,400}?)\\\)/g, (_, math) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'imath', content: math.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 5: Detect bare LaTeX math lines NOT yet protected
+  const bareMathLine = /^([A-Za-z_]{1,8}\s*[\=\+\-\×\÷]\s*)?(\\frac|\\sqrt|\\sum|\\int|\\prod|\\lim|\\ce\{|\\begin|\\vec|\\hat|\\bar|\\alpha|\\beta|\\gamma|\\theta|\\lambda|\\sigma|\\mu|\\pi|\\Delta|\\nabla|\\partial)(.*)$/;
+  const lines = t.split('\n');
+  const processedLines = lines.map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('%%BLK') || trimmed === '') return line;
+    if (bareMathLine.test(trimmed)) {
+      const idx = blocks.length;
+      blocks.push({ type: 'dmath', content: trimmed });
+      return `%%BLK${idx}%%`;
+    }
+    return line;
+  });
+  t = processedLines.join('\n');
+
+  // ── Step 6: Standalone \ce{...} on its own line → chemistry block
+  t = t.replace(/^[ \t]*\\ce\{((?:[^{}]|\{[^{}]*\})*)\}[ \t]*$/gm, (_, ce) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'chemblock', content: ce.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 7: Inline \ce{...} remaining (inside text sentences)
+  t = t.replace(/\\ce\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, ce) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'chem', content: ce.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 8: Diagram blocks
+  t = t.replace(/\[Diagram:([\s\S]+?)\]/g, (_, content) => {
+    return `<div class="ans-diagram"><div class="ans-diagram-label">📊 Diagram</div>${content.trim()}</div>`;
+  });
+
+  // ── Step 8b: Mark Key Takeaway lines
+  {
+    const tkLines = t.split('\n');
+    const out = [];
+    for (let i = 0; i < tkLines.length; i++) {
+      const line = tkLines[i];
+      if (/^💡\s*Key Takeaway/i.test(line.trim())) {
+        let block = line;
+        while (i + 1 < tkLines.length && tkLines[i + 1].trim() !== '') {
+          i++;
+          block += ' ' + tkLines[i].trim();
+        }
+        out.push(`%%TAKEAWAY_START%%${block}%%TAKEAWAY_END%%`);
+      } else {
+        out.push(line);
+      }
+    }
+    t = out.join('\n');
+  }
+
+  // ── Step 8c: Markdown tables → HTML table
+  t = t.replace(/((?:\|.+\|\n?)+)/g, (tableBlock) => {
+    const rows = tableBlock.trim().split('\n').filter(r => r.trim());
+    if (rows.length < 2) return tableBlock;
+    // Check if second row is separator
+    const isSep = row => /^\|[\s\-|:]+\|$/.test(row.trim());
+    let html = '<div class="ans-table-wrap"><table class="ans-table">';
+    rows.forEach((row, ri) => {
+      if (isSep(row)) return;
+      const tag = ri === 0 ? 'th' : 'td';
+      const cells = row.trim().replace(/^\||\|$/g, '').split('|');
+      html += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+    });
+    html += '</table></div>';
+    return html;
+  });
+
+  // ── Step 9: Standard markdown formatting
+  t = t
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g,     '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,         '<em>$1</em>')
+    .replace(/`(.*?)`/g,           '<code class="ans-inline-code">$1</code>')
+    .replace(/^### (.+)$/gm, '<div class="ans-h3">$1</div>')
+    .replace(/^## (.+)$/gm,  '<div class="ans-h2">$1</div>')
+    .replace(/^# (.+)$/gm,   '<div class="ans-h1">$1</div>')
+    // Numbered list items → styled step with circle number
+    .replace(/^(\d+)\.\s+(.+)$/gm, (_, num, text) =>
+      `<div class="ans-step"><span class="ans-num">${num}</span><span>${text}</span></div>`)
+    .replace(/^[-*•]\s+(.+)$/gm,  '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g,   '<br/>');
+
+  // ── Step 10: Restore all protected blocks
+  t = t.replace(/%%BLK(\d+)%%/g, (_, i) => {
+    const blk = blocks[parseInt(i)];
+    if (!blk) return '';
+
+    if (blk.type === 'dmath') {
+      const rendered = renderKatex(blk.content, true);
+      return `<div class="ans-formula">${rendered}</div>`;
+    }
+    if (blk.type === 'imath') {
+      return renderKatex(blk.content, false);
+    }
+    if (blk.type === 'chemblock') {
+      if (typeof katex === 'undefined') return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div><code>${blk.content}</code></div>`;
+      try {
+        const rendered = katex.renderToString(`\\ce{${blk.content}}`, { displayMode: false, throwOnError: false, strict: false });
+        return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div>${rendered}</div>`;
+      } catch(e) {
+        return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div><code>${blk.content}</code></div>`;
+      }
+    }
+    if (blk.type === 'chem') {
+      if (typeof katex === 'undefined') return `<code>${blk.content}</code>`;
+      try {
+        return katex.renderToString(`\\ce{${blk.content}}`, { displayMode: false, throwOnError: false, strict: false });
+      } catch(e) {
+        return `<code>${blk.content}</code>`;
+      }
+    }
+    if (blk.type === 'code') {
+      const langLabel = blk.lang ? `<span class="code-lang-label">${blk.lang}</span>` : '';
+      return `<div class="ans-code-block">${langLabel}<pre><code>${escapeHtml(blk.content)}</code></pre></div>`;
+    }
+    return '';
+  });
+
+  // ── Step 11: Restore Key Takeaway wrappers
+  t = t.replace(/%%TAKEAWAY_START%%([\s\S]*?)%%TAKEAWAY_END%%/g, (_, inner) => {
+    return `<div class="ans-takeaway">${inner.trim()}</div>`;
+  });
+
+  return t;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── QUIZ ME ──
+let quizState = { questions: [], answers: [], score: 0, done: false };
+
+function startQuiz() {
+  const btn = document.getElementById('quizBtn');
+  const card = document.getElementById('quizCard');
+
+  // Toggle off if already open and done
+  if (card.style.display !== 'none' && quizState.done) {
+    card.style.display = 'none';
+    btn.classList.remove('active');
+    return;
+  }
+
+  // Close follow-up if open
+  document.getElementById('followupArea').classList.remove('open');
+  document.getElementById('followBtn').style.borderColor = '';
+  document.getElementById('followBtn').style.color = '';
+
+  btn.classList.add('active');
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Show loading state
+  document.getElementById('quizBody').innerHTML = `
+    <div class="quiz-loading">
+      <div class="quiz-loading-text">🧠 Generating questions…</div>
+      <div class="quiz-shimmer"></div>
+      <div class="quiz-shimmer"></div>
+      <div class="quiz-shimmer"></div>
+    </div>`;
+  document.getElementById('quizScoreBadge').textContent = '0 / 3';
+
+  generateQuiz();
+}
+
+function stripForQuiz(text) {
+  let t = text;
+  // Remove display math $$...$$ 
+  t = t.replace(/\$\$[\s\S]*?\$\$/g, '[math]');
+  // Remove \[...\] display math
+  t = t.replace(/\\\[[\s\S]*?\\\]/g, '[math]');
+  // Remove inline math $...$
+  t = t.replace(/\$[^$\n]{1,200}?\$/g, '[math]');
+  // Remove \(...\) inline math
+  t = t.replace(/\\\([^)]{1,200}?\\\)/g, '[math]');
+  // Remove \ce{...} chemistry notation
+  t = t.replace(/\\ce\{[^}]*\}/g, '[formula]');
+  // Remove other LaTeX commands with braces
+  t = t.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+  // Remove remaining LaTeX commands
+  t = t.replace(/\\[a-zA-Z]+/g, '');
+  // Remove placeholder markers
+  t = t.replace(/%%[A-Z_]+\d*%%/g, '');
+  // Collapse excess blank lines
+  t = t.replace(/\n{3,}/g, '\n\n').trim();
+  // Cap at 2000 chars to avoid token overflow
+  if (t.length > 2000) t = t.slice(0, 2000) + '...';
+  return t;
+}
+
+async function generateQuiz() {
+  if (!lastAnswerText) return;
+
+  const subject = selSubj ? selSubj.subject : 'General';
+  const cls     = selClass ? `Class ${selClass.num}` : '';
+  const lang    = currentLang;
+  const langMap = { en: 'English', bn: 'Bengali', hi: 'Hindi', as: 'Assamese' };
+  const replyLang = langMap[lang] || 'English';
+
+  const prompt = `You are a quiz generator for Indian school students.
+
+Based on this answer about "${subject}" for ${cls}:
+---
+${stripForQuiz(lastAnswerText)}
+---
+
+Generate exactly 3 multiple choice questions (MCQs) to test the student's understanding.
+
+RULES:
+- Questions must be based ONLY on the answer above
+- Each question has exactly 4 options (A, B, C, D)
+- One correct answer per question
+- Include a short 1-sentence explanation for the correct answer
+- Questions should be in ${replyLang}
+- Difficulty: mix of easy, medium, one tricky
+
+Respond ONLY with a valid JSON array, no markdown, no extra text:
+[
+  {
+    "q": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0,
+    "explanation": "Brief reason why A is correct."
+  }
+]`;
+
+  try {
+    const res  = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'quiz',
+        question: prompt,
+        lang,
+        className: selClass ? `${selClass.num} (${selClass.label})` : '',
+        subject,
+        subjectType: selSubj ? (lastPayload && lastPayload.subjectType) || 'general' : 'general',
+        board: selBoard ? selBoard.name : '',
+        stream: selStream ? selStream.name : '',
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error || !data.answer) throw new Error('Quiz generation failed');
+
+    // Robustly extract JSON array from the response
+    let raw = data.answer;
+    // Strip markdown fences
+    raw = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    // Find the first [ and last ] to extract just the array
+    const start = raw.indexOf('[');
+    const end   = raw.lastIndexOf(']');
+    if (start === -1 || end === -1) throw new Error('No JSON array found');
+    const clean = raw.slice(start, end + 1);
+    const questions = JSON.parse(clean);
+
+    if (!Array.isArray(questions) || questions.length === 0) throw new Error('Bad format');
+
+    quizState = { questions, answers: new Array(questions.length).fill(null), score: 0, done: false };
+    renderQuiz();
+
+  } catch (e) {
+    console.error('Quiz error:', e);
+    document.getElementById('quizBody').innerHTML = `
+      <div style="padding:1rem;text-align:center;font-size:0.82rem;color:var(--danger)">
+        ❌ Could not generate quiz. Please try again.
+      </div>
+      <button class="quiz-retry-btn show" onclick="generateQuiz()">↺ Try Again</button>`;
+  }
+}
+
+function renderQuiz() {
+  const { questions, answers, score } = quizState;
+  const letters = ['A','B','C','D'];
+  const body = document.getElementById('quizBody');
+  body.innerHTML = '';
+
+  questions.forEach((q, qi) => {
+    const answered = answers[qi] !== null;
+    const isCorrect = answered && answers[qi] === q.correct;
+
+    const qDiv = document.createElement('div');
+    qDiv.className = 'quiz-q' + (answered ? (isCorrect ? ' correct' : ' wrong') : '');
+    qDiv.id = `qq-${qi}`;
+
+    // Question number + text
+    qDiv.innerHTML = `
+      <div class="quiz-q-num">Q${qi + 1} of ${questions.length}</div>
+      <div class="quiz-q-text">${q.q}</div>
+      <div class="quiz-options" id="qopts-${qi}"></div>
+      <div class="quiz-explanation ${answered ? 'show' : ''}" id="qexp-${qi}">
+        💡 ${q.explanation}
+      </div>`;
+
+    // Options
+    const optsDiv = qDiv.querySelector(`#qopts-${qi}`);
+    q.options.forEach((opt, oi) => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt';
+      btn.disabled = answered;
+
+      let cls = '';
+      if (answered) {
+        if (oi === q.correct)          cls = 'opt-reveal';
+        if (oi === answers[qi] && !isCorrect && oi !== q.correct) cls = 'opt-wrong';
+        if (oi === answers[qi] && isCorrect) cls = 'opt-correct';
+      }
+      if (cls) btn.classList.add(cls);
+
+      btn.innerHTML = `<span class="quiz-opt-letter">${letters[oi]}</span>${opt}`;
+      if (!answered) btn.onclick = () => answerQuiz(qi, oi);
+      optsDiv.appendChild(btn);
+    });
+
+    body.appendChild(qDiv);
+  });
+
+  // Result bar + retry (shown only when all answered)
+  const allAnswered = answers.every(a => a !== null);
+  if (allAnswered) {
+    const pct = Math.round((score / questions.length) * 100);
+    let cls = pct >= 80 ? 'great' : pct >= 50 ? 'ok' : 'retry';
+    let msg = pct >= 80
+      ? `🎉 Excellent! ${score}/${questions.length} correct — You nailed it!`
+      : pct >= 50
+      ? `👍 Good job! ${score}/${questions.length} correct — Keep practising!`
+      : `📚 ${score}/${questions.length} correct — Re-read the answer and try again!`;
+
+    const bar = document.createElement('div');
+    bar.className = `quiz-result-bar show ${cls}`;
+    bar.textContent = msg;
+    body.appendChild(bar);
+
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'quiz-retry-btn show';
+    retryBtn.textContent = '↺ New Quiz';
+    retryBtn.onclick = () => { quizState.done = false; generateQuiz(); };
+    body.appendChild(retryBtn);
+
+    quizState.done = true;
+  }
+
+  updateQuizScore();
+}
+
+function answerQuiz(qi, oi) {
+  if (quizState.answers[qi] !== null) return;
+  const correct = quizState.questions[qi].correct;
+  quizState.answers[qi] = oi;
+  if (oi === correct) quizState.score++;
+  updateQuizScore();
+  renderQuiz();
+
+  // Scroll to next unanswered question
+  setTimeout(() => {
+    const next = quizState.answers.findIndex(a => a === null);
+    if (next !== -1) {
+      document.getElementById(`qq-${next}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      document.getElementById('quizCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, 250);
+}
+
+function updateQuizScore() {
+  const { score, questions, answers } = quizState;
+  const answered = answers.filter(a => a !== null).length;
+  document.getElementById('quizScoreBadge').textContent =
+    answered > 0 ? `${score} / ${questions.length}` : `0 / ${questions.length}`;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  applyLang('en'); updateStepper();
+  // Open board selector immediately
+  buildBoardGrid();
+  document.getElementById('dp1').classList.add('open');
+  document.getElementById('hdr1').classList.add('open');
+  openDP = 1;
+  // Text mode: Enter sends, Shift+Enter = newline
+  document.getElementById('textQInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
+  });
+  document.getElementById('textQInput').addEventListener('input', () => {
+    updateStep3HeaderText();
+    updateStepper();
+  });
+  // Photo context bar: Enter sends
+  const aiEl = document.getElementById('askInput');
+  if (aiEl) aiEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
+  });
+  const fi = document.getElementById('followupInput');
+  if (fi) fi.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowup(); });
+});
+</script>
+</body>
+</html>
