@@ -2502,7 +2502,7 @@ Respond ONLY with a valid JSON array, no markdown, no extra text:
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        mode: 'text',
+        mode: 'quiz',
         question: prompt,
         lang,
         className: selClass ? `${selClass.num} (${selClass.label})` : '',
@@ -2515,8 +2515,15 @@ Respond ONLY with a valid JSON array, no markdown, no extra text:
 
     if (!res.ok || data.error || !data.answer) throw new Error('Quiz generation failed');
 
-    // Strip any markdown fences just in case
-    const clean = data.answer.replace(/```json|```/gi, '').trim();
+    // Robustly extract JSON array from the response
+    let raw = data.answer;
+    // Strip markdown fences
+    raw = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    // Find the first [ and last ] to extract just the array
+    const start = raw.indexOf('[');
+    const end   = raw.lastIndexOf(']');
+    if (start === -1 || end === -1) throw new Error('No JSON array found');
+    const clean = raw.slice(start, end + 1);
     const questions = JSON.parse(clean);
 
     if (!Array.isArray(questions) || questions.length === 0) throw new Error('Bad format');
