@@ -1954,25 +1954,41 @@ function onFile(e) {
 }
 
 function processFile(f) {
-  curFile=f;
-  const r=new FileReader();
-  r.onload=ev=>{
-    curB64=ev.target.result.split(',')[1];
-    document.getElementById('previewImg').src=ev.target.result;
-    document.getElementById('previewBlock').style.display='block';
-    document.getElementById('photoBtns').style.display='none';
-    // Expand photo body and show the ask bar now that image is ready
-    document.getElementById('photoBody').style.maxHeight='520px';
-    const bar = document.getElementById('photoAskBar');
-    if (bar) {
-      bar.style.display = 'block';
-      // focus context input after a moment
-      setTimeout(() => { const ai = document.getElementById('askInput'); if(ai) ai.focus(); }, 300);
-    }
-    updateStep3HeaderPhoto();
-    updateStepper();
+  curFile = f;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const original = ev.target.result;
+    const img = new Image();
+    img.onload = () => {
+      // Compress: max 1024px on longest side, 80% JPEG quality
+      const MAX = 1024;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.80);
+      curB64 = compressed.split(',')[1];
+      curFile = new File([f], f.name, { type: 'image/jpeg' }); // update mime to jpeg
+      document.getElementById('previewImg').src = compressed;
+      document.getElementById('previewBlock').style.display = 'block';
+      document.getElementById('photoBtns').style.display = 'none';
+      // Expand photo body and show the ask bar now that image is ready
+      document.getElementById('photoBody').style.maxHeight = '520px';
+      const bar = document.getElementById('photoAskBar');
+      if (bar) {
+        bar.style.display = 'block';
+        setTimeout(() => { const ai = document.getElementById('askInput'); if (ai) ai.focus(); }, 300);
+      }
+      updateStep3HeaderPhoto();
+      updateStepper();
+    };
+    img.src = original;
   };
-  r.readAsDataURL(f);
+  reader.readAsDataURL(f);
 }
 
 function removeImage() {
