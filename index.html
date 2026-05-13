@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>StudyLens — AI Homework Helper</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"/>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/mhchem.min.js"></script>
 <style>
 :root {
   --bg: #0f1117;
@@ -363,7 +367,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 /* ANSWER ACTIONS BAR */
 .ans-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 0.5rem;
   padding: 0.75rem 0.9rem 0.9rem;
   border-top: 1px solid var(--border);
@@ -479,8 +483,167 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .ans-bullet span:first-child { color: var(--green); flex-shrink: 0; margin-top: 0.05rem; }
 .ans-takeaway { background: rgba(62,207,142,0.08); border: 1px solid rgba(62,207,142,0.2); border-radius: 10px; padding: 0.55rem 0.8rem; margin: 0.8rem 0 0.2rem; font-weight: 600; color: var(--green); font-size: 0.88rem; }
 
+/* KaTeX math rendering */
+.katex { font-size: 1em !important; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.4rem 0; }
+.katex-display > .katex { text-align: left !important; }
+
+/* Formula block — display math */
+.ans-formula {
+  background: rgba(79,142,247,0.07);
+  border: 1.5px solid rgba(79,142,247,0.2);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  font-size: 0.95rem;
+}
+
+/* Chemistry equation block */
+.ans-chem {
+  background: rgba(62,207,142,0.07);
+  border: 1.5px solid rgba(62,207,142,0.25);
+  border-left: 4px solid var(--green);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  font-size: 0.95rem;
+}
+.ans-chem-label {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--green); margin-bottom: 0.3rem;
+}
+
+/* Diagram description block */
+.ans-diagram {
+  background: rgba(247,201,72,0.07);
+  border: 1.5px solid rgba(247,201,72,0.25);
+  border-left: 4px solid var(--accent2);
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+.ans-diagram-label {
+  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent2); margin-bottom: 0.3rem;
+}
+
 /* FOOTER */
 .footer-note { text-align: center; font-size: 0.74rem; color: var(--muted); padding: 1rem 0 0.4rem; border-top: 1px solid var(--border); line-height: 1.5; }
+
+/* QUIZ BUTTON */
+.ans-action-btn.quiz-btn:hover,
+.ans-action-btn.quiz-btn:focus { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.08); }
+.ans-action-btn.quiz-btn.active { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.12); }
+
+/* QUIZ CARD */
+.quiz-card {
+  margin: 0 0.9rem 0.9rem;
+  border: 1.5px solid rgba(167,139,250,0.35);
+  border-radius: 16px;
+  background: rgba(167,139,250,0.05);
+  overflow: hidden;
+  animation: fadeUp 0.4s ease both;
+}
+.quiz-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(167,139,250,0.2);
+}
+.quiz-title {
+  font-family: var(--font-head); font-size: 0.85rem; font-weight: 800;
+  color: #a78bfa; display: flex; align-items: center; gap: 0.4rem;
+}
+.quiz-score-badge {
+  font-size: 0.7rem; font-weight: 700; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 100px; padding: 0.15rem 0.55rem;
+}
+.quiz-body { padding: 0.6rem 0.9rem 0.8rem; display: flex; flex-direction: column; gap: 0.9rem; }
+
+/* Individual question */
+.quiz-q {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 13px; padding: 0.75rem 0.85rem; transition: border-color 0.3s;
+}
+.quiz-q.correct  { border-color: var(--green); background: rgba(62,207,142,0.06); }
+.quiz-q.wrong    { border-color: var(--danger); background: rgba(247,79,79,0.06); }
+.quiz-q-text { font-size: 0.84rem; font-weight: 600; color: var(--text); margin-bottom: 0.55rem; line-height: 1.4; }
+.quiz-q-num  { font-size: 0.7rem; font-weight: 700; color: #a78bfa; margin-bottom: 0.25rem; }
+
+/* Options */
+.quiz-options { display: flex; flex-direction: column; gap: 0.35rem; }
+.quiz-opt {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.75rem; border-radius: 9px;
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-size: 0.8rem; color: var(--text); cursor: pointer;
+  transition: all 0.18s; text-align: left; font-family: var(--font-body);
+  font-weight: 500;
+}
+.quiz-opt:hover:not(:disabled) { border-color: #a78bfa; background: rgba(167,139,250,0.08); }
+.quiz-opt:disabled { cursor: default; }
+.quiz-opt.opt-correct { border-color: var(--green); background: rgba(62,207,142,0.12); color: var(--green); font-weight: 700; }
+.quiz-opt.opt-wrong   { border-color: var(--danger); background: rgba(247,79,79,0.1); color: #f78f8f; }
+.quiz-opt.opt-reveal  { border-color: var(--green); background: rgba(62,207,142,0.07); color: var(--green); font-weight: 600; }
+.quiz-opt-letter { font-weight: 800; font-size: 0.75rem; color: #a78bfa; flex-shrink: 0; width: 16px; }
+.quiz-opt.opt-correct .quiz-opt-letter,
+.quiz-opt.opt-reveal  .quiz-opt-letter { color: var(--green); }
+.quiz-opt.opt-wrong   .quiz-opt-letter { color: var(--danger); }
+
+/* Explanation */
+.quiz-explanation {
+  margin-top: 0.5rem; font-size: 0.76rem; color: var(--muted);
+  background: var(--surface); border-radius: 8px;
+  padding: 0.45rem 0.65rem; line-height: 1.5;
+  border-left: 3px solid var(--green);
+  display: none;
+}
+.quiz-explanation.show { display: block; }
+
+/* Result bar */
+.quiz-result-bar {
+  margin: 0.2rem 0 0; padding: 0.65rem 0.85rem;
+  border-radius: 11px; font-size: 0.82rem; font-weight: 700;
+  text-align: center; display: none;
+}
+.quiz-result-bar.show { display: block; }
+.quiz-result-bar.great  { background: rgba(62,207,142,0.12); color: var(--green); border: 1px solid rgba(62,207,142,0.25); }
+.quiz-result-bar.ok     { background: rgba(247,201,72,0.1);  color: var(--accent2); border: 1px solid rgba(247,201,72,0.25); }
+.quiz-result-bar.retry  { background: rgba(247,79,79,0.08);  color: #f78f8f; border: 1px solid rgba(247,79,79,0.2); }
+
+/* Retry button */
+.quiz-retry-btn {
+  display: none; width: 100%; margin-top: 0.5rem;
+  background: none; border: 1.5px solid rgba(167,139,250,0.4);
+  color: #a78bfa; border-radius: 10px; padding: 0.55rem;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; transition: all 0.18s;
+}
+.quiz-retry-btn.show { display: block; }
+.quiz-retry-btn:hover { background: rgba(167,139,250,0.1); border-color: #a78bfa; }
+
+/* Loading shimmer inside quiz card */
+.quiz-loading {
+  padding: 1.2rem 0.9rem;
+  display: flex; flex-direction: column; gap: 0.6rem; align-items: center;
+}
+.quiz-loading-text {
+  font-size: 0.8rem; color: #a78bfa; font-weight: 600;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.quiz-shimmer {
+  width: 100%; height: 9px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface2) 25%, rgba(167,139,250,0.15) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.quiz-shimmer:nth-child(2) { width: 88%; animation-delay: 0.1s; }
+.quiz-shimmer:nth-child(3) { width: 70%; animation-delay: 0.2s; }
 
 /* HISTORY PILL */
 .hist-pill-wrap { display: flex; justify-content: flex-end; margin-bottom: 0.6rem; }
@@ -838,6 +1001,10 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
         <span class="ans-action-icon">💬</span>
         <span id="followLabel">Ask Follow-up</span>
       </button>
+      <button class="ans-action-btn quiz-btn" id="quizBtn" onclick="startQuiz()">
+        <span class="ans-action-icon">🧠</span>
+        <span id="quizLabel">Quiz Me</span>
+      </button>
     </div>
 
     <!-- Follow-up input -->
@@ -845,6 +1012,17 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="followup-inner">
         <input class="followup-input" id="followupInput" type="text" placeholder="Ask something more about this answer…" />
         <button class="followup-send" onclick="sendFollowup()">➤</button>
+      </div>
+    </div>
+
+    <!-- Quiz Card — slides in below actions -->
+    <div class="quiz-card" id="quizCard" style="display:none;">
+      <div class="quiz-header">
+        <div class="quiz-title">🧠 Quick Quiz</div>
+        <div class="quiz-score-badge" id="quizScoreBadge">0 / 3</div>
+      </div>
+      <div class="quiz-body" id="quizBody">
+        <!-- filled by JS -->
       </div>
     </div>
   </div>
@@ -1945,6 +2123,12 @@ function hideActionsBar() {
   document.getElementById('ansActions').classList.remove('visible');
   // Also close follow-up if open
   document.getElementById('followupArea').classList.remove('open');
+  // Hide quiz card
+  const qc = document.getElementById('quizCard');
+  if (qc) qc.style.display = 'none';
+  const qb = document.getElementById('quizBtn');
+  if (qb) qb.classList.remove('active');
+  quizState = { questions: [], answers: [], score: 0, done: false };
   stopSpeak();
 }
 
@@ -2102,23 +2286,309 @@ async function sendFollowup() {
 // Enter key on follow-up input — merged into main DOMContentLoaded below
 
 function fmt(t) {
-  return t
+  // ── Step 1: protect \ce{...} chemistry FIRST (before $ processing)
+  const chemBlocks = [];
+  t = t.replace(/\\ce\{([^}]+)\}/g, (_, ce) => {
+    const idx = chemBlocks.length;
+    // standalone if the whole line is just this \ce{}
+    chemBlocks.push(ce.trim());
+    return `%%CHEM${idx}%%`;
+  });
+
+  // ── Step 2: protect display math $$ ... $$
+  const displayMathBlocks = [];
+  t = t.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+    const idx = displayMathBlocks.length;
+    displayMathBlocks.push(math.trim());
+    return `%%DMATH${idx}%%`;
+  });
+
+  // ── Step 3: protect inline math $ ... $
+  const inlineMathBlocks = [];
+  t = t.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    const idx = inlineMathBlocks.length;
+    inlineMathBlocks.push(math.trim());
+    return `%%IMATH${idx}%%`;
+  });
+
+  // ── Step 4: protect \( ... \) inline and \[ ... \] display
+  t = t.replace(/\\\[([^\]]+?)\\\]/g, (_, math) => {
+    const idx = displayMathBlocks.length;
+    displayMathBlocks.push(math.trim());
+    return `%%DMATH${idx}%%`;
+  });
+  t = t.replace(/\\\(([^)]+?)\\\)/g, (_, math) => {
+    const idx = inlineMathBlocks.length;
+    inlineMathBlocks.push(math.trim());
+    return `%%IMATH${idx}%%`;
+  });
+
+  // ── Step 5: diagram description blocks [Diagram: ...]
+  t = t.replace(/\[Diagram:([\s\S]+?)\]/g, (_, content) => {
+    return `<div class="ans-diagram"><div class="ans-diagram-label">📊 Diagram</div>${content.trim()}</div>`;
+  });
+
+  // ── Step 6: standard markdown formatting
+  t = t
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    // Headers
+    .replace(/\*\*(.*?)\*\*/g,     '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,         '<em>$1</em>')
+    .replace(/`(.*?)`/g,           '<code>$1</code>')
     .replace(/^### (.+)$/gm, '<div class="ans-h3">$1</div>')
     .replace(/^## (.+)$/gm,  '<div class="ans-h2">$1</div>')
-    // Numbered list items
     .replace(/^\d+\.\s+(.+)$/gm, '<div class="ans-step"><span class="ans-num">•</span><span>$1</span></div>')
-    // Bullet list items
-    .replace(/^[-*•]\s+(.+)$/gm, '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
-    // Key takeaway
+    .replace(/^[-*•]\s+(.+)$/gm,  '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
     .replace(/(💡 Key Takeaway[^<\n]*)/g, '<div class="ans-takeaway">$1</div>')
-    // Line breaks
     .replace(/\n\n/g, '<br/><br/>')
-    .replace(/\n/g, '<br/>');
+    .replace(/\n/g,   '<br/>');
+
+  // ── Step 7: render chemistry blocks
+  t = t.replace(/%%CHEM(\d+)%%/g, (match, idx) => {
+    const expr = chemBlocks[parseInt(idx)];
+    try {
+      if (typeof katex === 'undefined') return `<code>${expr}</code>`;
+      const rendered = katex.renderToString(`\\ce{${expr}}`, {
+        displayMode: false, throwOnError: false, strict: false
+      });
+      // Wrap standalone equations in a styled block
+      return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div>${rendered}</div>`;
+    } catch(e) {
+      return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div><code>${expr}</code></div>`;
+    }
+  });
+
+  // ── Step 8: render display math blocks
+  t = t.replace(/%%DMATH(\d+)%%/g, (_, idx) => {
+    const math = displayMathBlocks[parseInt(idx)];
+    try {
+      if (typeof katex === 'undefined') return `<div class="ans-formula"><code>$$${math}$$</code></div>`;
+      const rendered = katex.renderToString(math, { displayMode: true, throwOnError: false, strict: false });
+      return `<div class="ans-formula">${rendered}</div>`;
+    } catch(e) {
+      return `<div class="ans-formula"><code>${math}</code></div>`;
+    }
+  });
+
+  // ── Step 9: render inline math blocks
+  t = t.replace(/%%IMATH(\d+)%%/g, (_, idx) => {
+    const math = inlineMathBlocks[parseInt(idx)];
+    try {
+      if (typeof katex === 'undefined') return `<code>$${math}$</code>`;
+      return katex.renderToString(math, { displayMode: false, throwOnError: false, strict: false });
+    } catch(e) {
+      return `<code>${math}</code>`;
+    }
+  });
+
+  return t;
+}
+
+// ── QUIZ ME ──
+let quizState = { questions: [], answers: [], score: 0, done: false };
+
+function startQuiz() {
+  const btn = document.getElementById('quizBtn');
+  const card = document.getElementById('quizCard');
+
+  // Toggle off if already open and done
+  if (card.style.display !== 'none' && quizState.done) {
+    card.style.display = 'none';
+    btn.classList.remove('active');
+    return;
+  }
+
+  // Close follow-up if open
+  document.getElementById('followupArea').classList.remove('open');
+  document.getElementById('followBtn').style.borderColor = '';
+  document.getElementById('followBtn').style.color = '';
+
+  btn.classList.add('active');
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Show loading state
+  document.getElementById('quizBody').innerHTML = `
+    <div class="quiz-loading">
+      <div class="quiz-loading-text">🧠 Generating questions…</div>
+      <div class="quiz-shimmer"></div>
+      <div class="quiz-shimmer"></div>
+      <div class="quiz-shimmer"></div>
+    </div>`;
+  document.getElementById('quizScoreBadge').textContent = '0 / 3';
+
+  generateQuiz();
+}
+
+async function generateQuiz() {
+  if (!lastAnswerText) return;
+
+  const subject = selSubj ? selSubj.subject : 'General';
+  const cls     = selClass ? `Class ${selClass.num}` : '';
+  const lang    = currentLang;
+  const langMap = { en: 'English', bn: 'Bengali', hi: 'Hindi', as: 'Assamese' };
+  const replyLang = langMap[lang] || 'English';
+
+  const prompt = `You are a quiz generator for Indian school students.
+
+Based on this answer about "${subject}" for ${cls}:
+---
+${lastAnswerText}
+---
+
+Generate exactly 3 multiple choice questions (MCQs) to test the student's understanding.
+
+RULES:
+- Questions must be based ONLY on the answer above
+- Each question has exactly 4 options (A, B, C, D)
+- One correct answer per question
+- Include a short 1-sentence explanation for the correct answer
+- Questions should be in ${replyLang}
+- Difficulty: mix of easy, medium, one tricky
+
+Respond ONLY with a valid JSON array, no markdown, no extra text:
+[
+  {
+    "q": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0,
+    "explanation": "Brief reason why A is correct."
+  }
+]`;
+
+  try {
+    const res  = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'text',
+        question: prompt,
+        lang,
+        className: selClass ? `${selClass.num} (${selClass.label})` : '',
+        subject,
+        board: selBoard ? selBoard.name : '',
+        stream: selStream ? selStream.name : '',
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error || !data.answer) throw new Error('Quiz generation failed');
+
+    // Strip any markdown fences just in case
+    const clean = data.answer.replace(/```json|```/gi, '').trim();
+    const questions = JSON.parse(clean);
+
+    if (!Array.isArray(questions) || questions.length === 0) throw new Error('Bad format');
+
+    quizState = { questions, answers: new Array(questions.length).fill(null), score: 0, done: false };
+    renderQuiz();
+
+  } catch (e) {
+    document.getElementById('quizBody').innerHTML = `
+      <div style="padding:1rem;text-align:center;font-size:0.82rem;color:var(--danger)">
+        ❌ Could not generate quiz. Please try again.
+      </div>
+      <button class="quiz-retry-btn show" onclick="generateQuiz()">↺ Try Again</button>`;
+  }
+}
+
+function renderQuiz() {
+  const { questions, answers, score } = quizState;
+  const letters = ['A','B','C','D'];
+  const body = document.getElementById('quizBody');
+  body.innerHTML = '';
+
+  questions.forEach((q, qi) => {
+    const answered = answers[qi] !== null;
+    const isCorrect = answered && answers[qi] === q.correct;
+
+    const qDiv = document.createElement('div');
+    qDiv.className = 'quiz-q' + (answered ? (isCorrect ? ' correct' : ' wrong') : '');
+    qDiv.id = `qq-${qi}`;
+
+    // Question number + text
+    qDiv.innerHTML = `
+      <div class="quiz-q-num">Q${qi + 1} of ${questions.length}</div>
+      <div class="quiz-q-text">${q.q}</div>
+      <div class="quiz-options" id="qopts-${qi}"></div>
+      <div class="quiz-explanation ${answered ? 'show' : ''}" id="qexp-${qi}">
+        💡 ${q.explanation}
+      </div>`;
+
+    // Options
+    const optsDiv = qDiv.querySelector(`#qopts-${qi}`);
+    q.options.forEach((opt, oi) => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-opt';
+      btn.disabled = answered;
+
+      let cls = '';
+      if (answered) {
+        if (oi === q.correct)          cls = 'opt-reveal';
+        if (oi === answers[qi] && !isCorrect && oi !== q.correct) cls = 'opt-wrong';
+        if (oi === answers[qi] && isCorrect) cls = 'opt-correct';
+      }
+      if (cls) btn.classList.add(cls);
+
+      btn.innerHTML = `<span class="quiz-opt-letter">${letters[oi]}</span>${opt}`;
+      if (!answered) btn.onclick = () => answerQuiz(qi, oi);
+      optsDiv.appendChild(btn);
+    });
+
+    body.appendChild(qDiv);
+  });
+
+  // Result bar + retry (shown only when all answered)
+  const allAnswered = answers.every(a => a !== null);
+  if (allAnswered) {
+    const pct = Math.round((score / questions.length) * 100);
+    let cls = pct >= 80 ? 'great' : pct >= 50 ? 'ok' : 'retry';
+    let msg = pct >= 80
+      ? `🎉 Excellent! ${score}/${questions.length} correct — You nailed it!`
+      : pct >= 50
+      ? `👍 Good job! ${score}/${questions.length} correct — Keep practising!`
+      : `📚 ${score}/${questions.length} correct — Re-read the answer and try again!`;
+
+    const bar = document.createElement('div');
+    bar.className = `quiz-result-bar show ${cls}`;
+    bar.textContent = msg;
+    body.appendChild(bar);
+
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'quiz-retry-btn show';
+    retryBtn.textContent = '↺ New Quiz';
+    retryBtn.onclick = () => { quizState.done = false; generateQuiz(); };
+    body.appendChild(retryBtn);
+
+    quizState.done = true;
+  }
+
+  updateQuizScore();
+}
+
+function answerQuiz(qi, oi) {
+  if (quizState.answers[qi] !== null) return;
+  const correct = quizState.questions[qi].correct;
+  quizState.answers[qi] = oi;
+  if (oi === correct) quizState.score++;
+  updateQuizScore();
+  renderQuiz();
+
+  // Scroll to next unanswered question
+  setTimeout(() => {
+    const next = quizState.answers.findIndex(a => a === null);
+    if (next !== -1) {
+      document.getElementById(`qq-${next}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      document.getElementById('quizCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, 250);
+}
+
+function updateQuizScore() {
+  const { score, questions, answers } = quizState;
+  const answered = answers.filter(a => a !== null).length;
+  document.getElementById('quizScoreBadge').textContent =
+    answered > 0 ? `${score} / ${questions.length}` : `0 / ${questions.length}`;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
