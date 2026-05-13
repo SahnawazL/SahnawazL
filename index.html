@@ -2255,7 +2255,9 @@ async function askQuestion() {
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); }
+    catch (_) { throw new Error(`❌ Server error (${res.status}). Please try again.`); }
 
     if (!res.ok || data.error) {
       throw new Error(data.error || `Server error (${res.status})`);
@@ -2505,7 +2507,8 @@ async function sendFollowup() {
 
   try {
     const res  = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); } catch (_) { data = { error: `❌ Server error (${res.status}). Please try again.` }; }
     stopThinkingMessages(); hideThinking();
     setTimeout(() => {
       if (!res.ok || data.error) {
