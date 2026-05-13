@@ -320,6 +320,76 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
+
+// ── Quiz system prompt ─────────────────────────────────────────────────────────
+const QUIZ_SYSTEM = `You are a JSON quiz generator. You output ONLY valid JSON arrays, nothing else.
+No markdown, no code fences, no explanation, no preamble — just the raw JSON array starting with [ and ending with ].`;
+
+// ── Quiz handler (Groq preferred, Gemini fallback) ─────────────────────────────
+async function askQuiz(groqKeys, geminiKeys, { question, className }) {
+  const senior = isSeniorClass(className);
+  const model  = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
+  const rot    = senior ? rotations.groqSenior : rotations.groqJunior;
+
+  if (groqKeys.length > 0) {
+    for (let attempt = 0; attempt < Math.max(groqKeys.length, 1); attempt++) {
+      const key = pickKey(groqKeys, rot);
+      if (!key) break;
+      try {
+        const r = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: QUIZ_SYSTEM },
+              { role: 'user',   content: question.trim() },
+            ],
+            temperature: 0.3, max_tokens: 1024, top_p: 0.9,
+          }),
+        });
+        const data = await r.json();
+        if (data.error) {
+          const isQuota = data.error.code === 429 || (data.error.message||'').toLowerCase().includes('rate');
+          if (isQuota) { rot.exhausted.add(key); continue; }
+          continue;
+        }
+        const answer = data.choices?.[0]?.message?.content;
+        if (answer) return { answer };
+      } catch(e) { continue; }
+    }
+  }
+
+  if (geminiKeys.length > 0) {
+    const grot = rotations.gemini;
+    for (let attempt = 0; attempt < Math.max(geminiKeys.length, 1); attempt++) {
+      const key = pickKey(geminiKeys, grot);
+      if (!key) break;
+      try {
+        const r = await fetch(`${GEMINI_URL}?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: QUIZ_SYSTEM }] },
+            contents: [{ role: 'user', parts: [{ text: question.trim() }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 1024, candidateCount: 1 },
+          }),
+        });
+        const data = await r.json();
+        if (data.error) {
+          const isQuota = data.error.status === 'RESOURCE_EXHAUSTED' || data.error.code === 429;
+          if (isQuota) { grot.exhausted.add(key); continue; }
+          continue;
+        }
+        const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (answer) return { answer };
+      } catch(e) { continue; }
+    }
+  }
+
+  return { error: 'failed' };
+}
+
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -355,6 +425,14 @@ export default async function handler(req, res) {
   }
 
   const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode };
+
+  // ── QUIZ mode: dedicated handler with JSON-only system prompt ─────────────
+  if (mode === 'quiz') {
+    if (!question?.trim()) return res.status(400).json({ error: 'No quiz prompt.' });
+    const result = await askQuiz(groqKeys, geminiKeys, { question, className });
+    if (result.answer) return res.status(200).json({ answer: result.answer });
+    return res.status(500).json({ error: 'Quiz generation failed.' });
+  }
 
   // ── ROUTING LOGIC ──────────────────────────────────────────────────────────
   //
