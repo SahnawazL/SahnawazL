@@ -312,7 +312,7 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
             { role: 'user',   content: question.trim() },
           ],
           temperature:       0.25,
-          max_tokens:        3072,
+          max_tokens:        8192,
           top_p:             0.92,
         }),
       });
@@ -366,7 +366,7 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature: 0.25, topK: 40, topP: 0.92,
-      maxOutputTokens: 3072, candidateCount: 1,
+      maxOutputTokens: 8192, candidateCount: 1,
     },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -445,7 +445,7 @@ async function askQuiz(groqKeys, geminiKeys, { question, className }) {
               { role: 'system', content: QUIZ_SYSTEM },
               { role: 'user',   content: question.trim() },
             ],
-            temperature: 0.3, max_tokens: 1024, top_p: 0.9,
+            temperature: 0.3, max_tokens: 2048, top_p: 0.9,
           }),
         });
         const data = await r.json();
