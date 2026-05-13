@@ -143,7 +143,7 @@ LATEX FORMAT — MANDATORY:
 - Display math (on its own line): $$expression$$ — e.g. $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
 - NEVER write raw math like: AD^2 = AB^2 + BD^2  or  2*4*BD  or  (2x)^2
 - ALWAYS write: $$AD^2 = AB^2 + BD^2$$ and $$2 \\times 4 \\times BD$$ and $$(2x)^2$$
-- PLAIN NUMBERS in prose (conclusion/summary sentences) must NOT be wrapped in $...$. Write: "The answer is 0.5" NOT "The answer is $0.5$". Only wrap in $...$ when the value is part of a math expression or has units/variables.
+- NEVER wrap a standalone number in $...$. This applies everywhere: prose, bullet points, lists, conclusions. Write "I represents 1" NOT "I represents $1$". Write "The answer is 0.5" NOT "The answer is $0.5$". Only use $...$ when the number has variables, operators, fractions, or symbols alongside it (e.g. $x = 5$, $\\frac{1}{2}$).
 - For multiplication: use \\times (never *) or \\cdot
 - For fractions: \\frac{numerator}{denominator}
 - For angles: \\angle ABC  (not /ABC or angle ABC)
@@ -244,7 +244,7 @@ MATH & FORMULA RULE:
 Always write ALL mathematical expressions using LaTeX:
 - Inline math: $expression$ — e.g. $2x + 5 = 11$
 - Display math: $$expression$$ — e.g. $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
-- NEVER wrap a plain number result in $...$. Write "The answer is 4" not "The answer is $4$". Use $...$ only for expressions with variables, operators, or fractions.
+- NEVER wrap a standalone number in $...$, anywhere — prose, bullet points, lists, or conclusions. Write "I = 1", "V = 5" NOT "$1$", "$5$". Only use $...$ when the value appears with variables, operators, or fractions (e.g. $x = 5$, $\\frac{1}{2}$).
 - NEVER write raw math without LaTeX delimiters.` : ''}
 ${diagramBlock}
 
