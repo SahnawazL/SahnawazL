@@ -112,6 +112,25 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .cls-sub { font-size: 0.54rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; line-height: 1; }
 .cls-chip.sel .cls-sub { color: rgba(79,142,247,0.8); }
 
+/* BOARD SELECTOR */
+.board-grid { padding: 0.65rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.board-chip { background: var(--surface2); border: 2px solid var(--border); border-radius: 13px; padding: 0.9rem 0.5rem 0.75rem; text-align: center; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+.board-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
+.board-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+.board-name { font-family: var(--font-head); font-size: 1.05rem; font-weight: 800; color: var(--text); line-height: 1; }
+.board-chip.sel .board-name { color: var(--accent); }
+.board-desc { font-size: 0.6rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.3; }
+.board-chip.sel .board-desc { color: rgba(79,142,247,0.8); }
+
+/* STREAM SELECTOR */
+.stream-grid { padding: 0.65rem; display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; }
+.stream-chip { background: var(--surface2); border: 2px solid var(--border); border-radius: 13px; padding: 0.85rem 0.3rem 0.7rem; text-align: center; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 0.28rem; }
+.stream-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
+.stream-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+.stream-emoji { font-size: 1.5rem; line-height: 1; }
+.stream-name { font-family: var(--font-head); font-size: 0.82rem; font-weight: 800; color: var(--text); line-height: 1; }
+.stream-chip.sel .stream-name { color: var(--accent); }
+
 /* SUBJECT GRID */
 .subj-grid { padding: 0.55rem; display: grid; grid-template-columns: repeat(3,1fr); gap: 0.45rem; overflow-y: auto; max-height: 360px; }
 .subj-grid::-webkit-scrollbar { width: 3px; } .subj-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -591,44 +610,83 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <p class="hero-sub" id="h-sub">Select your class & subject, then add your question photo — get a clear step-by-step answer instantly.</p>
   </div>
 
-  <!-- STEPPER -->
-  <div class="stepper">
+  <!-- STEPPER (3 steps for class 1-10; 4 steps for 11/12) -->
+  <div class="stepper" id="stepperWrap">
     <div class="step-node active" id="sn1">
       <div class="step-circle"><span class="nm">1</span><span class="chk">✓</span></div>
-      <div class="step-label" id="sl1">Class</div>
+      <div class="step-label" id="sl1">Board</div>
     </div>
     <div class="step-line" id="sl-line1"></div>
     <div class="step-node" id="sn2">
       <div class="step-circle"><span class="nm">2</span><span class="chk">✓</span></div>
-      <div class="step-label" id="sl2">Subject</div>
+      <div class="step-label" id="sl2">Class</div>
     </div>
     <div class="step-line" id="sl-line2"></div>
     <div class="step-node" id="sn3">
       <div class="step-circle"><span class="nm">3</span><span class="chk">✓</span></div>
-      <div class="step-label" id="sl3">Question</div>
+      <div class="step-label" id="sl3">Subject</div>
+    </div>
+    <div class="step-line" id="sl-line3" style="display:none;"></div>
+    <div class="step-node" id="sn4" style="display:none;">
+      <div class="step-circle"><span class="nm">4</span><span class="chk">✓</span></div>
+      <div class="step-label" id="sl4">Question</div>
     </div>
   </div>
 
-  <!-- STEP 1: CLASS -->
+  <!-- STEP 1: BOARD -->
   <div class="step-card" id="card1">
     <div class="step-card-hdr" id="hdr1" onclick="togglePanel(1)">
       <div class="hdr-left">
-        <span class="hdr-icon">🎓</span>
+        <span class="hdr-icon">🏫</span>
         <div class="hdr-text">
-          <span class="hdr-label" id="lbl-cls">Select Class</span>
-          <span class="hdr-val ph" id="val-cls">Tap to choose your class…</span>
+          <span class="hdr-label" id="lbl-board">Select Board</span>
+          <span class="hdr-val ph" id="val-board">Tap to choose your board…</span>
         </div>
       </div>
       <span class="chevron" id="chev1">▼</span>
     </div>
     <div class="drop-panel" id="dp1">
+      <div class="board-grid" id="boardGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: CLASS — locked until board done -->
+  <div class="step-card locked" id="card2">
+    <div class="step-card-hdr" id="hdr2" onclick="togglePanel(2)">
+      <div class="hdr-left">
+        <span class="hdr-icon">🎓</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-cls">Select Class</span>
+          <span class="hdr-val ph" id="val-cls">Choose your board first…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev2">▼</span>
+    </div>
+    <div class="drop-panel" id="dp2">
       <div class="class-grid" id="classGrid"></div>
     </div>
   </div>
 
-  <!-- STEP 2: SUBJECT — locked until class done -->
-  <div class="step-card locked" id="card2">
-    <div class="step-card-hdr" id="hdr2" onclick="togglePanel(2)">
+  <!-- STEP 3: STREAM — only shown for class 11 & 12 -->
+  <div class="step-card locked" id="card3" style="display:none;">
+    <div class="step-card-hdr" id="hdr3" onclick="togglePanel(3)">
+      <div class="hdr-left">
+        <span class="hdr-icon">🌊</span>
+        <div class="hdr-text">
+          <span class="hdr-label" id="lbl-stream">Select Stream</span>
+          <span class="hdr-val ph" id="val-stream">Choose your stream…</span>
+        </div>
+      </div>
+      <span class="chevron" id="chev3">▼</span>
+    </div>
+    <div class="drop-panel" id="dp3">
+      <div class="stream-grid" id="streamGrid"></div>
+    </div>
+  </div>
+
+  <!-- STEP 4 (or 3 for class 1-10): SUBJECT — locked until class/stream done -->
+  <div class="step-card locked" id="card4">
+    <div class="step-card-hdr" id="hdr4" onclick="togglePanel(4)">
       <div class="hdr-left">
         <span class="hdr-icon">📌</span>
         <div class="hdr-text">
@@ -636,16 +694,15 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
           <span class="hdr-val ph" id="val-subj">Choose your class first…</span>
         </div>
       </div>
-      <span class="chevron" id="chev2">▼</span>
+      <span class="chevron" id="chev4">▼</span>
     </div>
-    <div class="drop-panel" id="dp2">
+    <div class="drop-panel" id="dp4">
       <div class="subj-grid" id="subjGrid"></div>
     </div>
   </div>
-
-  <!-- STEP 3: PHOTO or TEXT — locked until subject done -->
-  <div class="step-card locked" id="card3">
-    <div class="step-card-hdr done-s" id="hdr3" style="cursor:default; pointer-events:none;">
+  <!-- STEP 5 (or 3 for 1-10, 4 for 11/12): QUESTION — locked until subject done -->
+  <div class="step-card locked" id="card5">
+    <div class="step-card-hdr done-s" id="hdr5" style="cursor:default; pointer-events:none;">
       <div class="hdr-left">
         <span class="hdr-icon" id="step3-icon">📷</span>
         <div class="hdr-text">
@@ -805,13 +862,20 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 <script>
 // API key is now on the server — never exposed in frontend
 let currentLang = 'en';
+let selBoard = null;  // {id, name, shortName}
 let selClass = null;
+let selStream = null; // {id, name, emoji} — only for class 11/12
 let selSubj  = null;
 let curFile  = null;
 let curB64   = null;
 let openDP   = 0;
 let currentMode = 'text'; // 'text' or 'photo'
 let lastPayload = null;   // stores last question payload for retranslation
+
+// Is the selected class 11 or 12?
+function isHigherSecondary() {
+  return selClass && (selClass.id === 'c11' || selClass.id === 'c12');
+}
 
 // ── SESSION HISTORY ──
 let sessionHistory = []; // [{id, mode, question, imageDataUrl, imageMime, subject, subjectEmoji, className, answer, answerHtml, payload}]
@@ -1024,6 +1088,11 @@ function updateStep3HeaderPhoto() {
   }
 }
 
+const BOARDS = [
+  { id: 'asseb', name: 'ASSEB (State)', shortName: 'ASSEB', desc: 'Assam State Board', hint: 'SEBA (1–10) · AHSEC (11–12)' },
+  { id: 'cbse',  name: 'CBSE',          shortName: 'CBSE',  desc: 'Central Board',    hint: 'NCERT Curriculum' },
+];
+
 const CLASSES = [
   {id:'kg1',num:'KG 1',label:'Nursery'},{id:'kg2',num:'KG 2',label:'LKG/UKG'},
   {id:'c1',num:'1st',label:'Class 1'},{id:'c2',num:'2nd',label:'Class 2'},
@@ -1034,23 +1103,152 @@ const CLASSES = [
   {id:'c11',num:'11th',label:'Class 11'},{id:'c12',num:'12th',label:'Class 12'},
 ];
 
-const SUBJECTS = [
-  {key:'math',emoji:'🔢',subject:'Mathematics'},
-  {key:'science',emoji:'🔬',subject:'Science'},
-  {key:'eng1',emoji:'🔤',subject:'English (First Language)'},
-  {key:'eng2',emoji:'📝',subject:'English (Second Language)'},
-  {key:'bn1',emoji:'বা',subject:'Bengali (First Language)'},
-  {key:'bn2',emoji:'বং',subject:'Bengali (Second Language)'},
-  {key:'hindi',emoji:'हि',subject:'Hindi'},
-  {key:'evs',emoji:'🌿',subject:'Environmental Studies (EVS)'},
-  {key:'sst',emoji:'🗺️',subject:'Social Studies (SST)'},
-  {key:'gk',emoji:'🌍',subject:'General Knowledge (GK)'},
-  {key:'computer',emoji:'💻',subject:'Computer Science'},
-  {key:'moral',emoji:'🙏',subject:'Moral Science / Value Education'},
-  {key:'history',emoji:'🏛️',subject:'History & Civics'},
-  {key:'geo',emoji:'🧭',subject:'Geography'},
-  {key:'conv',emoji:'🗣️',subject:'English Conversation & Speaking'},
+const STREAMS = [
+  { id: 'science',  emoji: '🔬', name: 'Science'  },
+  { id: 'arts',     emoji: '🎨', name: 'Arts'     },
+  { id: 'commerce', emoji: '💼', name: 'Commerce' },
 ];
+
+// Subject data by board + stream (or just class range for 1-10)
+const SUBJECT_MAP = {
+  // KG1 (Nursery/LKG) — age 3-4
+  kg1: [
+    {key:'eng',       emoji:'🔤', subject:'English (Alphabet & Phonics)'},
+    {key:'prewriting',emoji:'✏️', subject:'Pre-Writing Strokes'},
+    {key:'math',      emoji:'🔢', subject:'Numbers & Counting (1–20)'},
+    {key:'shapes',    emoji:'🔷', subject:'Shapes & Colours'},
+    {key:'evs',       emoji:'🌿', subject:'My World (EVS / General Awareness)'},
+    {key:'rhymes',    emoji:'🎵', subject:'Nursery Rhymes & Oral Skills'},
+    {key:'artcraft',  emoji:'🎨', subject:'Art & Craft / Drawing'},
+    {key:'hindi',     emoji:'हि', subject:'Hindi (Basic)'},
+    {key:'assamese',  emoji:'অ',  subject:'Assamese (Basic)'},
+    {key:'bengali',   emoji:'বা', subject:'Bengali (Basic)'},
+    {key:'lifeskills',emoji:'🌟', subject:'Life Skills & Habits'},
+  ],
+  // KG2 (UKG) — age 4-5
+  kg2: [
+    {key:'eng',       emoji:'🔤', subject:'English (Reading & Writing)'},
+    {key:'phonics',   emoji:'🔊', subject:'Phonics & Word Formation'},
+    {key:'math',      emoji:'🔢', subject:'Maths (Numbers up to 100)'},
+    {key:'shapes',    emoji:'🔷', subject:'Shapes, Patterns & Colours'},
+    {key:'evs',       emoji:'🌿', subject:'Environmental Science (EVS)'},
+    {key:'gk',        emoji:'🌍', subject:'General Awareness / GK'},
+    {key:'rhymes',    emoji:'🎵', subject:'Rhymes, Stories & Oral Skills'},
+    {key:'artcraft',  emoji:'🎨', subject:'Art, Craft & Drawing'},
+    {key:'hindi',     emoji:'हि', subject:'Hindi'},
+    {key:'assamese',  emoji:'অ',  subject:'Assamese'},
+    {key:'bengali',   emoji:'বা', subject:'Bengali'},
+    {key:'lifeskills',emoji:'🌟', subject:'Life Skills & Good Habits'},
+  ],
+  // Class 1–10 (any board)
+  any_lower: [
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'science',emoji:'🔬', subject:'Science'},
+    {key:'eng1',   emoji:'🔤', subject:'English (First Language)'},
+    {key:'eng2',   emoji:'📝', subject:'English (Second Language)'},
+    {key:'assamese',emoji:'অ', subject:'Assamese'},
+    {key:'bengali',emoji:'বা', subject:'Bengali'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
+    {key:'evs',    emoji:'🌿', subject:'EVS'},
+    {key:'sst',    emoji:'🗺️', subject:'Social Studies'},
+    {key:'gk',     emoji:'🌍', subject:'General Knowledge'},
+    {key:'computer',emoji:'💻',subject:'Computer Science'},
+    {key:'moral',  emoji:'🙏', subject:'Moral Science'},
+    {key:'history',emoji:'🏛️', subject:'History & Civics'},
+    {key:'geo',    emoji:'🧭', subject:'Geography'},
+    {key:'sanskrit',emoji:'🕉️',subject:'Sanskrit'},
+    {key:'arabic', emoji:'📖', subject:'Arabic'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+  ],
+  asseb_science: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'physics',emoji:'⚛️', subject:'Physics'},
+    {key:'chemistry',emoji:'🧪',subject:'Chemistry'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'biology',emoji:'🧬', subject:'Biology'},
+    {key:'computer',emoji:'💻',subject:'Computer Science'},
+    {key:'envscience',emoji:'🌿',subject:'Environmental Science'},
+    {key:'biotech',emoji:'🔭', subject:'Biotechnology'},
+    {key:'stats',  emoji:'📊', subject:'Statistics'},
+  ],
+  asseb_arts: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'history',emoji:'🏛️', subject:'History'},
+    {key:'polsci', emoji:'🏛️', subject:'Political Science'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'geo',    emoji:'🧭', subject:'Geography'},
+    {key:'education',emoji:'📚',subject:'Education'},
+    {key:'psychology',emoji:'🧠',subject:'Psychology'},
+    {key:'sociology',emoji:'👥',subject:'Sociology'},
+    {key:'logic',  emoji:'💡', subject:'Logic & Philosophy'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'stats',  emoji:'📊', subject:'Statistics'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+    {key:'sanskrit',emoji:'🕉️',subject:'Sanskrit Adhyayan'},
+  ],
+  asseb_commerce: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'accountancy',emoji:'📒',subject:'Accountancy'},
+    {key:'bizstudies',emoji:'💼',subject:'Business Studies'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics/Business Maths'},
+    {key:'salesmgmt',emoji:'🤝',subject:'Sales Management'},
+    {key:'insurance',emoji:'🔐',subject:'Insurance'},
+    {key:'finance',emoji:'💵', subject:'Finance'},
+    {key:'ecogeo', emoji:'🌐', subject:'Economic Geography'},
+    {key:'computer',emoji:'💻',subject:'Computer Applications'},
+    {key:'entrep', emoji:'🚀', subject:'Entrepreneurship'},
+    {key:'stats',  emoji:'📊', subject:'Statistics'},
+  ],
+  cbse_science: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'physics',emoji:'⚛️', subject:'Physics'},
+    {key:'chemistry',emoji:'🧪',subject:'Chemistry'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'biology',emoji:'🧬', subject:'Biology'},
+    {key:'computer',emoji:'💻',subject:'Computer Science'},
+    {key:'infoprac',emoji:'📱',subject:'Informatics Practices'},
+    {key:'biotech',emoji:'🔭', subject:'Biotechnology'},
+    {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
+  ],
+  cbse_arts: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
+    {key:'history',emoji:'🏛️', subject:'History'},
+    {key:'polsci', emoji:'🏛️', subject:'Political Science'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'geo',    emoji:'🧭', subject:'Geography'},
+    {key:'psychology',emoji:'🧠',subject:'Psychology'},
+    {key:'sociology',emoji:'👥',subject:'Sociology'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'finearts',emoji:'🎨',subject:'Fine Arts'},
+    {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
+  ],
+  cbse_commerce: [
+    {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
+    {key:'accountancy',emoji:'📒',subject:'Accountancy'},
+    {key:'bizstudies',emoji:'💼',subject:'Business Studies'},
+    {key:'economics',emoji:'💰',subject:'Economics'},
+    {key:'math',   emoji:'🔢', subject:'Mathematics'},
+    {key:'infoprac',emoji:'📱',subject:'Informatics Practices'},
+    {key:'entrep', emoji:'🚀', subject:'Entrepreneurship'},
+    {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
+  ],
+};
+
+function getSubjects() {
+  if (selClass && (selClass.id === 'kg1')) return SUBJECT_MAP.kg1;
+  if (selClass && (selClass.id === 'kg2')) return SUBJECT_MAP.kg2;
+  if (!isHigherSecondary()) return SUBJECT_MAP.any_lower;
+  const board  = selBoard ? selBoard.id : 'asseb';
+  const stream = selStream ? selStream.id : null;
+  if (!stream) return [];
+  return SUBJECT_MAP[`${board}_${stream}`] || SUBJECT_MAP.any_lower;
+}
 
 const T = {
   en:{
@@ -1129,24 +1327,54 @@ const T = {
 
 // ── STEPPER ──
 function updateStepper() {
-  const s1d = !!selClass, s2d = !!selSubj;
-  const s3d = currentMode === 'photo' ? !!curB64 : !!document.getElementById('textQInput').value.trim();
+  const hs = isHigherSecondary();
+  // Show/hide stream step nodes and lines
+  document.getElementById('sl-line3').style.display = hs ? '' : 'none';
+  document.getElementById('sn4').style.display       = hs ? '' : 'none';
+  document.getElementById('card3').style.display     = hs ? '' : 'none';
+
+  // Relabel steps
+  if (hs) {
+    document.getElementById('sl1').textContent = 'Board';
+    document.getElementById('sl2').textContent = 'Class';
+    document.getElementById('sl3').textContent = 'Stream';
+    document.getElementById('sl4').textContent = 'Question';
+    // sn3 circles show 3 (stream), sn4 shows 4 (question)
+  } else {
+    document.getElementById('sl1').textContent = 'Board';
+    document.getElementById('sl2').textContent = 'Class';
+    document.getElementById('sl3').textContent = 'Question';
+  }
+
+  const s1d = !!selBoard;
+  const s2d = !!selClass;
+  const s3d = hs ? !!selStream : (currentMode === 'photo' ? !!curB64 : !!document.getElementById('textQInput').value.trim());
+  const s4d = hs ? (currentMode === 'photo' ? !!curB64 : !!document.getElementById('textQInput').value.trim()) : false;
+
+  const stateOf = (done, prevDone) => done ? 'done' : prevDone ? 'active' : '';
   document.getElementById('sn1').className = 'step-node ' + (s1d ? 'done' : 'active');
-  document.getElementById('sn2').className = 'step-node ' + (s2d ? 'done' : s1d ? 'active' : '');
-  document.getElementById('sn3').className = 'step-node ' + (s3d ? 'done' : s2d ? 'active' : '');
+  document.getElementById('sn2').className = 'step-node ' + stateOf(s2d, s1d);
+  document.getElementById('sn3').className = 'step-node ' + stateOf(s3d, s2d);
+  if (hs) document.getElementById('sn4').className = 'step-node ' + stateOf(s4d, s3d);
+
   document.getElementById('sl-line1').classList.toggle('filled', s1d);
   document.getElementById('sl-line2').classList.toggle('filled', s2d);
+  if (hs) document.getElementById('sl-line3').classList.toggle('filled', s3d);
 }
 
 // ── PANEL TOGGLE ──
 function togglePanel(n) {
-  if (n === 2 && !selClass) return; // safety
+  if (n === 2 && !selBoard) return;
+  if (n === 3 && !selClass) return;
+  if (n === 4 && (!selClass || (isHigherSecondary() && !selStream))) return;
   const dp = document.getElementById('dp'+n);
   const hdr = document.getElementById('hdr'+n);
   const isOpen = dp.classList.contains('open');
   closeAllPanels();
   if (!isOpen) {
-    if (n===1) buildClassGrid();
+    if (n===1) buildBoardGrid();
+    else if (n===2) buildClassGrid();
+    else if (n===3) buildStreamGrid();
     else buildSubjGrid();
     dp.classList.add('open');
     hdr.classList.add('open');
@@ -1155,17 +1383,60 @@ function togglePanel(n) {
 }
 
 function closeAllPanels() {
-  [1,2].forEach(n => {
-    document.getElementById('dp'+n).classList.remove('open');
-    document.getElementById('hdr'+n).classList.remove('open');
+  [1,2,3,4].forEach(n => {
+    const dp = document.getElementById('dp'+n);
+    const hdr = document.getElementById('hdr'+n);
+    if (dp) dp.classList.remove('open');
+    if (hdr) hdr.classList.remove('open');
   });
   openDP = 0;
 }
 
 document.addEventListener('click', e => {
-  if (!document.getElementById('card1').contains(e.target) &&
-      !document.getElementById('card2').contains(e.target)) closeAllPanels();
+  const cards = [1,2,3,4].map(n => document.getElementById('card'+n)).filter(Boolean);
+  if (!cards.some(c => c.contains(e.target))) closeAllPanels();
 });
+
+// ── BOARD GRID ──
+function buildBoardGrid() {
+  const g = document.getElementById('boardGrid'); g.innerHTML = '';
+  BOARDS.forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'board-chip' + (selBoard && selBoard.id === b.id ? ' sel' : '');
+    el.innerHTML = `<span class="board-name">${b.name}</span><span class="board-desc">${b.hint}</span>`;
+    el.onclick = () => pickBoard(b);
+    g.appendChild(el);
+  });
+}
+
+function pickBoard(b) {
+  selBoard = b;
+  selClass = null; selStream = null; selSubj = null;
+  const v = document.getElementById('val-board');
+  v.textContent = b.name + ' — ' + b.desc;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr1').classList.add('done-s');
+  closeAllPanels();
+
+  // Reset downstream
+  document.getElementById('val-cls').textContent = 'Tap to choose your class…';
+  document.getElementById('val-cls').className = 'hdr-val ph';
+  document.getElementById('hdr2').classList.remove('done-s');
+  document.getElementById('val-subj').textContent = 'Choose your class first…';
+  document.getElementById('val-subj').className = 'hdr-val ph';
+  document.getElementById('hdr4').classList.remove('done-s');
+  document.getElementById('card3').style.display = 'none';
+
+  // Unlock class card
+  const c2 = document.getElementById('card2');
+  c2.classList.remove('locked');
+  const h2 = document.getElementById('hdr2');
+  h2.classList.add('pulse-once');
+  setTimeout(() => h2.classList.remove('pulse-once'), 800);
+
+  updateStepper();
+  setTimeout(() => togglePanel(2), 320);
+}
 
 // ── CLASS GRID ──
 function buildClassGrid() {
@@ -1181,38 +1452,93 @@ function buildClassGrid() {
 
 function pickClass(cls) {
   selClass = cls;
+  selStream = null; selSubj = null;
   const t = T[currentLang];
   const v = document.getElementById('val-cls');
-  v.textContent = `${t.selCls} — ${cls.num} (${cls.label})`;
+  v.textContent = `${cls.num} (${cls.label})`;
   v.classList.remove('ph'); v.classList.add('dv');
-  document.getElementById('hdr1').classList.add('done-s');
+  document.getElementById('hdr2').classList.add('done-s');
   closeAllPanels();
 
-  // Unlock step 2
-  const c2 = document.getElementById('card2');
-  c2.classList.remove('locked');
-  const h2 = document.getElementById('hdr2');
-  h2.classList.add('pulse-once');
-  setTimeout(()=>h2.classList.remove('pulse-once'),800);
-
-  // Update subject placeholder
+  // Reset subject
   const vs = document.getElementById('val-subj');
-  if (vs.classList.contains('ph')) vs.textContent = t.phSubj2;
+  vs.textContent = 'Choose your class first…';
+  vs.className = 'hdr-val ph';
+  document.getElementById('hdr4').classList.remove('done-s');
+  document.getElementById('card4').classList.add('locked');
+  document.getElementById('card5').classList.add('locked');
+  document.getElementById('modeToggleWrap').style.display = 'none';
 
+  if (isHigherSecondary()) {
+    // Show stream step, lock subject until stream picked
+    document.getElementById('card3').style.display = '';
+    document.getElementById('card3').classList.remove('locked');
+    document.getElementById('val-stream').textContent = 'Choose your stream…';
+    document.getElementById('val-stream').className = 'hdr-val ph';
+    document.getElementById('hdr3').classList.remove('done-s');
+    updateStepper();
+    setTimeout(() => togglePanel(3), 320);
+  } else {
+    // Hide stream, go directly to subject
+    document.getElementById('card3').style.display = 'none';
+    const vs2 = document.getElementById('val-subj');
+    vs2.textContent = t.phSubj2 || 'Tap to choose your subject…';
+
+    const c4 = document.getElementById('card4');
+    c4.classList.remove('locked');
+    const h4 = document.getElementById('hdr4');
+    h4.classList.add('pulse-once');
+    setTimeout(() => h4.classList.remove('pulse-once'), 800);
+    updateStepper();
+    setTimeout(() => togglePanel(4), 320);
+  }
+}
+
+// ── STREAM GRID ──
+function buildStreamGrid() {
+  const g = document.getElementById('streamGrid'); g.innerHTML = '';
+  STREAMS.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'stream-chip' + (selStream && selStream.id === s.id ? ' sel' : '');
+    el.innerHTML = `<span class="stream-emoji">${s.emoji}</span><span class="stream-name">${s.name}</span>`;
+    el.onclick = () => pickStream(s);
+    g.appendChild(el);
+  });
+}
+
+function pickStream(s) {
+  selStream = s;
+  selSubj = null;
+  const v = document.getElementById('val-stream');
+  v.textContent = `${s.emoji}  ${s.name}`;
+  v.classList.remove('ph'); v.classList.add('dv');
+  document.getElementById('hdr3').classList.add('done-s');
+  closeAllPanels();
+
+  // Reset subject
+  const vs = document.getElementById('val-subj');
+  vs.textContent = 'Tap to choose your subject…';
+  vs.className = 'hdr-val ph';
+  document.getElementById('hdr4').classList.remove('done-s');
+
+  // Unlock subject
+  const c4 = document.getElementById('card4');
+  c4.classList.remove('locked');
+  const h4 = document.getElementById('hdr4');
+  h4.classList.add('pulse-once');
+  setTimeout(() => h4.classList.remove('pulse-once'), 800);
   updateStepper();
-  // Auto-open subject
-  setTimeout(()=>togglePanel(2), 320);
+  setTimeout(() => togglePanel(4), 320);
 }
 
 // ── SUBJECT GRID ──
 function buildSubjGrid() {
   const g = document.getElementById('subjGrid'); g.innerHTML='';
-  const t = T[currentLang];
-  SUBJECTS.forEach(s => {
+  const subs = getSubjects();
+  subs.forEach(s => {
     const el = document.createElement('div');
     el.className = 'subj-chip' + (selSubj&&selSubj.key===s.key?' sel':'');
-    const name = t.subs[s.key]||s.subject;
-    el.innerHTML = `<span class="subj-emoji">${s.emoji}</span><span class="subj-name">${name}</span>`;
+    el.innerHTML = `<span class="subj-emoji">${s.emoji}</span><span class="subj-name">${s.subject}</span>`;
     el.onclick = () => pickSubj(s);
     g.appendChild(el);
   });
@@ -1221,20 +1547,19 @@ function buildSubjGrid() {
 function pickSubj(s) {
   selSubj = s;
   const t = T[currentLang];
-  const name = t.subs[s.key]||s.subject;
   const v = document.getElementById('val-subj');
-  v.textContent = `${s.emoji}  ${name}`;
+  v.textContent = `${s.emoji}  ${s.subject}`;
   v.classList.remove('ph'); v.classList.add('dv');
-  document.getElementById('hdr2').classList.add('done-s');
-  document.getElementById('rtag-sj').textContent = name;
+  document.getElementById('hdr4').classList.add('done-s');
+  document.getElementById('rtag-sj').textContent = s.subject;
   closeAllPanels();
 
-  // Unlock step 3
-  const c3 = document.getElementById('card3');
-  c3.classList.remove('locked');
-  const h3 = document.getElementById('hdr3');
-  h3.classList.add('pulse-once');
-  setTimeout(()=>h3.classList.remove('pulse-once'),800);
+  // Unlock question card
+  const c5 = document.getElementById('card5');
+  c5.classList.remove('locked');
+  const h5 = document.getElementById('hdr5');
+  h5.classList.add('pulse-once');
+  setTimeout(()=>h5.classList.remove('pulse-once'),800);
 
   // Update photo header value
   const vp = document.getElementById('val-photo');
@@ -1242,14 +1567,13 @@ function pickSubj(s) {
   vp.classList.remove('ph');
 
   // Show mode toggle
-  const toggleWrap = document.getElementById('modeToggleWrap');
-  toggleWrap.style.display = 'flex';
+  document.getElementById('modeToggleWrap').style.display = 'flex';
 
   // Default to text mode
   setMode('text');
 
   updateStepper();
-  setTimeout(()=>document.getElementById('card3').scrollIntoView({behavior:'smooth',block:'nearest'}),180);
+  setTimeout(()=>document.getElementById('card5').scrollIntoView({behavior:'smooth',block:'nearest'}),180);
 }
 
 // ── FILE ──
@@ -1313,9 +1637,12 @@ function applyLang(lang) {
   const t=T[lang];
   document.getElementById('h-title').innerHTML=t.heroTitle;
   document.getElementById('h-sub').textContent=t.heroSub.replace(/<[^>]+>/g,'');
-  document.getElementById('sl1').textContent=t.sl1;
-  document.getElementById('sl2').textContent=t.sl2;
-  document.getElementById('sl3').textContent=t.sl3;
+  document.getElementById('sl1').textContent='Board';
+  document.getElementById('sl2').textContent=t.sl1; // Class
+  document.getElementById('sl3').textContent=isHigherSecondary() ? 'Stream' : t.sl2; // Subject or Stream
+  const sl4 = document.getElementById('sl4');
+  if (sl4) sl4.textContent=t.sl3; // Question
+  document.getElementById('lbl-board').textContent='Select Board';
   document.getElementById('lbl-cls').textContent=t.lblCls;
   document.getElementById('lbl-subj').textContent=t.lblSubj;
   document.getElementById('lbl-photo').textContent=t.lblPhoto;
@@ -1336,12 +1663,12 @@ function applyLang(lang) {
   document.getElementById('tip3').textContent=t.tip3;
   document.getElementById('footerNote').innerHTML=t.footer;
   document.getElementById('rtag-ai').textContent=t.aiTag;
-  // Action bar labels
   if (t.copyLabel)   document.getElementById('copyLabel').textContent   = t.copyLabel;
   if (t.speakLabel)  document.getElementById('speakLabel').textContent  = isSpeaking ? (t.stopLabel||'Stop') : t.speakLabel;
   if (t.followLabel) document.getElementById('followLabel').textContent = t.followLabel;
   if (t.followPlaceholder) document.getElementById('followupInput').placeholder = t.followPlaceholder;
-  if(!selClass){const v=document.getElementById('val-cls');v.textContent=t.phCls;v.classList.add('ph');}
+  if(!selBoard){const v=document.getElementById('val-board');v.textContent='Tap to choose your board…';v.classList.add('ph');}
+  if(!selClass){const v=document.getElementById('val-cls');v.textContent=selBoard?t.phCls:'Choose your board first…';v.classList.add('ph');}
   if(!selSubj){const v=document.getElementById('val-subj');v.textContent=selClass?t.phSubj2:t.phSubj;v.classList.add('ph');}
   if(!selSubj){const v=document.getElementById('val-photo');if(!selSubj){v.textContent=t.phPhoto;v.classList.add('ph');}}
   else {
@@ -1461,7 +1788,13 @@ async function askQuestion() {
   const rb = document.getElementById('resultBody');
 
   const rCl = document.getElementById('rtag-cl');
-  if (selClass) { rCl.textContent = selClass.num + ' (' + selClass.label + ')'; rCl.style.display = ''; }
+  if (selClass) { 
+    let clsLabel = selClass.num + ' (' + selClass.label + ')';
+    if (selBoard) clsLabel = selBoard.shortName + ' · ' + clsLabel;
+    if (selStream) clsLabel += ' · ' + selStream.name;
+    rCl.textContent = clsLabel; 
+    rCl.style.display = ''; 
+  }
   else rCl.style.display = 'none';
 
   // Disable all send buttons
@@ -1472,7 +1805,9 @@ async function askQuestion() {
   // ── Validate FIRST before showing anything ──
   let payload = {
     lang: currentLang,
+    board: selBoard ? selBoard.name : '',
     className: selClass ? `${selClass.num} (${selClass.label})` : '',
+    stream: selStream ? selStream.name : '',
     subject: selSubj ? selSubj.subject : '',
   };
 
@@ -1788,6 +2123,11 @@ function fmt(t) {
 
 window.addEventListener('DOMContentLoaded', () => {
   applyLang('en'); updateStepper();
+  // Open board selector immediately
+  buildBoardGrid();
+  document.getElementById('dp1').classList.add('open');
+  document.getElementById('hdr1').classList.add('open');
+  openDP = 1;
   // Text mode: Enter sends, Shift+Enter = newline
   document.getElementById('textQInput').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askQuestion(); }
