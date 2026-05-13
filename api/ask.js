@@ -137,7 +137,11 @@ Always write ALL mathematical expressions, equations, and formulas using LaTeX n
 - Inline math: $expression$ — e.g. $2x + 5 = 11$, $E = mc^2$, $\\sin^2\\theta + \\cos^2\\theta = 1$
 - Display math (standalone): $$expression$$ — e.g. $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
 - Use LaTeX for: fractions (\\frac{}{}), square roots (\\sqrt{}), powers (^), subscripts (_), Greek letters (\\alpha, \\theta, \\pi), integrals (\\int), summations (\\sum), vectors (\\vec{})
-- Never write formulas as plain text like "x^2" or "sqrt(x)" — always use LaTeX
+- CRITICAL: NEVER write a bare LaTeX expression without delimiters. ALWAYS wrap in $...$ or $$...$$
+- WRONG: K_c = \\frac{[NH_3]^2}{[N_2][H_2]^3}
+- RIGHT: $$K_c = \\frac{[\\ce{NH3}]^2}{[\\ce{N2}][\\ce{H2}]^3}$$
+- WRONG: \\frac{0.09}{[A]^2}
+- RIGHT: $$\\frac{0.09}{[\\ce{A}]^2}$$
 
 CHEMISTRY NOTATION RULE (STRICTLY FOLLOW):
 Always write ALL chemical equations and formulas using mhchem notation:
@@ -147,6 +151,8 @@ Always write ALL chemical equations and formulas using mhchem notation:
 - Compounds with subscripts: \\ce{H2SO4}, \\ce{CaCO3}, \\ce{Fe2O3}
 - Oxidation states: \\ce{MnO4^-}, \\ce{Fe^{2+}}
 - Every single chemical formula or equation MUST use \\ce{} — never write H2O or CO2 as plain text
+- When \\ce{} appears inside a math expression (like in \\frac), wrap the WHOLE expression in $$...$$
+- Example: $$K_c = \\frac{[\\ce{NH3}]^2}{[\\ce{N2}][\\ce{H2}]^3}$$
 
 DIAGRAM RULE:
 When describing a diagram, label it like this: [Diagram: your description here]
