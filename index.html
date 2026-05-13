@@ -6,9 +6,9 @@
 <title>StudyLens — AI Homework Helper</title>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"/>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/mhchem.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/mhchem.min.js"></script>
 <style>
 :root {
   --bg: #0f1117;
@@ -2288,10 +2288,16 @@ async function sendFollowup() {
 function fmt(t) {
   // ── Step 1: protect \ce{...} chemistry FIRST (before $ processing)
   const chemBlocks = [];
-  t = t.replace(/\\ce\{([^}]+)\}/g, (_, ce) => {
+  // Track if the \ce{} is standalone (whole line) or inline
+  // We'll mark standalone ones separately
+  t = t.replace(/(?:^|\n)([ \t]*)\\ce\{((?:[^{}]|\{[^{}]*\})+)\}([ \t]*)(?:\n|$)/gm, (full, pre, ce, post, offset) => {
     const idx = chemBlocks.length;
-    // standalone if the whole line is just this \ce{}
-    chemBlocks.push(ce.trim());
+    chemBlocks.push({ expr: ce.trim(), standalone: true });
+    return `\n%%CHEM${idx}%%\n`;
+  });
+  t = t.replace(/\\ce\{((?:[^{}]|\{[^{}]*\})+)\}/g, (_, ce) => {
+    const idx = chemBlocks.length;
+    chemBlocks.push({ expr: ce.trim(), standalone: false });
     return `%%CHEM${idx}%%`;
   });
 
@@ -2344,16 +2350,22 @@ function fmt(t) {
 
   // ── Step 7: render chemistry blocks
   t = t.replace(/%%CHEM(\d+)%%/g, (match, idx) => {
-    const expr = chemBlocks[parseInt(idx)];
+    const block = chemBlocks[parseInt(idx)];
+    const expr = block.expr;
     try {
       if (typeof katex === 'undefined') return `<code>${expr}</code>`;
       const rendered = katex.renderToString(`\\ce{${expr}}`, {
         displayMode: false, throwOnError: false, strict: false
       });
-      // Wrap standalone equations in a styled block
-      return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div>${rendered}</div>`;
+      if (block.standalone) {
+        return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div>${rendered}</div>`;
+      }
+      return rendered;
     } catch(e) {
-      return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div><code>${expr}</code></div>`;
+      if (block.standalone) {
+        return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div><code>${expr}</code></div>`;
+      }
+      return `<code>${expr}</code>`;
     }
   });
 
