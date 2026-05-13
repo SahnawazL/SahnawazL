@@ -2681,9 +2681,12 @@ function fmt(t) {
   });
 
   // ── Step 9: Standard markdown formatting
+  // Normalize \r\n and \r line endings first
+  t = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   t = t
     // Bullets FIRST — before italic * replacement consumes the asterisks
-    .replace(/^[-*•]\s+(.+)$/gm,  '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
+    // Match lines starting with optional spaces then - * or • (handles indented bullets too)
+    .replace(/^[ \t]*[-*•]\s+(.+)$/gm, '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
     .replace(/^### (.+)$/gm, '<div class="ans-h3">$1</div>')
     .replace(/^## (.+)$/gm,  '<div class="ans-h2">$1</div>')
     .replace(/^# (.+)$/gm,   '<div class="ans-h1">$1</div>')
