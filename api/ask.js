@@ -116,7 +116,7 @@ function cors(res) {
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-function systemPrompt(className, subject, lang, board = '', stream = '') {
+function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text') {
   const langMap = { en: 'English', bn: 'Bengali (Bangla)', hi: 'Hindi', as: 'Assamese' };
   const replyLang = langMap[lang] || 'English';
 
@@ -184,7 +184,9 @@ Biology SVG Guidelines (use these for organ/cell/process diagrams):
 - Keep it clean and school-textbook style — not overly detailed, just key structures labeled.
 - Double-check that every label text is within the viewBox bounds before finalizing.` : '';
 
-  const diagramBlock = isScience ? `
+  // In photo mode, never generate SVG diagrams — the image IS the visual context
+  const isPhotoMode = mode === 'photo';
+  const diagramBlock = (!isPhotoMode && isScience) ? `
 DIAGRAM RULE — MANDATORY FOR ALL SCIENCE QUESTIONS:
 Whenever explaining any biological structure, organ, system, process, geometric figure, circuit, graph, or molecule — you MUST draw an SVG diagram. Do not just describe it in text.
 
@@ -231,6 +233,10 @@ When a diagram is needed, use: [Diagram: your description here]`;
 CORE MISSION:
 Answer every student question fully, clearly, and step by step.
 If a photo is sent, read it carefully first — then answer what it shows.
+${isPhotoMode ? `PHOTO MODE RULES:
+- The image IS the visual. NEVER generate an SVG diagram — just read and answer.
+- If the image has MCQ options (A/B/C/D), identify the correct answer and explain why.
+- If a follow-up says "answer question 5" or "explain part 2", refer back to the same image.` : ''}
 
 LANGUAGE RULE (STRICTLY FOLLOW):
 The student has selected: ${replyLang}
@@ -280,7 +286,7 @@ function photoInstruction(lang) {
 
 // ── GROQ: text-only handler ───────────────────────────────────────────────────
 async function askGroq(keys, { question, className, subject, lang, board, stream }) {
-  const sysPrompt = systemPrompt(className, subject, lang, board, stream);
+  const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode);
   let lastErr = null;
 
   // Smart model selection: 70B for Class 11-12, 8B for Class 1-10
@@ -356,7 +362,7 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
   }
 
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream) }] },
+    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode) }] },
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature: 0.25, topK: 40, topP: 0.92,
