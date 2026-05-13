@@ -2679,10 +2679,8 @@ function fmt(t) {
 
   // ── Step 9: Standard markdown formatting
   t = t
-    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.*?)\*\*/g,     '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g,         '<em>$1</em>')
-    .replace(/`(.*?)`/g,           '<code class="ans-inline-code">$1</code>')
+    // Bullets FIRST — before italic * replacement consumes the asterisks
+    .replace(/^[-*•]\s+(.+)$/gm,  '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
     .replace(/^### (.+)$/gm, '<div class="ans-h3">$1</div>')
     .replace(/^## (.+)$/gm,  '<div class="ans-h2">$1</div>')
     .replace(/^# (.+)$/gm,   '<div class="ans-h1">$1</div>')
@@ -2692,7 +2690,10 @@ function fmt(t) {
     // Numbered list items → styled step with circle number
     .replace(/^(\d+)\.\s+(.+)$/gm, (_, num, text) =>
       `<div class="ans-step"><span class="ans-num">${num}</span><span>${text}</span></div>`)
-    .replace(/^[-*•]\s+(.+)$/gm,  '<div class="ans-bullet"><span>▸</span><span>$1</span></div>')
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g,     '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,         '<em>$1</em>')
+    .replace(/`(.*?)`/g,           '<code class="ans-inline-code">$1</code>')
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g,   '<br/>');
 
