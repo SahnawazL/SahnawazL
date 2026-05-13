@@ -285,7 +285,7 @@ function photoInstruction(lang) {
 }
 
 // ── GROQ: text-only handler ───────────────────────────────────────────────────
-async function askGroq(keys, { question, className, subject, lang, board, stream }) {
+async function askGroq(keys, { question, className, subject, lang, board, stream, mode }) {
   const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode);
   let lastErr = null;
 
