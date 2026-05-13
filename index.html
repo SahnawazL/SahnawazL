@@ -649,6 +649,22 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .ans-diagram-label {
   font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--accent2); margin-bottom: 0.3rem;
+  display: flex; align-items: center; gap: 0.35rem;
+}
+/* Text-only diagram: render as a styled description card */
+.ans-diagram-text {
+  background: var(--surface2);
+  border: 1px dashed rgba(247,201,72,0.35);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin-top: 0.4rem;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.65;
+  font-style: italic;
+}
+.ans-diagram-text::before {
+  content: '🔍 ';
 }
 
 /* SVG Diagram */
@@ -668,6 +684,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   max-width: 100%;
   height: auto;
   display: block;
+  border-radius: 6px;
 }
 
 /* FOOTER */
@@ -2687,7 +2704,7 @@ function fmt(t) {
       return `<div class="ans-diagram ans-svg-diagram" data-svg="${encoded}"><div class="ans-diagram-label">📐 Diagram</div><div class="ans-svg-wrap svg-placeholder">⏳ Loading diagram…</div></div>`;
     }
     if (blk.type === 'diagram') {
-      return `<div class="ans-diagram"><div class="ans-diagram-label">📊 Diagram</div>${blk.content}</div>`;
+      return `<div class="ans-diagram"><div class="ans-diagram-label">📊 DIAGRAM</div><div class="ans-diagram-text">${blk.content}</div></div>`;
     }
     if (blk.type === 'dmath') {
       const rendered = renderKatex(blk.content, true);
