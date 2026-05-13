@@ -40,7 +40,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: glow 2s ease-in-out infinite; }
 @keyframes glow { 0%,100%{opacity:1;box-shadow:0 0 8px var(--accent)} 50%{opacity:0.6;box-shadow:0 0 18px var(--accent)} }
 .lang-switcher { display: flex; gap: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.22rem; }
-.lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.75rem; font-weight: 600; padding: 0.28rem 0.7rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
+.lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600; padding: 0.28rem 0.55rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
 .lang-btn.active { background: var(--accent); color: #fff; }
 .lang-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
 .has-answer .lang-btn:not(.active):hover::after {
@@ -777,6 +777,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
     <button class="lang-btn" onclick="setLang('bn')" id="btn-bn">বাং</button>
     <button class="lang-btn" onclick="setLang('hi')" id="btn-hi">हिं</button>
+    <button class="lang-btn" onclick="setLang('as')" id="btn-as">অসম</button>
   </div>
 </div>
 
@@ -1463,7 +1464,7 @@ const T = {
     copyLabel:'Copy', speakLabel:'Read Aloud', stopLabel:'Stop', followLabel:'Ask Follow-up',
     followPlaceholder:'Ask something more about this answer…',
     tip1:'Type any question — theory, definition, formula, or concept.',
-    tip2:'You can ask in Bengali, Hindi, or English.',
+    tip2:'You can ask in Assamese, Bengali, Hindi, or English.',
     tip3:'Works with typed questions AND photos of books, notes & worksheets.',
     footer:'Made for students, parents &amp; learners in India 🇮🇳<br/>Powered by Google Gemini AI',
     subs:{math:'Maths',science:'Science',eng1:'English 1',eng2:'English 2',bn1:'Bengali 1',bn2:'Bengali 2',hindi:'Hindi',evs:'EVS',sst:'SST',gk:'GK',computer:'Computer',moral:'Moral Sci.',history:'History',geo:'Geography',conv:'Conversation'},
@@ -1514,7 +1515,31 @@ const T = {
     tip2:'हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
     tip3:'टाइप किए सवाल और किताब की फोटो — दोनों पर काम करता है।',
     footer:'भारत के छात्रों, माता-पिता और सीखने वालों के लिए 🇮🇳<br/>Google Gemini AI द्वारा संचालित',
-    subs:{math:'गणित',science:'विज्ञान',eng1:'अंग्रेज़ी १',eng2:'अंग्रेज़ी २',bn1:'बांग्ला १',bn2:'बांग्ला २',hindi:'हिन्दी',evs:'पर्यावरण',sst:'सामाजिक विज्ञान',gk:'सामान्य ज्ञान',computer:'कंप्यूटर',moral:'नैतिक शिक्षा',history:'इतिहास',geo:'भूगोल',conv:'बातचीत'},
+    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংৰাজী ১',eng2:'ইংৰাজী ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দী',evs:'পৰিবেশ',sst:'সমাজ বিজ্ঞান',gk:'সাধাৰণ জ্ঞান',computer:'কম্পিউটাৰ',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
+  },
+  as:{
+    heroTitle:'তোমাৰ <span class="highlight">AI পঢ়াৰ</span> সঙ্গী',
+    heroSub:'শ্ৰেণী আৰু বিষয় বাছো, প্ৰশ্ন লিখা বা ফটো যোগ কৰা — তৎক্ষণাৎ সহজ উত্তৰ পোৱা।',
+    lblCls:'শ্ৰেণী বাছো',phCls:'তোমাৰ শ্ৰেণী বাছিবলৈ টেপ কৰা…',selCls:'শ্ৰেণী',
+    lblSubj:'বিষয় বাছো',phSubj:'আগতে শ্ৰেণী বাছা…',phSubj2:'তোমাৰ বিষয় বাছিবলৈ টেপ কৰা…',
+    lblPhoto:'তোমাৰ প্ৰশ্ন যোগ কৰা',phPhoto:'আগতে বিষয় বাছা…',readyPhoto:'✓ ফটো প্ৰস্তুত',readyText:'✓ প্ৰশ্ন লিখা হৈছে',
+    camTitle:'কেমেৰা',camHint:'পোনপটীয়াকৈ কেমেৰা খোলা',galTitle:'গেলাৰী',galHint:'গেলাৰীৰ পৰা বাছা',
+    retakeCam:'পুনৰ তোলা',retakeGal:'সলনি কৰা',
+    sl1:'শ্ৰেণী',sl2:'বিষয়',sl3:'প্ৰশ্ন',
+    modeTabText:'প্ৰশ্ন লিখা',modeTabPhoto:'ফটো যোগ কৰা',
+    textPlaceholder:'ইয়াত প্ৰশ্ন লিখা…\nযেনে: সালোক-সংশ্লেষণ কি? এই সমীকৰণটো কেনেকৈ সমাধান কৰিম?',
+    textHint:'💡 যিকোনো তাত্ত্বিক প্ৰশ্ন, সংজ্ঞা বা সন্দেহ — ফটো নোহোৱাকৈ!',
+    placeholder:'আৰু কিবা লিখা, অথবা ➤ টিপা…',
+    placeholderTextMode:'প্ৰশ্ন প্ৰস্তুত! উত্তৰ পাবলৈ ➤ টিপা…',
+    placeholderPhotoMode:'ফটোৰ বিষয়ে কিবা সুধা, অথবা ➤ টিপা…',
+    aiTag:'✓ AI উত্তৰ',
+    copyLabel:'কপি', speakLabel:'পঢ়ি শুনোৱা', stopLabel:'থমা', followLabel:'আৰু সুধা',
+    followPlaceholder:'এই উত্তৰৰ বিষয়ে আৰু কিবা সুধা…',
+    tip1:'যিকোনো তাত্ত্বিক প্ৰশ্ন, সংজ্ঞা বা সূত্ৰ লিখি সুধা।',
+    tip2:'অসমীয়া, বাংলা, হিন্দী বা ইংৰাজীত প্ৰশ্ন কৰিব পাৰা।',
+    tip3:'লিখা প্ৰশ্ন আৰু কিতাপৰ ফটো — দুয়োটাতে কাম কৰে।',
+    footer:'ভাৰতৰ শিক্ষাৰ্থী, অভিভাৱক আৰু শিকাৰুসকলৰ বাবে 🇮🇳<br/>Google Gemini AI দ্বাৰা পৰিচালিত',
+    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংৰাজী ১',eng2:'ইংৰাজী ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দী',evs:'পৰিবেশ বিদ্যা',sst:'সমাজ বিজ্ঞান',gk:'সাধাৰণ জ্ঞান',computer:'কম্পিউটাৰ',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
   }
 };
 
@@ -1939,6 +1964,12 @@ const THINKING_MSGS = {
     { label: 'जवाब तैयार हो रहा है…',        sub: 'कदम-दर-कदम, सिर्फ तुम्हारे लिए' },
     { label: 'लगभग तैयार…',                  sub: 'आखिरी काम चल रहा है' },
   ],
+  as: [
+    { label: 'তোমাৰ প্ৰশ্ন পঢ়িছো…',         sub: 'StudyLens AI চিন্তা কৰিছে' },
+    { label: 'বিষয়টো বুজিছো…',              sub: 'তোমাৰ বাবে সংযোগ তৈয়াৰ হৈছে' },
+    { label: 'উত্তৰ তৈয়াৰ হৈছে…',           sub: 'পদক্ষেপে পদক্ষেপে, মাত্ৰ তোমাৰ বাবে' },
+    { label: 'প্ৰায় প্ৰস্তুত…',             sub: 'শেষৰ কাম চলিছে' },
+  ],
 };
 
 let _thinkingTimer = null;
@@ -2193,7 +2224,7 @@ function toggleSpeak() {
   speakUtterance = new SpeechSynthesisUtterance(cleanText);
 
   // Match language
-  const langMap = { en: 'en-IN', bn: 'bn-IN', hi: 'hi-IN' };
+  const langMap = { en: 'en-IN', bn: 'bn-IN', hi: 'hi-IN', as: 'as-IN' };
   speakUtterance.lang = langMap[currentLang] || 'en-IN';
   speakUtterance.rate = 0.92;
   speakUtterance.pitch = 1.05;
@@ -2394,16 +2425,15 @@ function fmt(t) {
   // to the next blank line (or end of string) in the takeaway div
   {
     const tkLines = t.split('\n');
-    let inTakeaway = false;
     const out = [];
     for (let i = 0; i < tkLines.length; i++) {
       const line = tkLines[i];
       if (/^💡\s*Key Takeaway/i.test(line.trim())) {
-        // Collect this + continuation lines until blank
+        // Collect this + continuation lines until blank line
         let block = line;
         while (i + 1 < tkLines.length && tkLines[i + 1].trim() !== '') {
           i++;
-          block += '\n' + tkLines[i];
+          block += ' ' + tkLines[i].trim(); // join as single line, space-separated
         }
         out.push(`%%TAKEAWAY_START%%${block}%%TAKEAWAY_END%%`);
       } else {
@@ -2504,6 +2534,31 @@ function startQuiz() {
   generateQuiz();
 }
 
+function stripForQuiz(text) {
+  let t = text;
+  // Remove display math $$...$$ 
+  t = t.replace(/\$\$[\s\S]*?\$\$/g, '[math]');
+  // Remove \[...\] display math
+  t = t.replace(/\\\[[\s\S]*?\\\]/g, '[math]');
+  // Remove inline math $...$
+  t = t.replace(/\$[^$\n]{1,200}?\$/g, '[math]');
+  // Remove \(...\) inline math
+  t = t.replace(/\\\([^)]{1,200}?\\\)/g, '[math]');
+  // Remove \ce{...} chemistry notation
+  t = t.replace(/\\ce\{[^}]*\}/g, '[formula]');
+  // Remove other LaTeX commands with braces
+  t = t.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+  // Remove remaining LaTeX commands
+  t = t.replace(/\\[a-zA-Z]+/g, '');
+  // Remove placeholder markers
+  t = t.replace(/%%[A-Z_]+\d*%%/g, '');
+  // Collapse excess blank lines
+  t = t.replace(/\n{3,}/g, '\n\n').trim();
+  // Cap at 2000 chars to avoid token overflow
+  if (t.length > 2000) t = t.slice(0, 2000) + '...';
+  return t;
+}
+
 async function generateQuiz() {
   if (!lastAnswerText) return;
 
@@ -2517,7 +2572,7 @@ async function generateQuiz() {
 
 Based on this answer about "${subject}" for ${cls}:
 ---
-${lastAnswerText}
+${stripForQuiz(lastAnswerText)}
 ---
 
 Generate exactly 3 multiple choice questions (MCQs) to test the student's understanding.
@@ -2575,6 +2630,7 @@ Respond ONLY with a valid JSON array, no markdown, no extra text:
     renderQuiz();
 
   } catch (e) {
+    console.error('Quiz error:', e);
     document.getElementById('quizBody').innerHTML = `
       <div style="padding:1rem;text-align:center;font-size:0.82rem;color:var(--danger)">
         ❌ Could not generate quiz. Please try again.
