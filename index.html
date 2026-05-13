@@ -2286,55 +2286,95 @@ async function sendFollowup() {
 // Enter key on follow-up input — merged into main DOMContentLoaded below
 
 function fmt(t) {
-  // ── Step 1: protect \ce{...} chemistry FIRST (before $ processing)
-  const chemBlocks = [];
-  // Track if the \ce{} is standalone (whole line) or inline
-  // We'll mark standalone ones separately
-  t = t.replace(/(?:^|\n)([ \t]*)\\ce\{((?:[^{}]|\{[^{}]*\})+)\}([ \t]*)(?:\n|$)/gm, (full, pre, ce, post, offset) => {
-    const idx = chemBlocks.length;
-    chemBlocks.push({ expr: ce.trim(), standalone: true });
-    return `\n%%CHEM${idx}%%\n`;
-  });
-  t = t.replace(/\\ce\{((?:[^{}]|\{[^{}]*\})+)\}/g, (_, ce) => {
-    const idx = chemBlocks.length;
-    chemBlocks.push({ expr: ce.trim(), standalone: false });
-    return `%%CHEM${idx}%%`;
-  });
+  // ── Helper: render a LaTeX string with KaTeX (mhchem loaded, so \ce{} works inside math too)
+  function renderKatex(expr, display) {
+    if (typeof katex === 'undefined') return display ? `<div class="ans-formula"><code>${expr}</code></div>` : `<code>${expr}</code>`;
+    try {
+      return katex.renderToString(expr, { displayMode: display, throwOnError: false, strict: false });
+    } catch(e) {
+      return display ? `<div class="ans-formula"><code>${expr}</code></div>` : `<code>${expr}</code>`;
+    }
+  }
 
-  // ── Step 2: protect display math $$ ... $$
-  const displayMathBlocks = [];
+  // ── Helper: extract balanced braces content starting AFTER the opening {
+  function extractBalanced(str, start) {
+    let depth = 1, i = start;
+    while (i < str.length && depth > 0) {
+      if (str[i] === '{') depth++;
+      else if (str[i] === '}') depth--;
+      i++;
+    }
+    return str.slice(start, i - 1);
+  }
+
+  const blocks = []; // {type:'dmath'|'imath'|'chem'|'chemblock', content:string}
+
+  // ── Step 1: Protect $$ ... $$ display math (may contain \ce{} — KaTeX handles it natively)
   t = t.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
-    const idx = displayMathBlocks.length;
-    displayMathBlocks.push(math.trim());
-    return `%%DMATH${idx}%%`;
+    const idx = blocks.length;
+    blocks.push({ type: 'dmath', content: math.trim() });
+    return `%%BLK${idx}%%`;
   });
 
-  // ── Step 3: protect inline math $ ... $
-  const inlineMathBlocks = [];
-  t = t.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-    const idx = inlineMathBlocks.length;
-    inlineMathBlocks.push(math.trim());
-    return `%%IMATH${idx}%%`;
+  // ── Step 2: Protect \[ ... \] display math
+  t = t.replace(/\\\[([\s\S]+?)\\\]/g, (_, math) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'dmath', content: math.trim() });
+    return `%%BLK${idx}%%`;
   });
 
-  // ── Step 4: protect \( ... \) inline and \[ ... \] display
-  t = t.replace(/\\\[([^\]]+?)\\\]/g, (_, math) => {
-    const idx = displayMathBlocks.length;
-    displayMathBlocks.push(math.trim());
-    return `%%DMATH${idx}%%`;
-  });
-  t = t.replace(/\\\(([^)]+?)\\\)/g, (_, math) => {
-    const idx = inlineMathBlocks.length;
-    inlineMathBlocks.push(math.trim());
-    return `%%IMATH${idx}%%`;
+  // ── Step 3: Protect $ ... $ inline math
+  t = t.replace(/\$([^\$\n]{1,300}?)\$/g, (_, math) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'imath', content: math.trim() });
+    return `%%BLK${idx}%%`;
   });
 
-  // ── Step 5: diagram description blocks [Diagram: ...]
+  // ── Step 4: Protect \( ... \) inline math
+  t = t.replace(/\\\(([^)]{1,300}?)\\\)/g, (_, math) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'imath', content: math.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 5: Detect bare LaTeX math lines NOT yet protected
+  // Lines that look like math: start with optional text then \frac, \sqrt, K_c =, K = \frac, etc.
+  // These are lines the AI wrote without wrapping in $...$
+  const bareMathLine = /^([A-Za-z_]{1,6}\s*=\s*)?(\\frac|\\sqrt|\\sum|\\int|\\prod|\\lim|\\ce\{)(.*)$/;
+  const lines = t.split('\n');
+  const processedLines = lines.map(line => {
+    const trimmed = line.trim();
+    // Skip lines already protected or empty
+    if (trimmed.startsWith('%%BLK') || trimmed === '') return line;
+    if (bareMathLine.test(trimmed)) {
+      const idx = blocks.length;
+      blocks.push({ type: 'dmath', content: trimmed });
+      return `%%BLK${idx}%%`;
+    }
+    return line;
+  });
+  t = processedLines.join('\n');
+
+  // ── Step 6: Standalone \ce{...} on its own line → chemistry block
+  t = t.replace(/^[ \t]*\\ce\{((?:[^{}]|\{[^{}]*\})*)\}[ \t]*$/gm, (_, ce) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'chemblock', content: ce.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 7: Inline \ce{...} remaining (inside text sentences)
+  t = t.replace(/\\ce\{((?:[^{}]|\{[^{}]*\})*)\}/g, (_, ce) => {
+    const idx = blocks.length;
+    blocks.push({ type: 'chem', content: ce.trim() });
+    return `%%BLK${idx}%%`;
+  });
+
+  // ── Step 8: Diagram blocks
   t = t.replace(/\[Diagram:([\s\S]+?)\]/g, (_, content) => {
     return `<div class="ans-diagram"><div class="ans-diagram-label">📊 Diagram</div>${content.trim()}</div>`;
   });
 
-  // ── Step 6: standard markdown formatting
+  // ── Step 9: Standard markdown formatting
   t = t
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.*?)\*\*/g,     '<strong>$1</strong>')
@@ -2348,48 +2388,38 @@ function fmt(t) {
     .replace(/\n\n/g, '<br/><br/>')
     .replace(/\n/g,   '<br/>');
 
-  // ── Step 7: render chemistry blocks
-  t = t.replace(/%%CHEM(\d+)%%/g, (match, idx) => {
-    const block = chemBlocks[parseInt(idx)];
-    const expr = block.expr;
-    try {
-      if (typeof katex === 'undefined') return `<code>${expr}</code>`;
-      const rendered = katex.renderToString(`\\ce{${expr}}`, {
-        displayMode: false, throwOnError: false, strict: false
-      });
-      if (block.standalone) {
-        return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div>${rendered}</div>`;
-      }
-      return rendered;
-    } catch(e) {
-      if (block.standalone) {
-        return `<div class="ans-chem"><div class="ans-chem-label">⚗️ Chemical Equation</div><code>${expr}</code></div>`;
-      }
-      return `<code>${expr}</code>`;
-    }
-  });
+  // ── Step 10: Restore all protected blocks
+  t = t.replace(/%%BLK(\d+)%%/g, (_, i) => {
+    const blk = blocks[parseInt(i)];
+    if (!blk) return '';
 
-  // ── Step 8: render display math blocks
-  t = t.replace(/%%DMATH(\d+)%%/g, (_, idx) => {
-    const math = displayMathBlocks[parseInt(idx)];
-    try {
-      if (typeof katex === 'undefined') return `<div class="ans-formula"><code>$$${math}$$</code></div>`;
-      const rendered = katex.renderToString(math, { displayMode: true, throwOnError: false, strict: false });
+    if (blk.type === 'dmath') {
+      const rendered = renderKatex(blk.content, true);
       return `<div class="ans-formula">${rendered}</div>`;
-    } catch(e) {
-      return `<div class="ans-formula"><code>${math}</code></div>`;
     }
-  });
-
-  // ── Step 9: render inline math blocks
-  t = t.replace(/%%IMATH(\d+)%%/g, (_, idx) => {
-    const math = inlineMathBlocks[parseInt(idx)];
-    try {
-      if (typeof katex === 'undefined') return `<code>$${math}$</code>`;
-      return katex.renderToString(math, { displayMode: false, throwOnError: false, strict: false });
-    } catch(e) {
-      return `<code>${math}</code>`;
+    if (blk.type === 'imath') {
+      return renderKatex(blk.content, false);
     }
+    if (blk.type === 'chemblock') {
+      // Standalone chemistry equation — render in styled block
+      if (typeof katex === 'undefined') return `<div class="ans-chem"><div class="ans-chem-label">⚗️</div><code>${blk.content}</code></div>`;
+      try {
+        const rendered = katex.renderToString(`\\ce{${blk.content}}`, { displayMode: false, throwOnError: false, strict: false });
+        return `<div class="ans-chem"><div class="ans-chem-label">⚗️</div>${rendered}</div>`;
+      } catch(e) {
+        return `<div class="ans-chem"><div class="ans-chem-label">⚗️</div><code>${blk.content}</code></div>`;
+      }
+    }
+    if (blk.type === 'chem') {
+      // Inline chemistry
+      if (typeof katex === 'undefined') return `<code>${blk.content}</code>`;
+      try {
+        return katex.renderToString(`\\ce{${blk.content}}`, { displayMode: false, throwOnError: false, strict: false });
+      } catch(e) {
+        return `<code>${blk.content}</code>`;
+      }
+    }
+    return '';
   });
 
   return t;
