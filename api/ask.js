@@ -168,17 +168,20 @@ SCIENCE — CRITICAL RULES:
   // Biology-specific diagram guidance — schematic/labeled diagrams
   const bioSvgGuide = isBio ? `
 Biology SVG Guidelines (use these for organ/cell/process diagrams):
-- For organ diagrams (heart, kidney, reproductive system, etc.): draw simplified schematic shapes using <ellipse>, <path>, <rect> with rounded corners. Label every part with arrows (<line marker-end="url(#arr)"/>) and text.
+- For organ diagrams (heart, kidney, reproductive system, etc.): draw anatomically positioned schematic shapes using <ellipse>, <path>, <rect> with rounded corners. Label every part with short leader lines and text.
+- NEVER draw organ diagrams as left-to-right flowcharts (no chain of boxes with arrows between them). Organs must be positioned spatially as they appear in the body.
 - Define an arrowhead marker at the top of the SVG:
   <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
 - Organ fill colors (semi-transparent): organs #4f8ef7 at opacity 0.25, special parts #3ecf8e at opacity 0.3, ducts/tubes #f7c948 at opacity 0.3
 - All organ outlines: stroke="#4f8ef7" stroke-width="2"
 - Label lines: stroke="#eef0f8" stroke-width="1" opacity="0.6"
-- Label text: fill="#eef0f8" font-size="11" font-family="sans-serif"
+- Label text: fill="#eef0f8" font-size="10" font-family="sans-serif"
 - Part highlight: fill="#3ecf8e" opacity="0.35" for the most important structure
-- For process diagrams (e.g. fertilization, cell division): use arrows between labeled shapes
-- For plant/cell diagrams: draw cell wall as outer rect, organelles as labeled ellipses inside
-- Keep it clean and school-textbook style — not overly detailed, just key structures labeled` : '';
+- For reproductive system: draw male and female as TWO SEPARATE vertical sections, stacked top and bottom, with a horizontal dividing line and section title. Use curved <path> elements for tubes and ducts.
+- For process diagrams (e.g. fertilization, cell division): vertical flow with labeled stages is fine.
+- For plant/cell diagrams: draw cell wall as outer rect, organelles as labeled ellipses inside.
+- Keep it clean and school-textbook style — not overly detailed, just key structures labeled.
+- Double-check that every label text is within the viewBox bounds before finalizing.` : '';
 
   const diagramBlock = isScience ? `
 DIAGRAM RULE — MANDATORY FOR ALL SCIENCE QUESTIONS:
@@ -186,18 +189,35 @@ Whenever explaining any biological structure, organ, system, process, geometric 
 
 Output the diagram using this EXACT format (start immediately with [SVG: no space before the tag):
 
-[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
-  <rect width="300" height="260" fill="#1a1f30" rx="8"/>
+[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H" width="W" height="H">
+  <rect width="W" height="H" fill="#1a1f30" rx="8"/>
   <!-- diagram content here -->
 </svg>]
 
+CRITICAL — Choose the correct canvas size BEFORE drawing:
+- Simple geometry / single equation graph: W=300 H=260
+- Single organ (heart, kidney, eye, etc.): W=320 H=300
+- Multi-part system (reproductive, digestive, nervous, circulatory, etc.): W=320 H=480
+- Cell diagram / cross-section with many organelles: W=320 H=380
+- Process flow (fertilization steps, cell division phases): W=320 H=420
+Replace W and H in BOTH viewBox and width/height attributes.
+
+ANATOMY LAYOUT RULES (for organ/body system diagrams):
+- NEVER draw anatomy as a left-to-right flowchart with arrow-connected boxes.
+- Male and female systems must be drawn SEPARATELY in two stacked sections with a dividing label.
+- Each organ must be drawn at a realistic relative position (e.g. testes at bottom, epididymis above, vas deferens curving up; ovaries at sides, fallopian tubes curving toward uterus in the middle).
+- Use anatomical shapes: curved paths for tubes/ducts, ellipses for glands, pear/teardrop shape for uterus, coiled shape for epididymis.
+- All text labels must fit INSIDE the viewBox — never place text near the right or bottom edge without enough room. Max label x for W=320 is x=290. Max label y for H=480 is y=465.
+- Use font-size="10" for dense diagrams; font-size="12" for simple ones.
+- Long organ names must be split into two <tspan> lines if needed, e.g.:
+  <text><tspan x="200" dy="0">Fallopian</tspan><tspan x="200" dy="13">Tube</tspan></text>
+
 General SVG rules:
-- viewBox "0 0 300 260", width="300" height="260"
-- Background always: <rect width="300" height="260" fill="#1a1f30" rx="8"/>
+- Background always: <rect width="W" height="H" fill="#1a1f30" rx="8"/>
 - Main shapes/lines: stroke="#4f8ef7" stroke-width="2" fill="none"
 - Point/vertex markers: <circle cx="X" cy="Y" r="4" fill="#f7c948"/>
-- Labels: <text fill="#f7c948" font-family="sans-serif" font-size="13" font-weight="bold">
-- Measurements/descriptions: fill="#eef0f8" font-size="11"
+- Labels: <text fill="#f7c948" font-family="sans-serif" font-size="12" font-weight="bold">
+- Measurements/descriptions: fill="#eef0f8" font-size="10"
 - Special/highlight lines: stroke="#3ecf8e" stroke-dasharray="5,3"
 - Right-angle box: <rect x="" y="" width="10" height="10" fill="none" stroke="#4f8ef7" stroke-width="1.5"/>
 - ALWAYS label every key part directly on the diagram
