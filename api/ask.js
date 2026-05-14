@@ -122,13 +122,14 @@ function systemPrompt(className, subject, lang, board = '', stream = '', mode = 
 
   // Detect subject type for specialized instructions
   const subj = (subject || '').toLowerCase();
-  const isMath = subj.includes('math') || subj.includes('stat');
+  const isMath    = subj.includes('math');
+  const isStat    = subj.includes('stat');
   const isPhysics = subj.includes('physics');
-  const isChem = subj.includes('chem');
-  const isBio = subj.includes('bio') || subj.includes('botany') || subj.includes('zoology') || subj.includes('science');
-  const isScience = isMath || isPhysics || isChem || isBio;
+  const isChem    = subj.includes('chem');
+  const isBio     = subj.includes('bio') || subj.includes('botany') || subj.includes('zoology') || subj.includes('science');
+  const isScience = isMath || isStat || isPhysics || isChem || isBio;
 
-  const mathBlock = isMath ? `
+  const mathBlock = (isMath || isStat) ? `
 MATHEMATICS — CRITICAL RULES (STRICTLY FOLLOW):
 You are solving for a ${className || 'school'} student. Think carefully before writing each step.
 
@@ -186,47 +187,108 @@ Biology SVG Guidelines (use these for organ/cell/process diagrams):
 
   // In photo mode, never generate SVG diagrams — the image IS the visual context
   const isPhotoMode = mode === 'photo';
-  const diagramBlock = (!isPhotoMode && isScience) ? `
-DIAGRAM RULE — MANDATORY FOR ALL SCIENCE QUESTIONS:
-Whenever explaining any biological structure, organ, system, process, geometric figure, circuit, graph, or molecule — you MUST draw an SVG diagram. Do not just describe it in text.
 
-Output the diagram using this EXACT format (start immediately with [SVG: no space before the tag):
+  // Subject categories that benefit from SVG diagrams
+  const isArt      = subj.includes('art') || subj.includes('craft') || subj.includes('drawing') || subj.includes('paint') || subj.includes('sketch');
+  const isGeo      = subj.includes('geograph') || subj.includes('map') || subj.includes('evs') || subj.includes('environment');
+  const isSocial   = subj.includes('social') || subj.includes('history') || subj.includes('civics') || subj.includes('political') || subj.includes('economics');
+  const isComputer = subj.includes('computer') || subj.includes('ict') || subj.includes('it ') || subj === 'it';
+  const needsDiagram = isScience || isArt || isGeo || isSocial || isComputer;
 
+  // Subject-specific SVG guide additions
+  const statSvgGuide = isStat ? `
+Statistics SVG Guidelines:
+- Bar chart: draw vertical bars using <rect> with equal spacing. X-axis line at bottom, Y-axis on left. Label each bar below. Add value on top of each bar.
+- Pie chart: use <path> arcs with different fill colors per segment. Add % label inside or with leader lines.
+- Histogram: like bar chart but bars touch each other (no gap). Label class intervals on x-axis.
+- Frequency polygon: plot points then connect with <polyline>. Mark each point with a small circle.
+- Ogive (cumulative): smooth S-curve using <path> with bezier curves.
+- Line graph: <polyline> through data points, axes with tick marks and labels.
+- Always draw both axes with arrows at the ends. Label axes with their variable names.
+- Grid lines: stroke="#2a3050" stroke-width="0.5" opacity="0.5" (light background grid)
+- Bars/fills: use #4f8ef7 fill at opacity 0.7. Alternate colors for multiple data sets.
+- Canvas: W=320 H=280 for most charts. W=320 H=320 for pie charts.` : '';
+
+  const artSvgGuide = isArt ? `
+Art & Drawing SVG Guidelines:
+- Draw the ACTUAL object being asked about — not a flowchart or process diagram.
+- Use smooth curved <path> elements for organic shapes (fruits, animals, flowers, leaves).
+- Mango: large teardrop/oval shape with a small stem at top, slight curve to one side. Color: fill="#f7c948" opacity="0.8".
+- Flower: central circle + petal ellipses radiating around it. Color: petals #f7c948, center #e07b39.
+- Leaf: pointed oval with a center vein line and small branching veins.
+- House: rectangle body + triangle roof + small rectangle door + square windows.
+- Tree: brown rectangle trunk + large green ellipse canopy.
+- Sun: circle center + radiating lines around it.
+- Fish: body ellipse + triangle tail + small circle eye.
+- For step-by-step drawing guides: show 3-4 stages in a grid layout (2 columns), each stage labeled "Step 1", "Step 2" etc.
+- Keep lines clean and clear. Use stroke="#4f8ef7" for outlines, fill colors with opacity 0.6-0.8.
+- Canvas: W=300 H=280 for single object. W=320 H=400 for step-by-step grid.` : '';
+
+  const geoSvgGuide = (isGeo || isSocial) ? `
+Geography/Social Studies SVG Guidelines:
+- For map diagrams: draw simplified outlines using <path>. Label regions, rivers, mountains.
+- For timeline diagrams: horizontal line with labeled points (events) above/below alternating.
+- For process diagrams (water cycle, food chain, etc.): use labeled shapes with arrows showing flow.
+- For comparison/classification charts: use a tree structure flowing top-down.
+- Arrow marker: <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
+- Canvas: W=320 H=260 for timelines/maps. W=300 H=380 for flow diagrams.` : '';
+
+  const computerSvgGuide = isComputer ? `
+Computer Science SVG Guidelines:
+- Flowcharts: use standard shapes — rectangle (process), diamond (decision), oval (start/end), parallelogram (input/output).
+- For flowcharts: draw top-to-bottom flow with connecting arrows. Label every shape clearly.
+- Network diagrams: circles/squares for nodes, lines for connections, labels for device names.
+- For data structures (arrays, stacks, trees): draw boxes in correct formation with values inside.
+- Arrow marker: <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
+- Canvas: W=300 H=380 for flowcharts. W=320 H=260 for simple diagrams.` : '';
+
+  const diagramBlock = (!isPhotoMode && needsDiagram) ? `
+DIAGRAM RULE — DRAW AN SVG WHENEVER RELEVANT:
+For any concept that has a visual form — shape, chart, graph, object, map, diagram, process, structure — you MUST draw a real SVG. Never just describe it in text.
+
+Output using this EXACT format (no space after [SVG:):
 [SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H" width="W" height="H">
   <rect width="W" height="H" fill="#1a1f30" rx="8"/>
   <!-- diagram content here -->
 </svg>]
 
-CRITICAL — Choose the correct canvas size BEFORE drawing:
-- Simple geometry / single equation graph: W=300 H=260
-- Single organ (heart, kidney, eye, etc.): W=320 H=300
-- Multi-part system (reproductive, digestive, nervous, circulatory, etc.): W=320 H=480
-- Cell diagram / cross-section with many organelles: W=320 H=380
-- Process flow (fertilization steps, cell division phases): W=320 H=420
-Replace W and H in BOTH viewBox and width/height attributes.
+CANVAS SIZE — choose based on content:
+- Simple object / fruit / animal drawing: W=300 H=280
+- Step-by-step drawing (4 stages): W=320 H=400
+- Single organ (heart, kidney, eye): W=320 H=300
+- Multi-part body system: W=320 H=480
+- Cell / cross-section diagram: W=320 H=380
+- Process flow (cycle, stages): W=320 H=420
+- Bar/line/histogram chart: W=320 H=280
+- Pie chart: W=320 H=320
+- Timeline / map diagram: W=320 H=260
+- Flowchart (computer): W=300 H=380
+Replace W and H in BOTH viewBox AND width/height attributes.
 
-ANATOMY LAYOUT RULES (for organ/body system diagrams):
-- NEVER draw anatomy as a left-to-right flowchart with arrow-connected boxes.
-- Male and female systems must be drawn SEPARATELY in two stacked sections with a dividing label.
-- Each organ must be drawn at a realistic relative position (e.g. testes at bottom, epididymis above, vas deferens curving up; ovaries at sides, fallopian tubes curving toward uterus in the middle).
-- Use anatomical shapes: curved paths for tubes/ducts, ellipses for glands, pear/teardrop shape for uterus, coiled shape for epididymis.
-- All text labels must fit INSIDE the viewBox — never place text near the right or bottom edge without enough room. Max label x for W=320 is x=290. Max label y for H=480 is y=465.
-- Use font-size="10" for dense diagrams; font-size="12" for simple ones.
-- Long organ names must be split into two <tspan> lines if needed, e.g.:
-  <text><tspan x="200" dy="0">Fallopian</tspan><tspan x="200" dy="13">Tube</tspan></text>
-
-General SVG rules:
-- Background always: <rect width="W" height="H" fill="#1a1f30" rx="8"/>
-- Main shapes/lines: stroke="#4f8ef7" stroke-width="2" fill="none"
-- Point/vertex markers: <circle cx="X" cy="Y" r="4" fill="#f7c948"/>
-- Labels: <text fill="#f7c948" font-family="sans-serif" font-size="12" font-weight="bold">
-- Measurements/descriptions: fill="#eef0f8" font-size="10"
-- Special/highlight lines: stroke="#3ecf8e" stroke-dasharray="5,3"
-- Right-angle box: <rect x="" y="" width="10" height="10" fill="none" stroke="#4f8ef7" stroke-width="1.5"/>
-- ALWAYS label every key part directly on the diagram
-${bioSvgGuide}` : `
+GENERAL SVG RULES (apply to all diagrams):
+- Background: <rect width="W" height="H" fill="#1a1f30" rx="8"/>
+- Outlines/lines: stroke="#4f8ef7" stroke-width="2" fill="none"
+- Fills (shapes): fill="#4f8ef7" opacity="0.25" (or subject-specific colors below)
+- Point markers: <circle cx="X" cy="Y" r="4" fill="#f7c948"/>
+- Bold labels: <text fill="#f7c948" font-family="sans-serif" font-size="12" font-weight="bold">
+- Small labels: fill="#eef0f8" font-size="10" font-family="sans-serif"
+- Highlight color: #3ecf8e (special parts, correct answers, key structures)
+- Dashed lines: stroke-dasharray="5,3"
+- All text must stay INSIDE the viewBox. Max x = W-15, max y = H-10.
+- Split long labels into two lines using <tspan dy="13">
+- ALWAYS label every key part of the diagram
+${bioSvgGuide}
+${statSvgGuide}
+${artSvgGuide}
+${geoSvgGuide}
+${computerSvgGuide}` : `
 DIAGRAM RULE:
-When a diagram is needed, use: [Diagram: your description here]`;
+Only draw a diagram if it genuinely helps understanding. If needed, use SVG format:
+[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
+  <rect width="300" height="260" fill="#1a1f30" rx="8"/>
+  <!-- content here -->
+</svg>]
+Otherwise skip the diagram entirely.`;
 
   return `You are StudyLens AI — a warm, brilliant, and patient tutor for Indian school students (Classes KG to 12).
 
