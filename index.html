@@ -1498,27 +1498,97 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
 </div>
 
-<!-- Firebase loaded as a SEPARATE module so if it fails, the main app still works -->
+<!-- Firebase fully inlined — no external file dependencies -->
 <script type="module">
 try {
-  const { signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult } = await import('/lib/auth.js');
-  const { loadHistoryFromFirestore, saveHistoryEntryToFirestore, clearHistoryFromFirestore, loadProfilesFromFirestore, saveProfilesToFirestore } = await import('/lib/db.js');
+  // ── Initialize Firebase directly (no /lib/*.js files needed) ──
+  const { initializeApp }                        = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+  const { getAuth, GoogleAuthProvider,
+          signInWithPopup, signInWithRedirect,
+          getRedirectResult, signOut,
+          onAuthStateChanged }                   = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+  const { getFirestore, collection, doc,
+          getDocs, setDoc, deleteDoc,
+          orderBy, query, writeBatch }           = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-  // Expose Firebase functions to the main (non-module) script via window
+  const app      = initializeApp({
+    apiKey:            "AIzaSyCKINcYZ9RVKyK6rfkozVQXjoMVbH5G6zU",
+    authDomain:        "studylens-ca3c5.firebaseapp.com",
+    projectId:         "studylens-ca3c5",
+    storageBucket:     "studylens-ca3c5.firebasestorage.app",
+    messagingSenderId: "1034041024580",
+    appId:             "1:1034041024580:web:e6fd8c0c4039bacb5e5c11",
+    measurementId:     "G-FE00LWKQNL"
+  });
+  const auth     = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  const db       = getFirestore(app);
+
+  function isMobile() { return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); }
+
+  // ── Auth functions ──
+  function signInWithGoogle() {
+    return isMobile() ? signInWithRedirect(auth, provider) : signInWithPopup(auth, provider);
+  }
+  function signOutUser()            { return signOut(auth); }
+  function onUserChanged(cb)        { return onAuthStateChanged(auth, cb); }
+  async function handleRedirectResult() {
+    try { return await getRedirectResult(auth); } catch(e) { console.error('[Auth] Redirect error:', e); return null; }
+  }
+
+  // ── Firestore DB functions ──
+  async function loadHistoryFromFirestore(uid) {
+    try {
+      const q = query(collection(db, 'users', uid, 'history'), orderBy('ts', 'asc'));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => d.data());
+    } catch(e) { console.warn('[DB] loadHistory error:', e); return []; }
+  }
+  async function saveHistoryEntryToFirestore(uid, entry) {
+    try { await setDoc(doc(db, 'users', uid, 'history', String(entry.id)), entry); }
+    catch(e) { console.warn('[DB] saveEntry error:', e); }
+  }
+  async function clearHistoryFromFirestore(uid) {
+    try {
+      const snap = await getDocs(collection(db, 'users', uid, 'history'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } catch(e) { console.warn('[DB] clearHistory error:', e); }
+  }
+  async function loadProfilesFromFirestore(uid) {
+    try {
+      const snap = await getDocs(collection(db, 'users', uid, 'profiles'));
+      return snap.docs.map(d => d.data());
+    } catch(e) { console.warn('[DB] loadProfiles error:', e); return []; }
+  }
+  async function saveProfilesToFirestore(uid, profiles) {
+    try {
+      const batch = writeBatch(db);
+      const col   = collection(db, 'users', uid, 'profiles');
+      // Clear then rewrite
+      const snap  = await getDocs(col);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      profiles.forEach(p => batch.set(doc(col, String(p.id)), p));
+      await batch.commit();
+    } catch(e) { console.warn('[DB] saveProfiles error:', e); }
+  }
+
+  // Expose everything to the main script
   window._fb = {
     signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult,
     loadHistoryFromFirestore, saveHistoryEntryToFirestore, clearHistoryFromFirestore,
     loadProfilesFromFirestore, saveProfilesToFirestore
   };
 
-  // Handle redirect result (mobile sign-in returns here)
-  handleRedirectResult().then(result => {
-    if (result && result.user) console.log('[Auth] Redirect sign-in successful:', result.user.displayName);
-  }).catch(e => console.warn('[Auth] Redirect result error (ignored):', e.message));
+  // Handle mobile redirect result on page load
+  handleRedirectResult().then(r => {
+    if (r && r.user) console.log('[Auth] Redirect sign-in OK:', r.user.displayName);
+  }).catch(e => console.warn('[Auth] Redirect result (ignored):', e.message));
 
-  // Notify main script that Firebase is ready
   window._fbReady = true;
   window.dispatchEvent(new Event('firebase-ready'));
+
 } catch(e) {
   console.warn('[Firebase] Failed to load — running without sync:', e.message);
   window._fb = null;
