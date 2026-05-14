@@ -32,6 +32,11 @@
  *   → link it to this project → Redeploy.
  * That's it. The KV_KEY below stores exhausted keys across cold starts.
  * If KV is not linked, the code falls back silently to in-memory rotation.
+ *
+ * ── IMAGE LOGGING TO FIREBASE STORAGE ────────────────────────────────────────
+ * Photo questions are now saved to Firebase Storage under question-images/
+ * This lets the admin panel review uploaded images.
+ * Requires FIREBASE_SERVICE_ACCOUNT env var (JSON string of service account key).
  */
 
 export const config = {
@@ -39,13 +44,10 @@ export const config = {
 };
 
 // ── Models ────────────────────────────────────────────────────────────────────
-// Class 11-12 gets the smarter 70B (1,000 req/day) — complex physics/chemistry/maths
-// Class 1-10 gets the fast 8B (14,400 req/day) — more than enough for school level
-const GROQ_MODEL_SENIOR = 'llama-3.3-70b-versatile'; // Class 11-12
-const GROQ_MODEL_JUNIOR = 'llama-3.1-8b-instant';    // Class 1-10
+const GROQ_MODEL_SENIOR = 'llama-3.3-70b-versatile';
+const GROQ_MODEL_JUNIOR = 'llama-3.1-8b-instant';
 const GROQ_URL          = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Detect if class is 11 or 12 from className string e.g. "11 (Science)"
 function isSeniorClass(className) {
   if (!className) return false;
   const match = className.match(/^(\d+)/);
@@ -64,7 +66,6 @@ function loadKeys(prefix) {
     const k = process.env[`${prefix}_KEY_${i}`];
     if (k && k.trim().length > 10) keys.push(k.trim());
   }
-  // legacy single-key fallback
   if (keys.length === 0) {
     const legacy = process.env[`${prefix}_API_KEY`] || process.env[`${prefix}_KEY`];
     if (legacy && legacy.trim().length > 10) keys.push(legacy.trim());
@@ -72,14 +73,14 @@ function loadKeys(prefix) {
   return keys;
 }
 
-// ── Key rotation (separate state per provider) ────────────────────────────────
+// ── Key rotation ──────────────────────────────────────────────────────────────
 function makeRotation() {
   return { index: 0, exhausted: new Set(), day: new Date().toDateString() };
 }
 
 const rotations = {
-  groqSenior: makeRotation(), // llama-3.3-70b — Class 11-12
-  groqJunior: makeRotation(), // llama-3.1-8b  — Class 1-10
+  groqSenior: makeRotation(),
+  groqJunior: makeRotation(),
   gemini:     makeRotation(),
 };
 
@@ -101,43 +102,22 @@ function pickKey(keys, rot) {
   return key;
 }
 
-// ── Persistent rotation state (Vercel KV) ─────────────────────────────────────
-//
-//  WHY THIS EXISTS:
-//  Vercel serverless functions cold-start constantly. The in-memory `rotations`
-//  object above resets every time. So an exhausted key is "forgotten" — it keeps
-//  getting picked, fails, burns a retry, and adds 1-2 s of latency on quota days.
-//
-//  FIX: store exhausted[] + index + day in Vercel KV (Redis). Each cold start
-//  reloads the state, so exhausted keys stay exhausted until midnight resets.
-//
-//  SETUP (free, one-time):
-//    Vercel Dashboard → Storage tab → Create KV Database → Link to project → Redeploy.
-//  The env vars KV_URL and KV_REST_API_TOKEN are added automatically.
-//  If KV is not set up, the code falls back to in-memory silently — nothing breaks.
-//
+// ── Persistent rotation state (Vercel KV) ────────────────────────────────────
 const KV_KEY = 'studylens:rotations';
-const KV_TTL = 90000; // ~25 hours in seconds — safely covers one full day
+const KV_TTL = 90000;
 
 async function getKV() {
-  // Dynamic import so missing package doesn't crash the whole function
   try {
     const { Redis } = await import('@upstash/redis');
-    // Uses KV_REST_API_URL + KV_REST_API_TOKEN — auto-added by Upstash in Vercel
     return new Redis({
       url:   process.env.KV_REST_API_URL,
       token: process.env.KV_REST_API_TOKEN,
     });
   } catch {
-    return null; // package not installed or env vars missing — silent in-memory fallback
+    return null;
   }
 }
 
-/**
- * loadFromKV — call at the start of every request.
- * Merges today's exhausted-key lists and index from KV into the global `rotations`.
- * If KV is unavailable or has no entry, leaves `rotations` as-is (fresh in-memory state).
- */
 async function loadFromKV() {
   const kv = await getKV();
   if (!kv) return;
@@ -148,22 +128,14 @@ async function loadFromKV() {
     for (const slot of ['groqSenior', 'groqJunior', 'gemini']) {
       const s = stored[slot];
       if (s && s.day === today) {
-        // Restore exhausted keys (stored as array in KV, need Set in memory)
         rotations[slot].exhausted = new Set(s.exhausted || []);
         rotations[slot].index     = s.index ?? 0;
         rotations[slot].day       = today;
       }
     }
-  } catch {
-    // KV read failed — silently continue with in-memory state
-  }
+  } catch {}
 }
 
-/**
- * saveToKV — call at the end of every request (via try/finally in handler).
- * Persists current exhausted sets and indices so the next cold-start picks up
- * where this invocation left off.
- */
 async function saveToKV() {
   const kv = await getKV();
   if (!kv) return;
@@ -171,27 +143,25 @@ async function saveToKV() {
     const payload = {};
     for (const slot of ['groqSenior', 'groqJunior', 'gemini']) {
       payload[slot] = {
-        exhausted: [...rotations[slot].exhausted], // Set → Array for JSON storage
+        exhausted: [...rotations[slot].exhausted],
         index:     rotations[slot].index,
         day:       rotations[slot].day,
       };
     }
     await kv.set(KV_KEY, payload, { ex: KV_TTL });
-  } catch {
-    // KV write failed — no problem, next request starts fresh but that's the old behaviour
-  }
+  } catch {}
 }
 
-// ── Per-IP spam guard ─────────────────────────────────────────────────────────
-const ipTracker = new Map();
+// ── Per-user spam guard ───────────────────────────────────────────────────────
+const spamTracker = new Map();
 
-function isSpamming(ip) {
+function isSpamming(trackingId) {
   const now = Date.now(), limit = 8, win = 60_000;
-  const rec = ipTracker.get(ip) || { n: 0, t: now };
-  if (now - rec.t > win) { ipTracker.set(ip, { n: 1, t: now }); return false; }
+  const rec = spamTracker.get(trackingId) || { n: 0, t: now };
+  if (now - rec.t > win) { spamTracker.set(trackingId, { n: 1, t: now }); return false; }
   if (rec.n >= limit) return true;
   rec.n++;
-  ipTracker.set(ip, rec);
+  spamTracker.set(trackingId, rec);
   return false;
 }
 
@@ -202,12 +172,136 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
+// ── Firebase Storage Image Upload ─────────────────────────────────────────────
+// Saves photo questions to Firebase Storage so admin can review them.
+// Runs fire-and-forget (doesn't block the answer).
+async function uploadImageToStorage(imageBase64, imageMime, uid, subject, className) {
+  try {
+    const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!saRaw) return null;
+    const sa = JSON.parse(saRaw);
+
+    // Get Firebase access token
+    const token = await getFirebaseStorageToken(sa);
+    const bucket = `${sa.project_id}.appspot.com`;
+
+    // Generate a unique filename
+    const ts   = Date.now();
+    const ext  = (imageMime || 'image/jpeg').split('/')[1] || 'jpg';
+    const safeUid = (uid || 'anon').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+    const filename = `question-images/${safeUid}_${ts}.${ext}`;
+
+    // Upload to Firebase Storage via REST API
+    const imageBuffer = Buffer.from(imageBase64, 'base64');
+    const uploadUrl   = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(bucket)}/o?uploadType=media&name=${encodeURIComponent(filename)}`;
+
+    const uploadRes = await fetch(uploadUrl, {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  imageMime || 'image/jpeg',
+        'x-goog-meta-uid':       uid || 'anon',
+        'x-goog-meta-subject':   subject || '',
+        'x-goog-meta-classname': className || '',
+        'x-goog-meta-ts':        String(ts),
+      },
+      body: imageBuffer,
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      console.warn('[Storage] Upload failed:', uploadRes.status, errText);
+      return null;
+    }
+
+    const uploadData = await uploadRes.json();
+    return `https://storage.googleapis.com/${bucket}/${filename}`;
+
+  } catch (e) {
+    console.warn('[Storage] Upload error:', e.message);
+    return null;
+  }
+}
+
+// ── Firebase Storage token (same JWT approach as admin.js) ───────────────────
+async function getFirebaseStorageToken(sa) {
+  const now = Math.floor(Date.now() / 1000);
+  const header  = { alg: 'RS256', typ: 'JWT' };
+  const payload = {
+    iss: sa.client_email,
+    sub: sa.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/firebase',
+  };
+
+  const encode = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  const toSign = `${encode(header)}.${encode(payload)}`;
+
+  const keyData   = sa.private_key.replace(/\\n/g, '\n');
+  const pemBody   = keyData.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s/g, '');
+  const binaryKey = Buffer.from(pemBody, 'base64');
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', binaryKey.buffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5', cryptoKey,
+    new TextEncoder().encode(toSign)
+  );
+  const sigB64 = Buffer.from(signature).toString('base64url');
+  const jwt = `${toSign}.${sigB64}`;
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) throw new Error('Could not get Storage token');
+  return tokenData.access_token;
+}
+
+// ── Save history entry to Firestore (with optional imageStorageUrl) ───────────
+async function saveHistoryToFirestore(uid, entry) {
+  try {
+    const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!saRaw || !uid) return;
+    const sa = JSON.parse(saRaw);
+    const token = await getFirebaseStorageToken(sa); // reuse token helper (has datastore scope too)
+    const projectId = sa.project_id;
+    const docId = String(entry.id);
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}/history/${docId}`;
+
+    const fields = {};
+    for (const [k, v] of Object.entries(entry)) {
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'string')  fields[k] = { stringValue: v };
+      else if (typeof v === 'number') fields[k] = { integerValue: String(Math.round(v)) };
+      else if (typeof v === 'boolean') fields[k] = { booleanValue: v };
+    }
+
+    await fetch(url + '?updateMask.fieldPaths=' + Object.keys(fields).join('&updateMask.fieldPaths='), {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    });
+  } catch (e) {
+    console.warn('[Firestore] saveHistory error:', e.message);
+  }
+}
+
 // ── System prompt ─────────────────────────────────────────────────────────────
 function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text') {
   const langMap = { en: 'English', bn: 'Bengali (Bangla)', hi: 'Hindi', as: 'Assamese' };
   const replyLang = langMap[lang] || 'English';
 
-  // Detect subject type for specialized instructions
   const subj = (subject || '').toLowerCase();
   const isMath    = subj.includes('math');
   const isStat    = subj.includes('stat');
@@ -231,10 +325,10 @@ LATEX FORMAT — MANDATORY:
 - Display math (on its own line): $$expression$$ — e.g. $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
 - NEVER write raw math like: AD^2 = AB^2 + BD^2  or  2*4*BD  or  (2x)^2
 - ALWAYS write: $$AD^2 = AB^2 + BD^2$$ and $$2 \\times 4 \\times BD$$ and $$(2x)^2$$
-- NEVER wrap a standalone number in $...$. This applies everywhere: prose, bullet points, lists, conclusions. Write "I represents 1" NOT "I represents $1$". Write "The answer is 0.5" NOT "The answer is $0.5$". Only use $...$ when the number has variables, operators, fractions, or symbols alongside it (e.g. $x = 5$, $\\frac{1}{2}$).
+- NEVER wrap a standalone number in $...$. Write "I represents 1" NOT "I represents $1$".
 - For multiplication: use \\times (never *) or \\cdot
 - For fractions: \\frac{numerator}{denominator}
-- For angles: \\angle ABC  (not /ABC or angle ABC)
+- For angles: \\angle ABC
 - For square root: \\sqrt{expression}
 - For powers: x^{2} not x^2 when exponent is more than 1 char
 
@@ -254,80 +348,19 @@ SCIENCE — CRITICAL RULES:
 - Include unit analysis in every physics calculation.
 - Show significant figures appropriately.` : '';
 
-  // Biology-specific diagram guidance — schematic/labeled diagrams
   const bioSvgGuide = isBio ? `
 Biology SVG Guidelines (use these for organ/cell/process diagrams):
-- For organ diagrams (heart, kidney, reproductive system, etc.): draw anatomically positioned schematic shapes using <ellipse>, <path>, <rect> with rounded corners. Label every part with short leader lines and text.
-- NEVER draw organ diagrams as left-to-right flowcharts (no chain of boxes with arrows between them). Organs must be positioned spatially as they appear in the body.
-- Define an arrowhead marker at the top of the SVG:
-  <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
-- Organ fill colors (semi-transparent): organs #4f8ef7 at opacity 0.25, special parts #3ecf8e at opacity 0.3, ducts/tubes #f7c948 at opacity 0.3
-- All organ outlines: stroke="#4f8ef7" stroke-width="2"
-- Label lines: stroke="#eef0f8" stroke-width="1" opacity="0.6"
-- Label text: fill="#eef0f8" font-size="10" font-family="sans-serif"
-- Part highlight: fill="#3ecf8e" opacity="0.35" for the most important structure
-- For reproductive system: draw male and female as TWO SEPARATE vertical sections, stacked top and bottom, with a horizontal dividing line and section title. Use curved <path> elements for tubes and ducts.
-- For process diagrams (e.g. fertilization, cell division): vertical flow with labeled stages is fine.
-- For plant/cell diagrams: draw cell wall as outer rect, organelles as labeled ellipses inside.
-- Keep it clean and school-textbook style — not overly detailed, just key structures labeled.
-- Double-check that every label text is within the viewBox bounds before finalizing.` : '';
+- For organ diagrams: draw anatomically positioned schematic shapes. Label every part.
+- NEVER draw organ diagrams as left-to-right flowcharts.
+- Define an arrowhead marker at the top of the SVG.
+- Keep it clean and school-textbook style.` : '';
 
-  // In photo mode, never generate SVG diagrams — the image IS the visual context
   const isPhotoMode = mode === 'photo';
-
-  // Subject categories that benefit from SVG diagrams
-  const isArt      = subj.includes('art') || subj.includes('craft') || subj.includes('drawing') || subj.includes('paint') || subj.includes('sketch');
-  const isGeo      = subj.includes('geograph') || subj.includes('map') || subj.includes('evs') || subj.includes('environment');
-  const isSocial   = subj.includes('social') || subj.includes('history') || subj.includes('civics') || subj.includes('political') || subj.includes('economics');
-  const isComputer = subj.includes('computer') || subj.includes('ict') || subj.includes('it ') || subj === 'it';
+  const isArt      = subj.includes('art') || subj.includes('craft') || subj.includes('drawing');
+  const isGeo      = subj.includes('geograph') || subj.includes('map') || subj.includes('evs');
+  const isSocial   = subj.includes('social') || subj.includes('history') || subj.includes('civics');
+  const isComputer = subj.includes('computer') || subj.includes('ict');
   const needsDiagram = isScience || isArt || isGeo || isSocial || isComputer;
-
-  // Subject-specific SVG guide additions
-  const statSvgGuide = isStat ? `
-Statistics SVG Guidelines:
-- Bar chart: draw vertical bars using <rect> with equal spacing. X-axis line at bottom, Y-axis on left. Label each bar below. Add value on top of each bar.
-- Pie chart: use <path> arcs with different fill colors per segment. Add % label inside or with leader lines.
-- Histogram: like bar chart but bars touch each other (no gap). Label class intervals on x-axis.
-- Frequency polygon: plot points then connect with <polyline>. Mark each point with a small circle.
-- Ogive (cumulative): smooth S-curve using <path> with bezier curves.
-- Line graph: <polyline> through data points, axes with tick marks and labels.
-- Always draw both axes with arrows at the ends. Label axes with their variable names.
-- Grid lines: stroke="#2a3050" stroke-width="0.5" opacity="0.5" (light background grid)
-- Bars/fills: use #4f8ef7 fill at opacity 0.7. Alternate colors for multiple data sets.
-- Canvas: W=320 H=280 for most charts. W=320 H=320 for pie charts.` : '';
-
-  const artSvgGuide = isArt ? `
-Art & Drawing SVG Guidelines:
-- Draw the ACTUAL object being asked about — not a flowchart or process diagram.
-- Use smooth curved <path> elements for organic shapes (fruits, animals, flowers, leaves).
-- Mango: large teardrop/oval shape with a small stem at top, slight curve to one side. Color: fill="#f7c948" opacity="0.8".
-- Flower: central circle + petal ellipses radiating around it. Color: petals #f7c948, center #e07b39.
-- Leaf: pointed oval with a center vein line and small branching veins.
-- House: rectangle body + triangle roof + small rectangle door + square windows.
-- Tree: brown rectangle trunk + large green ellipse canopy.
-- Sun: circle center + radiating lines around it.
-- Fish: body ellipse + triangle tail + small circle eye.
-- For step-by-step drawing guides: show 3-4 stages in a grid layout (2 columns), each stage labeled "Step 1", "Step 2" etc.
-- Keep lines clean and clear. Use stroke="#4f8ef7" for outlines, fill colors with opacity 0.6-0.8.
-- Canvas: W=300 H=280 for single object. W=320 H=400 for step-by-step grid.` : '';
-
-  const geoSvgGuide = (isGeo || isSocial) ? `
-Geography/Social Studies SVG Guidelines:
-- For map diagrams: draw simplified outlines using <path>. Label regions, rivers, mountains.
-- For timeline diagrams: horizontal line with labeled points (events) above/below alternating.
-- For process diagrams (water cycle, food chain, etc.): use labeled shapes with arrows showing flow.
-- For comparison/classification charts: use a tree structure flowing top-down.
-- Arrow marker: <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
-- Canvas: W=320 H=260 for timelines/maps. W=300 H=380 for flow diagrams.` : '';
-
-  const computerSvgGuide = isComputer ? `
-Computer Science SVG Guidelines:
-- Flowcharts: use standard shapes — rectangle (process), diamond (decision), oval (start/end), parallelogram (input/output).
-- For flowcharts: draw top-to-bottom flow with connecting arrows. Label every shape clearly.
-- Network diagrams: circles/squares for nodes, lines for connections, labels for device names.
-- For data structures (arrays, stacks, trees): draw boxes in correct formation with values inside.
-- Arrow marker: <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4f8ef7"/></marker></defs>
-- Canvas: W=300 H=380 for flowcharts. W=320 H=260 for simple diagrams.` : '';
 
   const diagramBlock = (!isPhotoMode && needsDiagram) ? `
 DIAGRAM RULE — DRAW AN SVG WHENEVER RELEVANT:
@@ -339,36 +372,12 @@ Output using this EXACT format (no space after [SVG:):
   <!-- diagram content here -->
 </svg>]
 
-CANVAS SIZE — choose based on content:
-- Simple object / fruit / animal drawing: W=300 H=280
-- Step-by-step drawing (4 stages): W=320 H=400
-- Single organ (heart, kidney, eye): W=320 H=300
-- Multi-part body system: W=320 H=480
-- Cell / cross-section diagram: W=320 H=380
-- Process flow (cycle, stages): W=320 H=420
-- Bar/line/histogram chart: W=320 H=280
-- Pie chart: W=320 H=320
-- Timeline / map diagram: W=320 H=260
-- Flowchart (computer): W=300 H=380
-Replace W and H in BOTH viewBox AND width/height attributes.
-
-GENERAL SVG RULES (apply to all diagrams):
+GENERAL SVG RULES:
 - Background: <rect width="W" height="H" fill="#1a1f30" rx="8"/>
 - Outlines/lines: stroke="#4f8ef7" stroke-width="2" fill="none"
-- Fills (shapes): fill="#4f8ef7" opacity="0.25" (or subject-specific colors below)
-- Point markers: <circle cx="X" cy="Y" r="4" fill="#f7c948"/>
 - Bold labels: <text fill="#f7c948" font-family="sans-serif" font-size="12" font-weight="bold">
-- Small labels: fill="#eef0f8" font-size="10" font-family="sans-serif"
-- Highlight color: #3ecf8e (special parts, correct answers, key structures)
-- Dashed lines: stroke-dasharray="5,3"
-- All text must stay INSIDE the viewBox. Max x = W-15, max y = H-10.
-- Split long labels into two lines using <tspan dy="13">
-- ALWAYS label every key part of the diagram
-${bioSvgGuide}
-${statSvgGuide}
-${artSvgGuide}
-${geoSvgGuide}
-${computerSvgGuide}` : `
+- All text must stay INSIDE the viewBox.
+${bioSvgGuide}` : `
 DIAGRAM RULE:
 Only draw a diagram if it genuinely helps understanding. If needed, use SVG format:
 [SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
@@ -399,14 +408,13 @@ MATH & FORMULA RULE:
 Always write ALL mathematical expressions using LaTeX:
 - Inline math: $expression$ — e.g. $2x + 5 = 11$
 - Display math: $$expression$$ — e.g. $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
-- NEVER wrap a standalone number in $...$, anywhere — prose, bullet points, lists, or conclusions. Write "I = 1", "V = 5" NOT "$1$", "$5$". Only use $...$ when the value appears with variables, operators, or fractions (e.g. $x = 5$, $\\frac{1}{2}$).
+- NEVER wrap a standalone number in $...$ anywhere.
 - NEVER write raw math without LaTeX delimiters.` : ''}
 ${diagramBlock}
 
 CHEMISTRY NOTATION RULE (when applicable):
 Always use mhchem for all chemical formulas and equations:
 - \\ce{H2SO4}, \\ce{CaCO3}, \\ce{2H2 + O2 -> 2H2O}
-- Wrap \\ce{} inside $$...$$ when inside a fraction or math expression
 
 ANSWERING STYLE:
 - Use simple words a school student understands.
@@ -438,7 +446,6 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
   const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode);
   let lastErr = null;
 
-  // Smart model selection: 70B for Class 11-12, 8B for Class 1-10
   const senior = isSeniorClass(className);
   const model  = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
   const rot    = senior ? rotations.groqSenior : rotations.groqJunior;
@@ -460,14 +467,13 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
             { role: 'system', content: sysPrompt },
             { role: 'user',   content: question.trim() },
           ],
-          temperature:       0.25,
-          max_tokens:        8192,
-          top_p:             0.92,
+          temperature:    0.25,
+          max_tokens:     8192,
+          top_p:          0.92,
         }),
       });
 
       const data = await r.json();
-
       if (data.error) {
         const msg  = data.error.message || '';
         const code = data.error.code || r.status;
@@ -479,7 +485,6 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
 
       const answer = data.choices?.[0]?.message?.content;
       if (!answer) { lastErr = 'empty'; continue; }
-
       return { answer, provider: 'groq' };
 
     } catch (e) {
@@ -496,7 +501,6 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
   const rot = rotations.gemini;
   let lastErr = null;
 
-  // Build parts
   const parts = [];
   if (mode === 'photo') {
     const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -568,13 +572,11 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
   return { error: lastErr };
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
-
-// ── Quiz system prompt ─────────────────────────────────────────────────────────
+// ── Quiz system prompt ────────────────────────────────────────────────────────
 const QUIZ_SYSTEM = `You are a JSON quiz generator. You output ONLY valid JSON arrays, nothing else.
 No markdown, no code fences, no explanation, no preamble — just the raw JSON array starting with [ and ending with ].`;
 
-// ── Quiz handler (Groq preferred, Gemini fallback) ─────────────────────────────
+// ── Quiz handler ──────────────────────────────────────────────────────────────
 async function askQuiz(groqKeys, geminiKeys, { question, className }) {
   const senior = isSeniorClass(className);
   const model  = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
@@ -639,9 +641,8 @@ async function askQuiz(groqKeys, geminiKeys, { question, className }) {
   return { error: 'failed' };
 }
 
-// ── Actual request logic (called inside the KV try/finally wrapper below) ─────
+// ── Actual request logic ──────────────────────────────────────────────────────
 async function handleRequest(req, res) {
-  // Load keys
   const groqKeys   = loadKeys('GROQ');
   const geminiKeys = loadKeys('GEMINI');
 
@@ -651,18 +652,19 @@ async function handleRequest(req, res) {
     });
   }
 
-  // Spam check
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
-  if (isSpamming(ip)) {
+  const {
+    mode, question, imageBase64, imageMime,
+    className, subject, lang = 'en', board = '', stream = '', uid
+  } = req.body || {};
+
+  const ip         = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+  const trackingId = (uid && uid.length > 4) ? `uid:${uid}` : `ip:${ip}`;
+  if (isSpamming(trackingId)) {
     return res.status(429).json({
       error: '⏳ Slow down! You are asking too many questions at once. Please wait a moment.'
     });
   }
 
-  // Parse body
-  const { mode, question, imageBase64, imageMime, className, subject, lang = 'en', board = '', stream = '' } = req.body || {};
-
-  // Validate
   if (mode === 'text' && !question?.trim()) {
     return res.status(400).json({ error: '❌ Please type your question.' });
   }
@@ -672,7 +674,7 @@ async function handleRequest(req, res) {
 
   const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode };
 
-  // ── QUIZ mode: dedicated handler with JSON-only system prompt ─────────────
+  // ── QUIZ mode ──────────────────────────────────────────────────────────────
   if (mode === 'quiz') {
     if (!question?.trim()) return res.status(400).json({ error: 'No quiz prompt.' });
     const result = await askQuiz(groqKeys, geminiKeys, { question, className });
@@ -680,23 +682,56 @@ async function handleRequest(req, res) {
     return res.status(500).json({ error: 'Quiz generation failed.' });
   }
 
-  // ── ROUTING LOGIC ──────────────────────────────────────────────────────────
-  //
-  //  PHOTO  → always Gemini (vision required)
-  //  TEXT   → try Groq first → fallback to Gemini if Groq fails/exhausted
-  //
-  // ──────────────────────────────────────────────────────────────────────────
-
+  // ── PHOTO mode ─────────────────────────────────────────────────────────────
   if (mode === 'photo') {
-    // Photo: Gemini only
     if (geminiKeys.length === 0) {
       return res.status(500).json({
         error: '📷 Photo questions need Gemini API keys. Please add GEMINI_KEY_1 in Vercel Environment Variables.'
       });
     }
 
+    // ── Fire-and-forget image upload to Firebase Storage ──
+    // Does NOT block the response — runs in background
+    const imageUploadPromise = uploadImageToStorage(
+      imageBase64, imageMime, uid, subject, className
+    ).then(storageUrl => {
+      if (storageUrl && uid) {
+        // Optionally log storageUrl to Firestore history entry
+        // (best-effort, non-blocking)
+        console.log('[Storage] Image saved:', storageUrl);
+      }
+      return storageUrl;
+    }).catch(e => {
+      console.warn('[Storage] Upload failed silently:', e.message);
+      return null;
+    });
+
     const result = await askGemini(geminiKeys, ctx);
-    if (result.answer) return res.status(200).json({ answer: result.answer });
+
+    if (result.answer) {
+      // Wait briefly to get the storage URL (max 2s) then return
+      // so the imageStorageUrl can be logged in Firestore
+      const storageUrl = await Promise.race([
+        imageUploadPromise,
+        new Promise(r => setTimeout(() => r(null), 2000))
+      ]);
+
+      // If we have a uid and a storage URL, update the Firestore history entry
+      if (uid && storageUrl) {
+        const entryId = Date.now();
+        saveHistoryToFirestore(uid, {
+          id: entryId,
+          ts: entryId,
+          mode: 'photo',
+          question: question || '',
+          subject: subject || '',
+          className: className || '',
+          imageStorageUrl: storageUrl,
+        }).catch(() => {});
+      }
+
+      return res.status(200).json({ answer: result.answer });
+    }
 
     if (result.error === 'quota') {
       return res.status(429).json({
@@ -706,14 +741,12 @@ async function handleRequest(req, res) {
     return res.status(500).json({ error: '❌ Could not read the photo. Please try again or type your question.' });
   }
 
-  // Text: try Groq first
+  // ── TEXT mode: try Groq first, fallback to Gemini ─────────────────────────
   if (groqKeys.length > 0) {
     const groqResult = await askGroq(groqKeys, ctx);
     if (groqResult.answer) return res.status(200).json({ answer: groqResult.answer });
-    // Groq failed — fall through to Gemini
   }
 
-  // Fallback: Gemini for text
   if (geminiKeys.length > 0) {
     const geminiResult = await askGemini(geminiKeys, ctx);
     if (geminiResult.answer) return res.status(200).json({ answer: geminiResult.answer });
@@ -730,21 +763,17 @@ async function handleRequest(req, res) {
   });
 }
 
-// ── Main handler: wraps handleRequest with KV load/save ───────────────────────
+// ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  // Restore rotation state from KV so exhausted keys survive cold starts.
-  // If KV is not set up this is a silent no-op — no change in behaviour.
   await loadFromKV();
 
   try {
     return await handleRequest(req, res);
   } finally {
-    // Always persist the updated rotation state back to KV, even if an error
-    // was thrown — this prevents the same exhausted key being retried forever.
     await saveToKV();
   }
 }
