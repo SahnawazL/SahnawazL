@@ -1524,16 +1524,26 @@ try {
   const provider = new GoogleAuthProvider();
   const db       = getFirestore(app);
 
-  function isMobile() { return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); }
+  // ── Auth functions — popup only (no redirect = no page reload) ──
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-  // ── Auth functions ──
-  function signInWithGoogle() {
-    return isMobile() ? signInWithRedirect(auth, provider) : signInWithPopup(auth, provider);
+  async function signInWithGoogle() {
+    // Always use popup — no page reload, works on low-memory Android
+    try {
+      return await signInWithPopup(auth, provider);
+    } catch(e) {
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+        console.warn('[Auth] Popup blocked/closed — not falling back to redirect');
+        throw e; // let handleAuthClick show a user-friendly message
+      }
+      throw e;
+    }
   }
   function signOutUser()            { return signOut(auth); }
   function onUserChanged(cb)        { return onAuthStateChanged(auth, cb); }
   async function handleRedirectResult() {
-    try { return await getRedirectResult(auth); } catch(e) { console.error('[Auth] Redirect error:', e); return null; }
+    // Check for any previous redirect result (from older sessions)
+    try { return await getRedirectResult(auth); } catch(e) { return null; }
   }
 
   // ── Firestore DB functions ──
@@ -1672,22 +1682,26 @@ async function handleAuthClick() {
       alert('Sign-in is not available right now. Please refresh the page and try again.');
       return;
     }
+    const btn  = document.getElementById('authBtn');
+    const name = document.getElementById('authName');
     try {
-      // Shows loading state while redirecting
-      const btn  = document.getElementById('authBtn');
-      const name = document.getElementById('authName');
-      if (name) name.textContent = 'Signing in…';
+      if (name) name.textContent = 'Opening…';
       if (btn)  btn.style.opacity = '0.6';
       await FB.signInWithGoogle();
-      // On mobile: page redirects to Google — user comes back signed in
-      // On desktop: popup opens — onUserChanged fires immediately
+      // Popup opens — onUserChanged fires automatically when signed in
+      // No page reload needed!
     } catch (e) {
-      console.error('[Auth] Sign in failed:', e);
-      const name = document.getElementById('authName');
-      const btn  = document.getElementById('authBtn');
       if (name) name.textContent = 'Sign In';
       if (btn)  btn.style.opacity = '';
-      alert('Sign in failed. Please try again.');
+      if (e.code === 'auth/popup-closed-by-user') {
+        // User closed popup — silent, no alert needed
+        console.log('[Auth] Popup closed by user');
+      } else if (e.code === 'auth/popup-blocked') {
+        alert('Popup was blocked by your browser.\n\nPlease allow popups for this site in your browser settings, then try again.');
+      } else {
+        console.error('[Auth] Sign in failed:', e);
+        alert('Sign in failed: ' + (e.message || 'Please try again.'));
+      }
     }
   }
 }
