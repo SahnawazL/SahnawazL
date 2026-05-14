@@ -1500,7 +1500,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
 <script type="module">
 // ── FIREBASE AUTH + DB ────────────────────────────────────────────────────────
-import { signInWithGoogle, signOutUser, onUserChanged } from '/lib/auth.js';
+import { signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult } from '/lib/auth.js';
 import {
   loadHistoryFromFirestore,
   saveHistoryEntryToFirestore,
@@ -1511,6 +1511,15 @@ import {
 
 let currentUser = null; // holds Firebase user object when signed in
 
+// ── Handle redirect result on page load (mobile sign-in comes back here) ──
+handleRedirectResult().then(result => {
+  if (result && result.user) {
+    console.log('[Auth] Redirect sign-in successful:', result.user.displayName);
+  }
+}).catch(e => {
+  console.warn('[Auth] Redirect result error (ignored):', e.message);
+});
+
 // Runs automatically on every page load — checks if user is already signed in
 onUserChanged(async (user) => {
   currentUser = user;
@@ -1518,6 +1527,8 @@ onUserChanged(async (user) => {
   const avatar = document.getElementById('authAvatar');
   const name   = document.getElementById('authName');
   const badge  = document.getElementById('syncBadge');
+
+  if (!btn) return; // DOM not ready yet
 
   if (user) {
     // ── Logged in ──
@@ -1556,10 +1567,20 @@ async function handleAuthClick() {
     }
   } else {
     try {
+      // Shows loading state while redirecting
+      const btn  = document.getElementById('authBtn');
+      const name = document.getElementById('authName');
+      if (name) name.textContent = 'Signing in…';
+      if (btn)  btn.style.opacity = '0.6';
       await signInWithGoogle();
-      // onUserChanged fires automatically after sign-in
+      // On mobile: page redirects to Google — user comes back signed in
+      // On desktop: popup opens — onUserChanged fires immediately
     } catch (e) {
       console.error('[Auth] Sign in failed:', e);
+      const name = document.getElementById('authName');
+      const btn  = document.getElementById('authBtn');
+      if (name) name.textContent = 'Sign In';
+      if (btn)  btn.style.opacity = '';
       alert('Sign in failed. Please try again.');
     }
   }
