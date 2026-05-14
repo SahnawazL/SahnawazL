@@ -3,12 +3,19 @@
   "functions": {
     "api/ask.js": {
       "maxDuration": 30
+    },
+    "api/admin.js": {
+      "maxDuration": 30
     }
   },
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
+    },
+    {
+      "src": "/admin.html",
+      "dest": "/admin.html"
     },
     {
       "src": "/(.*)",
