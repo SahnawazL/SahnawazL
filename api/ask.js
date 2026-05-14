@@ -26,6 +26,12 @@
  *   Gemini keys (get free at aistudio.google.com):
  *   GEMINI_KEY_1 = AIza...
  *   GEMINI_KEY_2 = AIza...  (each key = +500 req/day for photos)
+ *
+ * ── PERSISTENT ROTATION STATE (fixes cold-start key exhaustion) ───────────────
+ * Setup (one-time, free): Vercel Dashboard → Storage → Create KV Database
+ *   → link it to this project → Redeploy.
+ * That's it. The KV_KEY below stores exhausted keys across cold starts.
+ * If KV is not linked, the code falls back silently to in-memory rotation.
  */
 
 export const config = {
@@ -93,6 +99,87 @@ function pickKey(keys, rot) {
   const key = live[rot.index % live.length];
   rot.index = (rot.index + 1) % live.length;
   return key;
+}
+
+// ── Persistent rotation state (Vercel KV) ─────────────────────────────────────
+//
+//  WHY THIS EXISTS:
+//  Vercel serverless functions cold-start constantly. The in-memory `rotations`
+//  object above resets every time. So an exhausted key is "forgotten" — it keeps
+//  getting picked, fails, burns a retry, and adds 1-2 s of latency on quota days.
+//
+//  FIX: store exhausted[] + index + day in Vercel KV (Redis). Each cold start
+//  reloads the state, so exhausted keys stay exhausted until midnight resets.
+//
+//  SETUP (free, one-time):
+//    Vercel Dashboard → Storage tab → Create KV Database → Link to project → Redeploy.
+//  The env vars KV_URL and KV_REST_API_TOKEN are added automatically.
+//  If KV is not set up, the code falls back to in-memory silently — nothing breaks.
+//
+const KV_KEY = 'studylens:rotations';
+const KV_TTL = 90000; // ~25 hours in seconds — safely covers one full day
+
+async function getKV() {
+  // Dynamic import so missing package doesn't crash the whole function
+  try {
+    const { Redis } = await import('@upstash/redis');
+    // Uses KV_REST_API_URL + KV_REST_API_TOKEN — auto-added by Upstash in Vercel
+    return new Redis({
+      url:   process.env.KV_REST_API_URL,
+      token: process.env.KV_REST_API_TOKEN,
+    });
+  } catch {
+    return null; // package not installed or env vars missing — silent in-memory fallback
+  }
+}
+
+/**
+ * loadFromKV — call at the start of every request.
+ * Merges today's exhausted-key lists and index from KV into the global `rotations`.
+ * If KV is unavailable or has no entry, leaves `rotations` as-is (fresh in-memory state).
+ */
+async function loadFromKV() {
+  const kv = await getKV();
+  if (!kv) return;
+  try {
+    const stored = await kv.get(KV_KEY);
+    if (!stored) return;
+    const today = new Date().toDateString();
+    for (const slot of ['groqSenior', 'groqJunior', 'gemini']) {
+      const s = stored[slot];
+      if (s && s.day === today) {
+        // Restore exhausted keys (stored as array in KV, need Set in memory)
+        rotations[slot].exhausted = new Set(s.exhausted || []);
+        rotations[slot].index     = s.index ?? 0;
+        rotations[slot].day       = today;
+      }
+    }
+  } catch {
+    // KV read failed — silently continue with in-memory state
+  }
+}
+
+/**
+ * saveToKV — call at the end of every request (via try/finally in handler).
+ * Persists current exhausted sets and indices so the next cold-start picks up
+ * where this invocation left off.
+ */
+async function saveToKV() {
+  const kv = await getKV();
+  if (!kv) return;
+  try {
+    const payload = {};
+    for (const slot of ['groqSenior', 'groqJunior', 'gemini']) {
+      payload[slot] = {
+        exhausted: [...rotations[slot].exhausted], // Set → Array for JSON storage
+        index:     rotations[slot].index,
+        day:       rotations[slot].day,
+      };
+    }
+    await kv.set(KV_KEY, payload, { ex: KV_TTL });
+  } catch {
+    // KV write failed — no problem, next request starts fresh but that's the old behaviour
+  }
 }
 
 // ── Per-IP spam guard ─────────────────────────────────────────────────────────
@@ -552,11 +639,8 @@ async function askQuiz(groqKeys, geminiKeys, { question, className }) {
   return { error: 'failed' };
 }
 
-export default async function handler(req, res) {
-  cors(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
-
+// ── Actual request logic (called inside the KV try/finally wrapper below) ─────
+async function handleRequest(req, res) {
   // Load keys
   const groqKeys   = loadKeys('GROQ');
   const geminiKeys = loadKeys('GEMINI');
@@ -644,4 +728,23 @@ export default async function handler(req, res) {
   return res.status(500).json({
     error: '❌ Connection error. Please check your internet and try again.'
   });
+}
+
+// ── Main handler: wraps handleRequest with KV load/save ───────────────────────
+export default async function handler(req, res) {
+  cors(res);
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
+
+  // Restore rotation state from KV so exhausted keys survive cold starts.
+  // If KV is not set up this is a silent no-op — no change in behaviour.
+  await loadFromKV();
+
+  try {
+    return await handleRequest(req, res);
+  } finally {
+    // Always persist the updated rotation state back to KV, even if an error
+    // was thrown — this prevents the same exhausted key being retried forever.
+    await saveToKV();
+  }
 }
