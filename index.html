@@ -29,12 +29,159 @@
 html { scroll-behavior: smooth; }
 body { font-family: var(--font-body); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
+/* ── LOGIN GATE ───────────────────────────────────────────── */
+.login-gate {
+  position: fixed; inset: 0; z-index: 2000;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 2rem 1.5rem;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.login-gate.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+/* Ambient glow blobs */
+.login-gate-blob {
+  position: absolute; border-radius: 50%; filter: blur(80px);
+  pointer-events: none; z-index: 0;
+}
+.login-gate-blob-1 {
+  width: 320px; height: 320px; top: -60px; right: -80px;
+  background: radial-gradient(circle, rgba(79,142,247,0.18), transparent 70%);
+  animation: blobDrift 8s ease-in-out infinite alternate;
+}
+.login-gate-blob-2 {
+  width: 280px; height: 280px; bottom: -40px; left: -60px;
+  background: radial-gradient(circle, rgba(62,207,142,0.13), transparent 70%);
+  animation: blobDrift 11s ease-in-out infinite alternate-reverse;
+}
+@keyframes blobDrift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(20px, 15px) scale(1.08); }
+}
+
+.login-card {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2.4rem 2rem 2rem;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  text-align: center;
+  animation: gateCardIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes gateCardIn {
+  from { transform: translateY(30px) scale(0.95); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.login-logo {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.5rem; margin-bottom: 1.6rem;
+}
+.login-logo-icon {
+  font-size: 2.4rem; line-height: 1;
+  animation: bounceIn 0.6s 0.2s ease both;
+}
+@keyframes bounceIn { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+.login-logo-text {
+  font-family: var(--font-head); font-weight: 800; font-size: 1.5rem;
+  color: var(--text); display: flex; align-items: center; gap: 0.35rem;
+}
+.login-ai-badge {
+  font-size: 0.55rem; font-weight: 800; letter-spacing: 0.08em;
+  background: linear-gradient(135deg, var(--accent), #7b5eff);
+  color: #fff; border-radius: 5px; padding: 0.1rem 0.4rem;
+  text-transform: uppercase;
+  box-shadow: 0 0 10px rgba(79,142,247,0.4);
+}
+
+.login-headline {
+  font-family: var(--font-head); font-size: 1.35rem; font-weight: 800;
+  color: var(--text); line-height: 1.25; margin-bottom: 0.6rem;
+}
+.login-headline .hl { color: var(--accent); }
+.login-sub {
+  font-size: 0.84rem; color: var(--muted); line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+/* Google sign-in button */
+.google-btn {
+  width: 100%; display: flex; align-items: center; justify-content: center;
+  gap: 0.75rem;
+  background: #fff; border: none; border-radius: 14px;
+  padding: 0.85rem 1.2rem;
+  font-family: var(--font-body); font-size: 0.95rem; font-weight: 700;
+  color: #1f1f1f; cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08);
+  transition: all 0.2s;
+}
+.google-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+.google-btn:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.google-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.google-btn-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.google-btn-text { flex: 1; text-align: center; }
+
+.login-divider {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin: 1.3rem 0 1rem; color: var(--border);
+  font-size: 0.72rem; color: var(--muted);
+}
+.login-divider::before, .login-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.login-features {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  text-align: left; margin-bottom: 1.5rem;
+}
+.login-feature {
+  display: flex; align-items: center; gap: 0.55rem;
+  font-size: 0.8rem; color: var(--muted);
+}
+.login-feature-icon { font-size: 0.95rem; flex-shrink: 0; }
+
+.login-footer {
+  font-size: 0.68rem; color: var(--border);
+  line-height: 1.5; margin-top: 1.2rem;
+}
+
+/* Loading spinner inside gate */
+.login-loading {
+  display: none; flex-direction: column; align-items: center;
+  gap: 0.8rem; margin-top: 1.2rem;
+}
+.login-loading.show { display: flex; }
+.login-spinner {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  animation: spin 0.85s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.login-loading-text { font-size: 0.78rem; color: var(--muted); }
+
+/* Error message inside gate */
+.login-error {
+  display: none; margin-top: 1rem; padding: 0.6rem 0.9rem;
+  background: rgba(247,79,79,0.1); border: 1px solid rgba(247,79,79,0.25);
+  border-radius: 10px; font-size: 0.78rem; color: #f78f8f; line-height: 1.4;
+}
+.login-error.show { display: block; }
+/* ── END LOGIN GATE ───────────────────────────────────────── */
+
 /* LANG BAR */
 .lang-bar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 200;
   background: rgba(15,17,23,0.97); backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1.2rem;
+  display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem;
+  gap: 0.5rem;
+}
+.lang-bar-right {
+  display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
 }
 .logo-text { font-family: var(--font-head); font-weight: 800; font-size: 1.2rem; color: var(--text); display: flex; align-items: center; gap: 0.4rem; }
 .logo-ai-badge {
@@ -48,8 +195,8 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 }
 .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: glow 2s ease-in-out infinite; }
 @keyframes glow { 0%,100%{opacity:1;box-shadow:0 0 8px var(--accent)} 50%{opacity:0.6;box-shadow:0 0 18px var(--accent)} }
-.lang-switcher { display: flex; gap: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.22rem; }
-.lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.72rem; font-weight: 600; padding: 0.28rem 0.55rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; }
+.lang-switcher { display: flex; gap: 0.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.22rem; flex-shrink: 0; }
+.lang-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; padding: 0.26rem 0.45rem; border-radius: 100px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
 .lang-btn.active { background: var(--accent); color: #fff; }
 .lang-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
 .has-answer .lang-btn:not(.active):hover::after {
@@ -57,6 +204,45 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   font-size: 0.7rem;
   opacity: 0.7;
 }
+/* ── Language pill + dropdown ── */
+.lang-pill {
+  position: relative; flex-shrink: 0;
+}
+.lang-pill-btn {
+  display: flex; align-items: center; gap: 0.3rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 100px; padding: 0.28rem 0.6rem 0.28rem 0.55rem;
+  font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
+  color: var(--text); cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.lang-pill-btn:hover { border-color: var(--accent); color: var(--accent); }
+.lang-pill-btn.open  { border-color: var(--accent); background: rgba(79,142,247,0.08); color: var(--accent); }
+.lang-pill-chevron { font-size: 0.5rem; opacity: 0.6; transition: transform 0.25s; }
+.lang-pill-btn.open .lang-pill-chevron { transform: rotate(180deg); }
+.lang-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 0.3rem;
+  display: flex; flex-direction: column; gap: 0.15rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  opacity: 0; pointer-events: none; transform: translateY(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 300; min-width: 90px;
+}
+.lang-dropdown.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+.lang-drop-btn {
+  background: none; border: none; width: 100%;
+  padding: 0.42rem 0.7rem; border-radius: 8px;
+  font-family: var(--font-body); font-size: 0.78rem; font-weight: 600;
+  color: var(--muted); cursor: pointer; text-align: left;
+  transition: all 0.15s; white-space: nowrap;
+}
+.lang-drop-btn:hover { background: var(--surface2); color: var(--text); }
+.lang-drop-btn.active { background: rgba(79,142,247,0.14); color: var(--accent); font-weight: 700; }
+/* Signed-in: avatar only in nav — name takes up too much space on mobile */
+.auth-btn.signed-in .auth-name { display: none; }
+.auth-btn.signed-in { padding: 0.18rem 0.18rem; gap: 0; }
 
 /* APP */
 .app { padding-top: 60px; max-width: 500px; margin: 0 auto; padding-left: 1rem; padding-right: 1rem; padding-bottom: 3rem; }
@@ -1177,19 +1363,72 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 </head>
 <body>
 
+<!-- ── LOGIN GATE (mandatory — hides until authenticated) ── -->
+<div class="login-gate" id="loginGate">
+  <div class="login-gate-blob login-gate-blob-1"></div>
+  <div class="login-gate-blob login-gate-blob-2"></div>
+
+  <div class="login-card">
+    <!-- Logo -->
+    <div class="login-logo">
+      <span class="login-logo-icon">📚</span>
+      <span class="login-logo-text">StudyLens <span class="login-ai-badge">AI</span></span>
+    </div>
+
+    <!-- Headline -->
+    <div class="login-headline">Your <span class="hl">AI Study</span><br/>Helper</div>
+    <p class="login-sub">Sign in to get step-by-step answers, save your history, and sync across devices.</p>
+
+    <!-- Features list -->
+    <div class="login-features">
+      <div class="login-feature"><span class="login-feature-icon">🧠</span>AI answers in English, Bengali, Hindi & Assamese</div>
+      <div class="login-feature"><span class="login-feature-icon">📷</span>Photo questions from books & worksheets</div>
+      <div class="login-feature"><span class="login-feature-icon">☁️</span>History & profiles synced across devices</div>
+    </div>
+
+    <!-- Google Sign-in button -->
+    <button class="google-btn" id="googleSignInBtn" onclick="gateSignIn()">
+      <svg class="google-btn-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      <span class="google-btn-text" id="googleBtnText">Continue with Google</span>
+    </button>
+
+    <!-- Loading state -->
+    <div class="login-loading" id="loginLoading">
+      <div class="login-spinner"></div>
+      <span class="login-loading-text" id="loginLoadingText">Signing you in…</span>
+    </div>
+
+    <!-- Error -->
+    <div class="login-error" id="loginError"></div>
+
+    <p class="login-footer">By continuing, you agree to use StudyLens AI for educational purposes only.<br/>Your data is private and secure.</p>
+  </div>
+</div>
+<!-- ── END LOGIN GATE ── -->
+
 <div class="lang-bar">
   <div class="logo-text"><span class="logo-dot"></span>StudyLens <span class="logo-ai-badge">AI</span></div>
-  <div style="display:flex;align-items:center;gap:0.5rem;">
+  <div class="lang-bar-right">
     <button class="auth-btn" id="authBtn" onclick="handleAuthClick()">
       <img class="auth-avatar" id="authAvatar" src="" alt=""/>
       <span class="auth-name" id="authName">Sign In</span>
     </button>
-    <span class="sync-badge" id="syncBadge" style="display:none;">☁️ Synced</span>
-    <div class="lang-switcher">
-      <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
-      <button class="lang-btn" onclick="setLang('bn')" id="btn-bn">বাং</button>
-      <button class="lang-btn" onclick="setLang('hi')" id="btn-hi">हिं</button>
-      <button class="lang-btn" onclick="setLang('as')" id="btn-as">অসম</button>
+    <div class="lang-pill" id="langPill">
+      <button class="lang-pill-btn" id="langPillBtn" onclick="toggleLangDropdown()">
+        <span id="langPillLabel">EN</span>
+        <span class="lang-pill-chevron">▼</span>
+      </button>
+      <div class="lang-dropdown" id="langDropdown">
+        <button class="lang-drop-btn active" id="btn-en" onclick="setLang('en')">🇬🇧 English</button>
+        <button class="lang-drop-btn" id="btn-bn" onclick="setLang('bn')">🇧🇩 বাংলা</button>
+        <button class="lang-drop-btn" id="btn-hi" onclick="setLang('hi')">🇮🇳 हिंदी</button>
+        <button class="lang-drop-btn" id="btn-as" onclick="setLang('as')">🏳️ অসমীয়া</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1631,9 +1870,63 @@ const FB = {
 
 let currentUser = null; // holds Firebase user object when signed in
 
+// ── Login gate helpers ────────────────────────────────────────────────────────
+function showLoginGate() {
+  const gate = document.getElementById('loginGate');
+  if (gate) gate.classList.remove('hidden');
+  document.body.style.overflow = 'hidden'; // prevent scrolling behind gate
+}
+
+function hideLoginGate() {
+  const gate = document.getElementById('loginGate');
+  if (gate) gate.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function gateSignIn() {
+  if (!window._fb) {
+    showGateError('Sign-in is not available right now. Please refresh and try again.');
+    return;
+  }
+  const btn      = document.getElementById('googleSignInBtn');
+  const loading  = document.getElementById('loginLoading');
+  const loadText = document.getElementById('loginLoadingText');
+  const errEl    = document.getElementById('loginError');
+
+  btn.disabled = true;
+  errEl.classList.remove('show');
+  loading.classList.add('show');
+  loadText.textContent = 'Opening Google sign-in…';
+
+  try {
+    await FB.signInWithGoogle();
+    loadText.textContent = 'Signing you in…';
+    // onUserChanged fires automatically — it will call hideLoginGate()
+  } catch (e) {
+    btn.disabled = false;
+    loading.classList.remove('show');
+    if (e.code === 'auth/popup-closed-by-user') {
+      // silent — user closed the popup themselves
+    } else if (e.code === 'auth/popup-blocked') {
+      showGateError('Popup was blocked. Please allow popups for this site in your browser settings, then try again.');
+    } else {
+      showGateError('Sign-in failed: ' + (e.message || 'Please try again.'));
+    }
+  }
+}
+
+function showGateError(msg) {
+  const el = document.getElementById('loginError');
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+
 // Called when Firebase module finishes loading (success or failure)
 function initFirebaseAuth() {
-  if (!window._fb) return; // Firebase not available — already in localStorage mode
+  if (!window._fb) {
+    // Firebase unavailable — still show the gate since we can't verify identity
+    showLoginGate();
+    return;
+  }
 
   // Runs automatically on every page load — checks if user is already signed in
   FB.onUserChanged(async (user) => {
@@ -1641,19 +1934,18 @@ function initFirebaseAuth() {
   const btn    = document.getElementById('authBtn');
   const avatar = document.getElementById('authAvatar');
   const name   = document.getElementById('authName');
-  const badge  = document.getElementById('syncBadge');
 
   if (!btn) return; // DOM not ready yet
 
   if (user) {
-    // ── Logged in ──
+    // ── Logged in — hide the gate and unlock the app ──
+    hideLoginGate();
     const firstName = user.displayName?.split(' ')[0] || 'You';
     name.textContent  = firstName;
     avatar.src        = user.photoURL || '';
     avatar.classList.add('show');
     btn.classList.add('signed-in');
     btn.title         = 'Tap to sign out';
-    badge.style.display = '';
 
     // Load cloud history + profiles (replaces localStorage)
     sessionHistory  = await FB.loadHistoryFromFirestore(user.uid);
@@ -1661,12 +1953,18 @@ function initFirebaseAuth() {
     updateHistPill();
     renderProfilesBar();
   } else {
-    // ── Logged out — use localStorage fallback ──
+    // ── Logged out — show the gate, block the app ──
+    showLoginGate();
+    // Reset gate UI in case they signed out and want to sign in again
+    const googleBtn = document.getElementById('googleSignInBtn');
+    const loading   = document.getElementById('loginLoading');
+    if (googleBtn) googleBtn.disabled = false;
+    if (loading)   loading.classList.remove('show');
+
     name.textContent = 'Sign In';
     avatar.classList.remove('show');
     btn.classList.remove('signed-in');
     btn.title        = 'Sign in with Google';
-    badge.style.display = 'none';
 
     loadPersistedHistory();
     loadProfiles();
@@ -1683,33 +1981,12 @@ async function handleAuthClick() {
   if (currentUser) {
     if (confirm('Sign out of StudyLens?')) {
       await FB.signOutUser();
+      // onUserChanged fires → showLoginGate() called automatically
     }
   } else {
-    if (!window._fb) {
-      alert('Sign-in is not available right now. Please refresh the page and try again.');
-      return;
-    }
-    const btn  = document.getElementById('authBtn');
-    const name = document.getElementById('authName');
-    try {
-      if (name) name.textContent = 'Opening…';
-      if (btn)  btn.style.opacity = '0.6';
-      await FB.signInWithGoogle();
-      // Popup opens — onUserChanged fires automatically when signed in
-      // No page reload needed!
-    } catch (e) {
-      if (name) name.textContent = 'Sign In';
-      if (btn)  btn.style.opacity = '';
-      if (e.code === 'auth/popup-closed-by-user') {
-        // User closed popup — silent, no alert needed
-        console.log('[Auth] Popup closed by user');
-      } else if (e.code === 'auth/popup-blocked') {
-        alert('Popup was blocked by your browser.\n\nPlease allow popups for this site in your browser settings, then try again.');
-      } else {
-        console.error('[Auth] Sign in failed:', e);
-        alert('Sign in failed: ' + (e.message || 'Please try again.'));
-      }
-    }
+    // Shouldn't normally reach here (gate is shown when logged out)
+    // but acts as a fallback
+    showLoginGate();
   }
 }
 
@@ -2404,6 +2681,9 @@ document.addEventListener('click', e => {
   // Collapse revealed profile chips if click is outside profiles bar
   const pBar = document.getElementById('profilesBar');
   if (pBar && !pBar.contains(e.target)) collapseAllChips();
+  // Close lang dropdown if click is outside
+  const langPill = document.getElementById('langPill');
+  if (langPill && !langPill.contains(e.target)) closeLangDropdown();
 });
 
 // ── BOARD GRID ──
@@ -2645,10 +2925,34 @@ function removeImage() {
 }
 
 // ── LANG ──
+const LANG_LABELS = { en: 'EN', bn: 'বাং', hi: 'हिं', as: 'অসম' };
+
+function toggleLangDropdown() {
+  const btn  = document.getElementById('langPillBtn');
+  const drop = document.getElementById('langDropdown');
+  const isOpen = drop.classList.contains('open');
+  if (isOpen) {
+    drop.classList.remove('open');
+    btn.classList.remove('open');
+  } else {
+    drop.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+
+function closeLangDropdown() {
+  document.getElementById('langDropdown')?.classList.remove('open');
+  document.getElementById('langPillBtn')?.classList.remove('open');
+}
+
 function setLang(lang) {
   currentLang = lang;
-  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn-' + lang).classList.add('active');
+  // Update pill label
+  document.getElementById('langPillLabel').textContent = LANG_LABELS[lang] || lang.toUpperCase();
+  // Update active state in dropdown
+  document.querySelectorAll('.lang-drop-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + lang)?.classList.add('active');
+  closeLangDropdown();
   applyLang(lang);
 
   // If an answer is currently showing, retranslate it
@@ -2717,7 +3021,7 @@ async function retranslate(lang) {
   startThinkingMessages();
   rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const payload = { ...lastPayload, lang };
+  const payload = { ...lastPayload, lang, uid: currentUser ? currentUser.uid : null };
 
   try {
     const res  = await fetch('/api/ask', {
@@ -2858,6 +3162,7 @@ async function askQuestion() {
     stream: selStream ? selStream.name : '',
     subject: selSubj ? selSubj.subject : '',
     subjectType: getSubjectType(selSubj),
+    uid: currentUser ? currentUser.uid : null,
   };
 
   if (currentMode === 'text') {
@@ -3140,6 +3445,7 @@ async function sendFollowup() {
     question: contextQ,
     imageBase64: wasPhoto ? lastPayload.imageBase64 : undefined,
     imageMime: wasPhoto ? lastPayload.imageMime : undefined,
+    uid: currentUser ? currentUser.uid : null,
   };
 
   // Close follow-up input, reset
@@ -3585,6 +3891,7 @@ Respond ONLY with a valid JSON array, no markdown, no extra text:
         subjectType: selSubj ? (lastPayload && lastPayload.subjectType) || 'general' : 'general',
         board: selBoard ? selBoard.name : '',
         stream: selStream ? selStream.name : '',
+        uid: currentUser ? currentUser.uid : null,
       }),
     });
     const data = await res.json();
@@ -4074,6 +4381,9 @@ document.addEventListener('keydown', (e) => {
 // In a module, functions are scoped and not accessible from HTML onclick=""
 // We explicitly attach each one to window so onclick handlers keep working.
 window.handleAuthClick    = handleAuthClick;
+window.gateSignIn         = gateSignIn;
+window.toggleLangDropdown = toggleLangDropdown;
+window.closeLangDropdown  = closeLangDropdown;
 window.setLang            = setLang;
 window.togglePanel        = togglePanel;
 window.setMode            = setMode;

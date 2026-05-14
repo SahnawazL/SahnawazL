@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyLens Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #080b10;
+  --surface:  #0d1118;
+  --s2:       #121820;
+  --s3:       #1a2230;
+  --border:   #1e2d3d;
+  --accent:   #00d4ff;
+  --accent2:  #ff6b35;
+  --green:    #00ff88;
+  --yellow:   #ffd700;
+  --red:      #ff4757;
+  --purple:   #a855f7;
+  --text:     #e8f0fe;
+  --muted:    #4a6580;
+  --mono:     'Space Mono', monospace;
+  --sans:     'Syne', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRID SCANLINES BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 212, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── LOGIN SCREEN ── */
+#loginScreen {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+
+.login-box {
+  width: min(360px, 90vw);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
+  background: var(--surface);
+  padding: 2.5rem 2rem;
+  position: relative;
+  animation: slideUp 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.login-box::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: scanH 3s linear infinite;
+}
+
+@keyframes scanH {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.login-logo {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+.login-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.3rem;
+}
+.login-sub {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.login-field {
+  position: relative;
+  margin-bottom: 1.2rem;
+}
+.login-field label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 0.4rem;
+}
+.login-field input {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(0,212,255,0.2);
+}
+
+.login-btn {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  color: var(--bg);
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.85rem;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.login-btn:hover { background: #33ddff; transform: translateY(-1px); }
+.login-btn:active { transform: translateY(0); }
+.login-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+}
+
+.login-error {
+  margin-top: 0.8rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--red);
+  display: none;
+}
+.login-error.show { display: block; }
+
+/* ── MAIN APP ── */
+#app { display: none; position: relative; z-index: 1; }
+#app.visible { display: block; }
+
+/* ── TOP NAV ── */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,11,16,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 56px;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.nav-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+  50%      { opacity: 0.5; box-shadow: 0 0 20px var(--accent); }
+}
+.nav-title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.nav-right {
+  display: flex; align-items: center; gap: 1rem;
+}
+.nav-badge {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--green);
+  background: rgba(0,255,136,0.08);
+  border: 1px solid rgba(0,255,136,0.2);
+  padding: 0.25rem 0.6rem;
+}
+.refresh-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--mono); font-size: 0.65rem;
+  letter-spacing: 0.08em; padding: 0.3rem 0.7rem; cursor: pointer;
+  text-transform: uppercase; transition: all 0.2s;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.logout-btn {
+  background: none; border: 1px solid rgba(255,71,87,0.3);
+  color: var(--red); font-family: var(--mono); font-size: 0.65rem;
+  padding: 0.3rem 0.7rem; cursor: pointer; transition: all 0.2s;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.logout-btn:hover { background: rgba(255,71,87,0.1); }
+
+/* ── TABS ── */
+.tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  background: var(--surface);
+}
+.tab {
+  font-family: var(--mono);
+  font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0.85rem 1.2rem;
+  color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all 0.2s; white-space: nowrap;
+  background: none; border-left: none; border-right: none; border-top: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── CONTENT ── */
+.content { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── LOADING ── */
+.loading-state {
+  display: flex; align-items: center; gap: 0.75rem;
+  font-family: var(--mono); font-size: 0.75rem; color: var(--muted);
+  padding: 3rem 0;
+}
+.loading-bar {
+  width: 120px; height: 2px;
+  background: var(--border);
+  position: relative; overflow: hidden;
+}
+.loading-bar::after {
+  content: '';
+  position: absolute; top: 0; left: -40px;
+  width: 40px; height: 100%;
+  background: var(--accent);
+  animation: loadSlide 1s linear infinite;
+}
+@keyframes loadSlide {
+  from { left: -40px; }
+  to   { left: 120px; }
+}
+
+/* ── STAT CARDS ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1px;
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  background: var(--border);
+}
+.stat-card {
+  background: var(--surface);
+  padding: 1.4rem 1.2rem;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--accent-color, var(--accent));
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.stat-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--accent-color, var(--accent));
+  line-height: 1;
+  font-family: var(--mono);
+}
+.stat-sub {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+
+/* ── SECTION HEADERS ── */
+.section-hdr {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.section-hdr-line {
+  flex: 1; height: 1px; background: var(--border);
+}
+.section-hdr-title {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── TWO-COL LAYOUT ── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 700px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+/* ── DATA CARDS ── */
+.data-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1.2rem;
+}
+
+.bar-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+.bar-label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text);
+  width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+.bar-track {
+  flex: 1; height: 6px; background: var(--s3); position: relative;
+}
+.bar-fill {
+  position: absolute; top: 0; left: 0; height: 100%;
+  background: var(--accent);
+  transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1);
+}
+.bar-count {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── DAILY CHART ── */
+.day-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 80px;
+  margin-top: 0.5rem;
+}
+.day-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.day-bar {
+  width: 100%;
+  background: rgba(0,212,255,0.2);
+  border-top: 1px solid var(--accent);
+  min-height: 2px;
+  transition: background 0.2s;
+  position: relative;
+}
+.day-bar:hover { background: rgba(0,212,255,0.4); }
+.day-bar-tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--s3);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--accent);
+  padding: 2px 5px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.day-bar:hover .day-bar-tip { opacity: 1; }
+.day-label {
+  font-family: var(--mono);
+  font-size: 0.48rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── KV STATE ── */
+.kv-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.kv-slot {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.kv-slot:last-child { border-bottom: none; }
+.kv-slot-name {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text);
+  width: 100px;
+  flex-shrink: 0;
+}
+.kv-exhausted {
+  display: flex; gap: 0.3rem; flex-wrap: wrap; flex: 1;
+}
+.kv-key-chip {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 2px;
+}
+.kv-key-chip.ok       { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+.kv-key-chip.exhausted { background: rgba(255,71,87,0.1);  color: var(--red);   border: 1px solid rgba(255,71,87,0.2); }
+.kv-index {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
+/* ── TABLE ── */
+.data-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  min-width: 600px;
+}
+.data-table th {
+  background: var(--s2);
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text);
+  vertical-align: top;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(0,212,255,0.03); }
+
+.mode-badge {
+  font-size: 0.58rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.mode-badge.text  { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+.mode-badge.photo { background: rgba(168,85,247,0.1); color: var(--purple); border: 1px solid rgba(168,85,247,0.2); }
+
+.uid-cell {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── IMAGE GRID ── */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+.image-item {
+  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 4/3;
+}
+.image-item img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+  transition: transform 0.3s;
+  filter: brightness(0.9);
+}
+.image-item:hover img { transform: scale(1.05); filter: brightness(1); }
+.image-item-meta {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  padding: 1rem 0.6rem 0.5rem;
+  transform: translateY(100%);
+  transition: transform 0.25s;
+}
+.image-item:hover .image-item-meta { transform: translateY(0); }
+.image-meta-subj {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--accent);
+  margin-bottom: 0.15rem;
+}
+.image-meta-time {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+}
+
+/* ── LIGHTBOX ── */
+.lightbox {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.95);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+}
+.lightbox.open { opacity: 1; pointer-events: all; }
+.lightbox img {
+  max-width: min(90vw, 700px);
+  max-height: 75vh;
+  object-fit: contain;
+  border: 1px solid var(--border);
+}
+.lightbox-meta {
+  margin-top: 1rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.6;
+}
+.lightbox-close {
+  position: absolute; top: 1rem; right: 1rem;
+  background: var(--s2); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+  padding: 0.4rem 0.8rem; cursor: pointer;
+  letter-spacing: 0.1em;
+}
+.lightbox-close:hover { border-color: var(--red); color: var(--red); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.75rem;
+  opacity: 0.4;
+}
+
+/* ── PAGINATION ── */
+.pagination {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-top: 1rem;
+}
+.page-btn {
+  background: var(--s2); border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--mono); font-size: 0.62rem;
+  padding: 0.35rem 0.75rem; cursor: pointer;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.page-btn:disabled { opacity: 0.3; cursor: default; }
+.page-info {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  flex: 1;
+  text-align: center;
+}
+
+/* ── SETUP INSTRUCTIONS ── */
+.setup-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent2);
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.setup-title {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 0.75rem;
+}
+.setup-step {
+  display: flex; gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.setup-num {
+  color: var(--accent2);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+code {
+  background: var(--s3);
+  color: var(--green);
+  padding: 0.1rem 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">▸ StudyLens AI</div>
+    <div class="login-title">Admin Panel</div>
+    <div class="login-sub">// RESTRICTED ACCESS — AUTHORIZED PERSONNEL ONLY</div>
+
+    <div class="login-field">
+      <label>Admin Secret</label>
+      <input type="password" id="secretInput" placeholder="Enter admin password…" autocomplete="off"/>
+    </div>
+
+    <div class="login-field">
+      <label>API Endpoint</label>
+      <input type="text" id="apiEndpointInput" placeholder="https://your-app.vercel.app/api/admin" value=""/>
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">ACCESS DASHBOARD →</button>
+    <div class="login-error" id="loginError">⚠ Invalid credentials or endpoint unreachable.</div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ── -->
+<div id="app">
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-dot"></div>
+      <span class="nav-title">StudyLens // Admin</span>
+    </div>
+    <div class="nav-right">
+      <span class="nav-badge" id="lastRefreshed">LIVE</span>
+      <button class="refresh-btn" onclick="refreshCurrent()">↺ Refresh</button>
+      <button class="logout-btn" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('stats', this)">📊 Overview</button>
+    <button class="tab" onclick="switchTab('history', this)">📋 Activity</button>
+    <button class="tab" onclick="switchTab('images', this)">📷 Images</button>
+    <button class="tab" onclick="switchTab('setup', this)">⚙️ Setup</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ── STATS PANEL ── -->
+    <div class="panel active" id="panel-stats">
+      <div class="loading-state" id="stats-loading">
+        <div class="loading-bar"></div>
+        <span>FETCHING ANALYTICS…</span>
+      </div>
+      <div id="stats-content" style="display:none;"></div>
+    </div>
+
+    <!-- ── HISTORY PANEL ── -->
+    <div class="panel" id="panel-history">
+      <div class="loading-state" id="history-loading">
+        <div class="loading-bar"></div>
+        <span>LOADING ACTIVITY LOG…</span>
+      </div>
+      <div id="history-content" style="display:none;"></div>
+    </div>
+
+    <!-- ── IMAGES PANEL ── -->
+    <div class="panel" id="panel-images">
+      <div class="loading-state" id="images-loading">
+        <div class="loading-bar"></div>
+        <span>LOADING IMAGE ARCHIVE…</span>
+      </div>
+      <div id="images-content" style="display:none;"></div>
+    </div>
+
+    <!-- ── SETUP PANEL ── -->
+    <div class="panel" id="panel-setup">
+      <div class="setup-card">
+        <div class="setup-title">▸ Required Environment Variables</div>
+        <div class="setup-step"><span class="setup-num">1.</span><span>Add <code>ADMIN_SECRET</code> to Vercel Environment Variables — this is the password you use to log in here.</span></div>
+        <div class="setup-step"><span class="setup-num">2.</span><span>Go to Firebase Console → Project Settings → Service Accounts → <strong>Generate new private key</strong>. Download the JSON file.</span></div>
+        <div class="setup-step"><span class="setup-num">3.</span><span>Add <code>FIREBASE_SERVICE_ACCOUNT</code> to Vercel Env Vars. Value = the entire contents of the JSON file (copy-paste as one line).</span></div>
+        <div class="setup-step"><span class="setup-num">4.</span><span>Go to Firebase Console → Storage → Rules. Make sure your bucket is <code>your-project.appspot.com</code>. Images will be stored under <code>question-images/</code>.</span></div>
+        <div class="setup-step"><span class="setup-num">5.</span><span>Deploy your updated <code>ask.js</code> to Vercel. Photo questions will now be automatically saved to Firebase Storage.</span></div>
+        <div class="setup-step"><span class="setup-num">6.</span><span>The <code>KV_REST_API_URL</code> and <code>KV_REST_API_TOKEN</code> are auto-added by Upstash when you link the KV database. These are already in your project (seen in your screenshot).</span></div>
+      </div>
+
+      <div class="setup-card" style="border-left-color: var(--green);">
+        <div class="setup-title" style="color: var(--green);">▸ Files to Deploy</div>
+        <div class="setup-step"><span class="setup-num">→</span><span>Replace <code>/api/ask.js</code> with the updated version (adds image logging to Firebase Storage).</span></div>
+        <div class="setup-step"><span class="setup-num">→</span><span>Add <code>/api/admin.js</code> as a new Vercel serverless function.</span></div>
+        <div class="setup-step"><span class="setup-num">→</span><span>Host this <code>admin.html</code> file anywhere — it's a standalone page that calls your API.</span></div>
+      </div>
+
+      <div class="setup-card" style="border-left-color: var(--yellow);">
+        <div class="setup-title" style="color: var(--yellow);">▸ Firebase Storage Rules</div>
+        <div class="setup-step"><span class="setup-num">!</span><span>Set Storage rules to block public reads (images are private — only viewable by admin via signed URLs):</span></div>
+        <pre style="background:var(--s2);border:1px solid var(--border);padding:0.75rem;font-family:var(--mono);font-size:0.65rem;color:var(--green);margin-top:0.5rem;overflow-x:auto;">rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /question-images/{allPaths=**} {
+      allow read: if false;   // Admin reads via service account
+      allow write: if false;  // Server-side only
+    }
+  }
+}</pre>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕ CLOSE</button>
+  <img id="lightboxImg" src="" alt=""/>
+  <div class="lightbox-meta" id="lightboxMeta"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let apiEndpoint = '';
+let adminSecret = '';
+let activeTab   = 'stats';
+let histPage    = 0;
+const PAGE_SIZE = 30;
+
+// ── Login ──────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const secret   = document.getElementById('secretInput').value.trim();
+  const endpoint = document.getElementById('apiEndpointInput').value.trim();
+  const errEl    = document.getElementById('loginError');
+  errEl.classList.remove('show');
+
+  if (!secret || !endpoint) {
+    errEl.textContent = '⚠ Please fill in both fields.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  // Test the credentials
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'kv', secret }),
+    });
+    if (res.status === 401) {
+      errEl.textContent = '⚠ Wrong password.';
+      errEl.classList.add('show');
+      return;
+    }
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      errEl.textContent = '⚠ Error: ' + (d.error || res.status);
+      errEl.classList.add('show');
+      return;
+    }
+  } catch (e) {
+    errEl.textContent = '⚠ Cannot reach endpoint. Check URL and try again.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  apiEndpoint = endpoint;
+  adminSecret = secret;
+  // Save to sessionStorage for convenience
+  sessionStorage.setItem('sl_admin_ep', endpoint);
+  sessionStorage.setItem('sl_admin_s', secret);
+
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  loadStats();
+}
+
+function logout() {
+  sessionStorage.clear();
+  location.reload();
+}
+
+// Restore session if already logged in
+window.addEventListener('DOMContentLoaded', () => {
+  const ep = sessionStorage.getItem('sl_admin_ep');
+  const s  = sessionStorage.getItem('sl_admin_s');
+  if (ep && s) {
+    document.getElementById('apiEndpointInput').value = ep;
+    document.getElementById('secretInput').value = s;
+  }
+  document.getElementById('secretInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+});
+
+// ── API call helper ────────────────────────────────────────────────────────────
+async function api(action, extra = {}) {
+  const res = await fetch(apiEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, secret: adminSecret, ...extra }),
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error(d.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+
+  if (tab === 'stats' && !document.getElementById('stats-content').innerHTML.trim()) loadStats();
+  if (tab === 'history') { histPage = 0; loadHistory(); }
+  if (tab === 'images') loadImages();
+}
+
+function refreshCurrent() {
+  if (activeTab === 'stats')   { document.getElementById('stats-content').style.display = 'none'; document.getElementById('stats-content').innerHTML = ''; loadStats(); }
+  if (activeTab === 'history') { histPage = 0; loadHistory(); }
+  if (activeTab === 'images')  loadImages();
+  updateRefreshTime();
+}
+
+function updateRefreshTime() {
+  const now = new Date().toLocaleTimeString();
+  document.getElementById('lastRefreshed').textContent = 'Updated ' + now;
+}
+
+// ── STATS ──────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const loadEl    = document.getElementById('stats-loading');
+  const contentEl = document.getElementById('stats-content');
+  loadEl.style.display = 'flex';
+  contentEl.style.display = 'none';
+
+  try {
+    const data = await api('stats');
+    contentEl.innerHTML = buildStatsHTML(data);
+    contentEl.style.display = 'block';
+    loadEl.style.display = 'none';
+    // Animate bars after render
+    setTimeout(animateBars, 100);
+    updateRefreshTime();
+  } catch (e) {
+    loadEl.style.display = 'none';
+    contentEl.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠️</span>${e.message}</div>`;
+    contentEl.style.display = 'block';
+  }
+}
+
+function buildStatsHTML(d) {
+  const photoRate = d.totalQuestions > 0 ? Math.round((d.totalPhotoQ / d.totalQuestions) * 100) : 0;
+  const maxDay = Math.max(...(d.recentDays || []).map(([,v]) => v), 1);
+
+  let html = `
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card" style="--accent-color: var(--accent)">
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value">${d.totalUsers ?? '—'}</div>
+        <div class="stat-sub">Signed-in accounts</div>
+      </div>
+      <div class="stat-card" style="--accent-color: var(--green)">
+        <div class="stat-label">Total Questions</div>
+        <div class="stat-value">${d.totalQuestions ?? '—'}</div>
+        <div class="stat-sub">All time</div>
+      </div>
+      <div class="stat-card" style="--accent-color: var(--purple)">
+        <div class="stat-label">Photo Questions</div>
+        <div class="stat-value">${d.totalPhotoQ ?? '—'}</div>
+        <div class="stat-sub">${photoRate}% of total</div>
+      </div>
+      <div class="stat-card" style="--accent-color: var(--yellow)">
+        <div class="stat-label">Text Questions</div>
+        <div class="stat-value">${d.totalTextQ ?? '—'}</div>
+        <div class="stat-sub">${100 - photoRate}% of total</div>
+      </div>
+    </div>`;
+
+  // Daily chart
+  if (d.recentDays && d.recentDays.length > 0) {
+    const reversedDays = [...d.recentDays].reverse();
+    html += `
+    <div class="section-hdr">
+      <span class="section-hdr-title">Activity — Last ${reversedDays.length} Days</span>
+      <div class="section-hdr-line"></div>
+    </div>
+    <div class="data-card" style="margin-bottom:1.5rem;">
+      <div class="day-chart">
+        ${reversedDays.map(([day, count]) => {
+          const h = Math.max(4, Math.round((count / maxDay) * 100));
+          const label = day.slice(5); // MM-DD
+          return `<div class="day-bar-wrap">
+            <div class="day-bar" style="height:${h}%">
+              <div class="day-bar-tip">${count} on ${day}</div>
+            </div>
+            <div class="day-label">${label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Top subjects + classes
+  const maxSubj = Math.max(...(d.topSubjects || []).map(([,v]) => v), 1);
+  const maxCls  = Math.max(...(d.topClasses  || []).map(([,v]) => v), 1);
+
+  html += `
+    <div class="two-col">
+      <div>
+        <div class="section-hdr">
+          <span class="section-hdr-title">Top Subjects</span>
+          <div class="section-hdr-line"></div>
+        </div>
+        <div class="data-card">
+          ${(d.topSubjects || []).length === 0
+            ? '<div class="empty-state" style="padding:1rem"><span class="empty-icon" style="font-size:1.5rem">📚</span>No data yet</div>'
+            : (d.topSubjects || []).map(([subj, count]) => `
+              <div class="bar-row">
+                <div class="bar-label">${subj}</div>
+                <div class="bar-track"><div class="bar-fill" data-w="${Math.round(count/maxSubj*100)}" style="width:0%"></div></div>
+                <div class="bar-count">${count}</div>
+              </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="section-hdr">
+          <span class="section-hdr-title">Top Classes</span>
+          <div class="section-hdr-line"></div>
+        </div>
+        <div class="data-card">
+          ${(d.topClasses || []).length === 0
+            ? '<div class="empty-state" style="padding:1rem"><span class="empty-icon" style="font-size:1.5rem">🎓</span>No data yet</div>'
+            : (d.topClasses || []).map(([cls, count]) => `
+              <div class="bar-row">
+                <div class="bar-label">${cls}</div>
+                <div class="bar-track"><div class="bar-fill" data-w="${Math.round(count/maxCls*100)}" style="width:0%;background:var(--green)"></div></div>
+                <div class="bar-count">${count}</div>
+              </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  // KV state
+  if (d.kvState) {
+    html += `
+    <div class="section-hdr">
+      <span class="section-hdr-title">API Key Rotation State</span>
+      <div class="section-hdr-line"></div>
+    </div>
+    <div class="kv-card">
+      ${Object.entries(d.kvState).map(([slot, state]) => `
+        <div class="kv-slot">
+          <div class="kv-slot-name">${slot}</div>
+          <div class="kv-exhausted">
+            ${(state.exhausted || []).length === 0
+              ? '<span class="kv-key-chip ok">✓ All keys active</span>'
+              : (state.exhausted || []).map(k => `<span class="kv-key-chip exhausted">✕ ${k.slice(0,12)}…</span>`).join('')}
+          </div>
+          <div class="kv-index">idx ${state.index ?? 0} · ${state.day || '?'}</div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  return html;
+}
+
+function animateBars() {
+  document.querySelectorAll('.bar-fill[data-w]').forEach(el => {
+    el.style.width = el.getAttribute('data-w') + '%';
+  });
+}
+
+// ── HISTORY ────────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const loadEl    = document.getElementById('history-loading');
+  const contentEl = document.getElementById('history-content');
+  loadEl.style.display = 'flex';
+  contentEl.style.display = 'none';
+
+  try {
+    const data = await api('history', { limit: PAGE_SIZE, offset: histPage * PAGE_SIZE });
+    contentEl.innerHTML = buildHistoryHTML(data);
+    contentEl.style.display = 'block';
+    loadEl.style.display = 'none';
+    updateRefreshTime();
+  } catch (e) {
+    loadEl.style.display = 'none';
+    contentEl.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠️</span>${e.message}</div>`;
+    contentEl.style.display = 'block';
+  }
+}
+
+function buildHistoryHTML(data) {
+  const { entries = [], total = 0 } = data;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  if (entries.length === 0) {
+    return `<div class="empty-state"><span class="empty-icon">📋</span>No activity recorded yet.</div>`;
+  }
+
+  let html = `
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>User</th>
+            <th>Mode</th>
+            <th>Subject</th>
+            <th>Class</th>
+            <th>Question</th>
+            <th>Img</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map((e, i) => {
+            const ts   = e.ts ? new Date(e.ts).toLocaleString() : '—';
+            const q    = (e.question || '').slice(0, 60) + (e.question?.length > 60 ? '…' : '');
+            const num  = histPage * PAGE_SIZE + i + 1;
+            const imgCell = e.hasImage
+              ? `<a href="${e.imageUrl || '#'}" target="_blank" style="color:var(--purple);text-decoration:none;">📷</a>`
+              : '—';
+            return `<tr>
+              <td style="color:var(--muted)">${num}</td>
+              <td style="color:var(--muted);font-size:0.6rem;white-space:nowrap">${ts}</td>
+              <td class="uid-cell" title="${e.uid}">${(e.uid||'').slice(0,10)}…</td>
+              <td><span class="mode-badge ${e.mode}">${e.mode || '—'}</span></td>
+              <td>${e.subject || '—'}</td>
+              <td>${e.className || '—'}</td>
+              <td title="${e.question}">${q || '<em style="color:var(--muted)">photo only</em>'}</td>
+              <td>${imgCell}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button class="page-btn" onclick="prevPage()" ${histPage === 0 ? 'disabled' : ''}>← Prev</button>
+      <div class="page-info">Page ${histPage + 1} of ${totalPages} · ${total} total entries</div>
+      <button class="page-btn" onclick="nextPage()" ${histPage >= totalPages - 1 ? 'disabled' : ''}>Next →</button>
+    </div>`;
+
+  return html;
+}
+
+function prevPage() { if (histPage > 0) { histPage--; loadHistory(); } }
+function nextPage() { histPage++; loadHistory(); }
+
+// ── IMAGES ─────────────────────────────────────────────────────────────────────
+async function loadImages() {
+  const loadEl    = document.getElementById('images-loading');
+  const contentEl = document.getElementById('images-content');
+  loadEl.style.display = 'flex';
+  contentEl.style.display = 'none';
+
+  try {
+    const data = await api('images', { limit: 60 });
+    contentEl.innerHTML = buildImagesHTML(data.images || []);
+    contentEl.style.display = 'block';
+    loadEl.style.display = 'none';
+    updateRefreshTime();
+  } catch (e) {
+    loadEl.style.display = 'none';
+    contentEl.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠️</span>${e.message}</div>`;
+    contentEl.style.display = 'block';
+  }
+}
+
+function buildImagesHTML(images) {
+  if (images.length === 0) {
+    return `<div class="empty-state">
+      <span class="empty-icon">📷</span>
+      No images saved yet.<br/>Images are saved when users upload photos for questions.<br/>
+      <span style="color:var(--accent2);margin-top:0.5rem;display:block;">Make sure you deployed the updated ask.js and added FIREBASE_SERVICE_ACCOUNT.</span>
+    </div>`;
+  }
+
+  const grid = images.map(img => {
+    const time = img.created ? new Date(img.created).toLocaleString() : '—';
+    const sizeKb = img.size ? Math.round(img.size / 1024) + ' KB' : '';
+    return `<div class="image-item" onclick="openLightbox('${img.url}', '${img.subject}', '${img.className}', '${time}', '${sizeKb}')">
+      <img src="${img.url}" alt="" loading="lazy" onerror="this.style.opacity='0.2'"/>
+      <div class="image-item-meta">
+        <div class="image-meta-subj">${img.subject || 'Unknown subject'}</div>
+        <div class="image-meta-time">${time}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="section-hdr" style="margin-bottom:1rem;">
+      <span class="section-hdr-title">${images.length} Images Stored</span>
+      <div class="section-hdr-line"></div>
+    </div>
+    <div class="image-grid">${grid}</div>`;
+}
+
+function openLightbox(url, subject, className, time, size) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightboxMeta').innerHTML =
+    `Subject: ${subject || '?'} · Class: ${className || '?'}<br/>${time} · ${size}`;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox(e) {
+  if (e && e.target !== document.getElementById('lightbox') && !e.target.classList.contains('lightbox-close')) return;
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox({ target: document.getElementById('lightbox') });
+});
+</script>
+</body>
+</html>
