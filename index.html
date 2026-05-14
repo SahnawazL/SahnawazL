@@ -1139,17 +1139,51 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   z-index: 550; white-space: nowrap;
 }
 .profile-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── AUTH UI ── */
+.auth-btn {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 100px; padding: 0.28rem 0.75rem 0.28rem 0.4rem;
+  font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
+  color: var(--text); cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+.auth-btn:hover { border-color: var(--accent); color: var(--accent); }
+.auth-btn.signed-in { border-color: rgba(62,207,142,0.4); }
+.auth-btn.signed-in:hover { border-color: var(--danger); color: var(--danger); }
+.auth-avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  object-fit: cover; display: none; flex-shrink: 0;
+  border: 1.5px solid var(--green);
+}
+.auth-avatar.show { display: block; }
+.auth-name { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-badge {
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(62,207,142,0.12); color: var(--green);
+  border: 1px solid rgba(62,207,142,0.25); border-radius: 100px;
+  padding: 0.1rem 0.45rem; white-space: nowrap;
+}
 </style>
 </head>
 <body>
 
 <div class="lang-bar">
   <div class="logo-text"><span class="logo-dot"></span>StudyLens <span class="logo-ai-badge">AI</span></div>
-  <div class="lang-switcher">
-    <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
-    <button class="lang-btn" onclick="setLang('bn')" id="btn-bn">বাং</button>
-    <button class="lang-btn" onclick="setLang('hi')" id="btn-hi">हिं</button>
-    <button class="lang-btn" onclick="setLang('as')" id="btn-as">অসম</button>
+  <div style="display:flex;align-items:center;gap:0.5rem;">
+    <button class="auth-btn" id="authBtn" onclick="handleAuthClick()">
+      <img class="auth-avatar" id="authAvatar" src="" alt=""/>
+      <span class="auth-name" id="authName">Sign In</span>
+    </button>
+    <span class="sync-badge" id="syncBadge" style="display:none;">☁️ Synced</span>
+    <div class="lang-switcher">
+      <button class="lang-btn active" onclick="setLang('en')" id="btn-en">EN</button>
+      <button class="lang-btn" onclick="setLang('bn')" id="btn-bn">বাং</button>
+      <button class="lang-btn" onclick="setLang('hi')" id="btn-hi">हिं</button>
+      <button class="lang-btn" onclick="setLang('as')" id="btn-as">অসম</button>
+    </div>
   </div>
 </div>
 
@@ -1464,7 +1498,75 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
 </div>
 
-<script>
+<script type="module">
+// ── FIREBASE AUTH + DB ────────────────────────────────────────────────────────
+import { signInWithGoogle, signOutUser, onUserChanged } from '/lib/auth.js';
+import {
+  loadHistoryFromFirestore,
+  saveHistoryEntryToFirestore,
+  clearHistoryFromFirestore,
+  loadProfilesFromFirestore,
+  saveProfilesToFirestore
+} from '/lib/db.js';
+
+let currentUser = null; // holds Firebase user object when signed in
+
+// Runs automatically on every page load — checks if user is already signed in
+onUserChanged(async (user) => {
+  currentUser = user;
+  const btn    = document.getElementById('authBtn');
+  const avatar = document.getElementById('authAvatar');
+  const name   = document.getElementById('authName');
+  const badge  = document.getElementById('syncBadge');
+
+  if (user) {
+    // ── Logged in ──
+    const firstName = user.displayName?.split(' ')[0] || 'You';
+    name.textContent  = firstName;
+    avatar.src        = user.photoURL || '';
+    avatar.classList.add('show');
+    btn.classList.add('signed-in');
+    btn.title         = 'Tap to sign out';
+    badge.style.display = '';
+
+    // Load cloud history + profiles (replaces localStorage)
+    sessionHistory  = await loadHistoryFromFirestore(user.uid);
+    familyProfiles  = await loadProfilesFromFirestore(user.uid);
+    updateHistPill();
+    renderProfilesBar();
+  } else {
+    // ── Logged out — use localStorage fallback ──
+    name.textContent = 'Sign In';
+    avatar.classList.remove('show');
+    btn.classList.remove('signed-in');
+    btn.title        = 'Sign in with Google';
+    badge.style.display = 'none';
+
+    loadPersistedHistory();
+    loadProfiles();
+    updateHistPill();
+    renderProfilesBar();
+  }
+});
+
+async function handleAuthClick() {
+  if (currentUser) {
+    if (confirm('Sign out of StudyLens?')) {
+      await signOutUser();
+    }
+  } else {
+    try {
+      await signInWithGoogle();
+      // onUserChanged fires automatically after sign-in
+    } catch (e) {
+      console.error('[Auth] Sign in failed:', e);
+      alert('Sign in failed. Please try again.');
+    }
+  }
+}
+
+// ── END FIREBASE ──────────────────────────────────────────────────────────────
+
 // API key is now on the server — never exposed in frontend
 let currentLang = 'en';
 let selBoard = null;  // {id, name, shortName}
@@ -1504,6 +1606,8 @@ function loadPersistedHistory() {
 
 // ── save full array to localStorage ──
 function persistHistory() {
+  // If logged in, Firestore handles persistence — skip localStorage
+  if (currentUser) return;
   try {
     // Keep newest HIST_MAX entries
     if (sessionHistory.length > HIST_MAX) {
@@ -1561,6 +1665,8 @@ async function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
     payload: { ...payload, imageBase64: undefined }
   };
   sessionHistory.push(entry);
+  // Save to Firestore if logged in, otherwise localStorage handles it
+  if (currentUser) saveHistoryEntryToFirestore(currentUser.uid, entry);
   updateHistPill();  // immediate feedback
 
   // Shrink photo thumbnail asynchronously, then persist
@@ -1621,6 +1727,8 @@ function clearAllHistory() {
   if (!confirm('Clear all saved answers? This cannot be undone.')) return;
   sessionHistory = [];
   try { localStorage.removeItem(HIST_KEY); } catch(_) {}
+  // Also clear Firestore if logged in
+  if (currentUser) clearHistoryFromFirestore(currentUser.uid);
   updateHistPill();
   buildHistList();  // refresh (shows empty state)
 }
@@ -3474,6 +3582,12 @@ function loadProfiles() {
 
 // Save profiles to localStorage
 function persistProfiles() {
+  if (currentUser) {
+    // Logged in — save to Firestore (syncs across devices)
+    saveProfilesToFirestore(currentUser.uid, familyProfiles);
+    return;
+  }
+  // Not logged in — save to localStorage
   try { localStorage.setItem(PROFILES_KEY, JSON.stringify(familyProfiles)); } catch(_) {}
 }
 
@@ -3789,14 +3903,34 @@ document.addEventListener('keydown', (e) => {
 
 // ── END FAMILY PROFILES ────────────────────────────────────
 
-window.addEventListener('DOMContentLoaded', () => {
-  // Load any history persisted from previous sessions
-  loadPersistedHistory();
-  updateHistPill();
+// ── EXPOSE FUNCTIONS GLOBALLY (required because script is type="module") ──────
+// In a module, functions are scoped and not accessible from HTML onclick=""
+// We explicitly attach each one to window so onclick handlers keep working.
+window.handleAuthClick    = handleAuthClick;
+window.setLang            = setLang;
+window.togglePanel        = togglePanel;
+window.setMode            = setMode;
+window.askQuestion        = askQuestion;
+window.removeImage        = removeImage;
+window.onFile             = onFile;
+window.sendFollowup       = sendFollowup;
+window.copyAnswer         = copyAnswer;
+window.toggleSpeak        = toggleSpeak;
+window.toggleFollowup     = toggleFollowup;
+window.startQuiz          = startQuiz;
+window.generateQuiz       = generateQuiz;
+window.toggleHistSheet    = toggleHistSheet;
+window.closeHistSheet     = closeHistSheet;
+window.openProfileModal   = openProfileModal;
+window.closeProfileModal  = closeProfileModal;
+window.confirmSaveProfile = confirmSaveProfile;
+window.deleteProfile      = deleteProfile;
+// ── END GLOBAL EXPOSURE ───────────────────────────────────────────────────────
 
-  // Load family profiles
-  loadProfiles();
-  renderProfilesBar();
+window.addEventListener('DOMContentLoaded', () => {
+  // Note: loadPersistedHistory() and loadProfiles() are now called inside
+  // onUserChanged() above — handles both logged-in (Firestore) and
+  // logged-out (localStorage) cases automatically on every page load.
 
   applyLang('en'); updateStepper();
   // Open board selector immediately
