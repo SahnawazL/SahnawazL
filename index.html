@@ -1498,30 +1498,58 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
 </div>
 
+<!-- Firebase loaded as a SEPARATE module so if it fails, the main app still works -->
 <script type="module">
-// ── FIREBASE AUTH + DB ────────────────────────────────────────────────────────
-import { signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult } from '/lib/auth.js';
-import {
-  loadHistoryFromFirestore,
-  saveHistoryEntryToFirestore,
-  clearHistoryFromFirestore,
-  loadProfilesFromFirestore,
-  saveProfilesToFirestore
-} from '/lib/db.js';
+try {
+  const { signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult } = await import('/lib/auth.js');
+  const { loadHistoryFromFirestore, saveHistoryEntryToFirestore, clearHistoryFromFirestore, loadProfilesFromFirestore, saveProfilesToFirestore } = await import('/lib/db.js');
+
+  // Expose Firebase functions to the main (non-module) script via window
+  window._fb = {
+    signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult,
+    loadHistoryFromFirestore, saveHistoryEntryToFirestore, clearHistoryFromFirestore,
+    loadProfilesFromFirestore, saveProfilesToFirestore
+  };
+
+  // Handle redirect result (mobile sign-in returns here)
+  handleRedirectResult().then(result => {
+    if (result && result.user) console.log('[Auth] Redirect sign-in successful:', result.user.displayName);
+  }).catch(e => console.warn('[Auth] Redirect result error (ignored):', e.message));
+
+  // Notify main script that Firebase is ready
+  window._fbReady = true;
+  window.dispatchEvent(new Event('firebase-ready'));
+} catch(e) {
+  console.warn('[Firebase] Failed to load — running without sync:', e.message);
+  window._fb = null;
+  window._fbReady = false;
+  window.dispatchEvent(new Event('firebase-ready'));
+}
+</script>
+
+<script>
+// ── MAIN APP SCRIPT (regular script — NOT a module, so it always runs) ────────
+
+// Safe Firebase proxy — calls real Firebase if available, else no-ops
+const FB = {
+  signInWithGoogle:          () => window._fb ? window._fb.signInWithGoogle()          : Promise.reject(new Error('Firebase not loaded')),
+  signOutUser:               () => window._fb ? window._fb.signOutUser()               : Promise.resolve(),
+  onUserChanged:             (cb) => window._fb ? window._fb.onUserChanged(cb)          : null,
+  loadHistoryFromFirestore:  (uid) => window._fb ? window._fb.loadHistoryFromFirestore(uid)  : Promise.resolve([]),
+  saveHistoryEntryToFirestore:(uid,e) => window._fb ? window._fb.saveHistoryEntryToFirestore(uid,e) : Promise.resolve(),
+  clearHistoryFromFirestore: (uid) => window._fb ? window._fb.clearHistoryFromFirestore(uid) : Promise.resolve(),
+  loadProfilesFromFirestore: (uid) => window._fb ? window._fb.loadProfilesFromFirestore(uid)  : Promise.resolve([]),
+  saveProfilesToFirestore:   (uid,p) => window._fb ? window._fb.saveProfilesToFirestore(uid,p) : Promise.resolve(),
+};
 
 let currentUser = null; // holds Firebase user object when signed in
 
-// ── Handle redirect result on page load (mobile sign-in comes back here) ──
-handleRedirectResult().then(result => {
-  if (result && result.user) {
-    console.log('[Auth] Redirect sign-in successful:', result.user.displayName);
-  }
-}).catch(e => {
-  console.warn('[Auth] Redirect result error (ignored):', e.message);
-});
+// Called when Firebase module finishes loading (success or failure)
+function initFirebaseAuth() {
+  if (!window._fb) return; // Firebase not available — already in localStorage mode
 
-// Runs automatically on every page load — checks if user is already signed in
-onUserChanged(async (user) => {
+  // Runs automatically on every page load — checks if user is already signed in
+  FB.onUserChanged(async (user) => {
   currentUser = user;
   const btn    = document.getElementById('authBtn');
   const avatar = document.getElementById('authAvatar');
@@ -1541,8 +1569,8 @@ onUserChanged(async (user) => {
     badge.style.display = '';
 
     // Load cloud history + profiles (replaces localStorage)
-    sessionHistory  = await loadHistoryFromFirestore(user.uid);
-    familyProfiles  = await loadProfilesFromFirestore(user.uid);
+    sessionHistory  = await FB.loadHistoryFromFirestore(user.uid);
+    familyProfiles  = await FB.loadProfilesFromFirestore(user.uid);
     updateHistPill();
     renderProfilesBar();
   } else {
@@ -1558,21 +1586,29 @@ onUserChanged(async (user) => {
     updateHistPill();
     renderProfilesBar();
   }
-});
+  }); // end FB.onUserChanged
+} // end initFirebaseAuth
+
+// Listen for Firebase module to become ready (fires from the module script)
+window.addEventListener('firebase-ready', initFirebaseAuth, { once: true });
 
 async function handleAuthClick() {
   if (currentUser) {
     if (confirm('Sign out of StudyLens?')) {
-      await signOutUser();
+      await FB.signOutUser();
     }
   } else {
+    if (!window._fb) {
+      alert('Sign-in is not available right now. Please refresh the page and try again.');
+      return;
+    }
     try {
       // Shows loading state while redirecting
       const btn  = document.getElementById('authBtn');
       const name = document.getElementById('authName');
       if (name) name.textContent = 'Signing in…';
       if (btn)  btn.style.opacity = '0.6';
-      await signInWithGoogle();
+      await FB.signInWithGoogle();
       // On mobile: page redirects to Google — user comes back signed in
       // On desktop: popup opens — onUserChanged fires immediately
     } catch (e) {
@@ -1687,7 +1723,7 @@ async function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
   };
   sessionHistory.push(entry);
   // Save to Firestore if logged in, otherwise localStorage handles it
-  if (currentUser) saveHistoryEntryToFirestore(currentUser.uid, entry);
+  if (currentUser) FB.saveHistoryEntryToFirestore(currentUser.uid, entry);
   updateHistPill();  // immediate feedback
 
   // Shrink photo thumbnail asynchronously, then persist
@@ -1749,7 +1785,7 @@ function clearAllHistory() {
   sessionHistory = [];
   try { localStorage.removeItem(HIST_KEY); } catch(_) {}
   // Also clear Firestore if logged in
-  if (currentUser) clearHistoryFromFirestore(currentUser.uid);
+  if (currentUser) FB.clearHistoryFromFirestore(currentUser.uid);
   updateHistPill();
   buildHistList();  // refresh (shows empty state)
 }
@@ -3605,7 +3641,7 @@ function loadProfiles() {
 function persistProfiles() {
   if (currentUser) {
     // Logged in — save to Firestore (syncs across devices)
-    saveProfilesToFirestore(currentUser.uid, familyProfiles);
+    FB.saveProfilesToFirestore(currentUser.uid, familyProfiles);
     return;
   }
   // Not logged in — save to localStorage
@@ -3949,9 +3985,11 @@ window.deleteProfile      = deleteProfile;
 // ── END GLOBAL EXPOSURE ───────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Note: loadPersistedHistory() and loadProfiles() are now called inside
-  // onUserChanged() above — handles both logged-in (Firestore) and
-  // logged-out (localStorage) cases automatically on every page load.
+  // Load localStorage immediately so app works even before Firebase responds
+  loadPersistedHistory();
+  loadProfiles();
+  updateHistPill();
+  renderProfilesBar();
 
   applyLang('en'); updateStepper();
   // Open board selector immediately
@@ -3968,6 +4006,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const fi = document.getElementById('followupInput');
   if (fi) fi.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowup(); });
 });
+
 </script>
 </body>
 </html>
