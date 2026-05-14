@@ -672,22 +672,29 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   background: rgba(79,142,247,0.05);
   border-color: rgba(79,142,247,0.3);
   border-left-color: var(--accent);
+  padding: 0.65rem 0.5rem;  /* less side padding so SVG has more room */
 }
 .ans-svg-wrap {
   display: flex;
   justify-content: center;
-  overflow: auto;
+  align-items: flex-start;
+  /* NO max-height — never clip diagrams */
+  overflow-x: auto;          /* horizontal scroll only if truly needed */
+  overflow-y: visible;       /* never clip vertically */
   -webkit-overflow-scrolling: touch;
   padding: 0.4rem 0;
-  max-height: 520px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .ans-svg-wrap svg {
-  max-width: 100%;
-  width: 100%;
-  height: auto;
   display: block;
   border-radius: 6px;
   overflow: visible;
+  /* Responsive: scale down on small screens, never upscale beyond natural size */
+  max-width: 100%;
+  width: 100% !important;    /* always fill available width */
+  height: auto !important;   /* always maintain aspect ratio — never cut off */
+  min-height: 0;
 }
 
 /* FOOTER */
@@ -3213,7 +3220,16 @@ function fmt(t) {
   // Use a more robust extraction: find [SVG: then match until </svg>]
   t = t.replace(/\[SVG:([\s\S]*?)<\/svg>\s*\]/g, (_, svgBody) => {
     const idx = blocks.length;
-    blocks.push({ type: 'svg', content: (svgBody + '</svg>').trim() });
+    const svgContent = (svgBody + '</svg>').trim();
+    // Pick a friendly label based on what the SVG seems to contain
+    let label = '📐 Diagram';
+    const sc = svgContent.toLowerCase();
+    if (sc.includes('chart') || sc.includes('histogram') || sc.includes('frequency') || sc.includes('polyline') || sc.includes('ogive') || sc.includes('tally')) label = '📊 Chart';
+    else if (sc.includes('step ') || sc.includes('drawing') || sc.includes('petal') || sc.includes('mango') || sc.includes('flower') || sc.includes('sketch')) label = '🎨 Drawing';
+    else if (sc.includes('diamond') || sc.includes('flowchart') || sc.includes('process\n') || sc.includes('start') && sc.includes('end')) label = '🖥️ Flowchart';
+    else if (sc.includes('timeline') || sc.includes('century') || sc.includes('event')) label = '📅 Timeline';
+    else if (sc.includes('heart') || sc.includes('kidney') || sc.includes('cell') || sc.includes('organ') || sc.includes('ovary') || sc.includes('neuron')) label = '🔬 Diagram';
+    blocks.push({ type: 'svg', content: svgContent, label });
     return `%%BLK${idx}%%`;
   });
 
@@ -3363,7 +3379,8 @@ function fmt(t) {
       // Store SVG as a data attribute — injected safely via JS after innerHTML is set
       // This avoids the HTML parser mangling SVG namespace/attributes
       const encoded = encodeURIComponent(blk.content);
-      return `<div class="ans-diagram ans-svg-diagram" data-svg="${encoded}"><div class="ans-diagram-label">📐 Diagram</div><div class="ans-svg-wrap svg-placeholder">⏳ Loading diagram…</div></div>`;
+      const svgLabel = blk.label || '📐 Diagram';
+      return `<div class="ans-diagram ans-svg-diagram" data-svg="${encoded}"><div class="ans-diagram-label">${svgLabel}</div><div class="ans-svg-wrap svg-placeholder">⏳ Loading diagram…</div></div>`;
     }
     if (blk.type === 'diagram') {
       return `<div class="ans-diagram"><div class="ans-diagram-label">📊 DIAGRAM</div><div class="ans-diagram-text">${blk.content}</div></div>`;
@@ -3430,10 +3447,19 @@ function injectSVGs(container) {
         if (placeholder) placeholder.textContent = '⚠️ Diagram could not be rendered.';
         return;
       }
-      // Style the SVG for responsive display
-      svgEl.style.maxWidth = '100%';
-      svgEl.style.height = 'auto';
-      svgEl.style.display = 'block';
+      // ── Make SVG fully responsive ──
+      // Keep viewBox (it defines the coordinate system) but remove fixed pixel dimensions
+      // so CSS can scale it freely to fit any screen width
+      const vb = svgEl.getAttribute('viewBox');
+      if (vb) {
+        // Remove hardcoded width/height attrs — let CSS width:100% + height:auto take over
+        svgEl.removeAttribute('width');
+        svgEl.removeAttribute('height');
+        // Preserve aspect ratio
+        svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      }
+      // Apply responsive styles
+      svgEl.style.cssText = 'display:block; width:100%; height:auto; max-width:100%; overflow:visible; border-radius:6px;';
       // Replace placeholder with real SVG node
       if (placeholder) {
         placeholder.innerHTML = '';
