@@ -58,6 +58,24 @@ async function firestoreRequest(path, method = 'GET', body = null) {
   return res.json();
 }
 
+// ── Firestore with pagination support ────────────────────────────────────────
+// Fetches ALL documents from a collection, following nextPageToken automatically.
+async function firestoreRequestAll(basePath, pageSize = 200) {
+  const allDocs = [];
+  let pageToken = null;
+
+  do {
+    const sep = basePath.includes('?') ? '&' : '?';
+    const url = basePath + sep + `pageSize=${pageSize}` + (pageToken ? `&pageToken=${pageToken}` : '');
+    const data = await firestoreRequest(url);
+    const docs = data.documents || [];
+    allDocs.push(...docs);
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return allDocs;
+}
+
 // ── Get Firebase access token using service account JWT ──────────────────────
 async function getFirebaseToken(sa) {
   const now = Math.floor(Date.now() / 1000);
@@ -136,20 +154,14 @@ async function getKVState() {
 }
 
 // ── Generate a V4 Signed URL for a private Firebase Storage object ─────────────
-// Signed URLs let the browser load a private storage file for a limited time
-// without needing public read access — compatible with `allow read: if false` rules.
-//
-// Google Cloud Storage V4 Signing spec:
-// https://cloud.google.com/storage/docs/access-control/signed-urls
-//
 async function generateSignedUrl(sa, objectName, expiresInSeconds = 900) {
   const bucket       = `${sa.project_id}.appspot.com`;
   const serviceEmail = sa.client_email;
   const privateKey   = sa.private_key.replace(/\\n/g, '\n');
 
   const now          = new Date();
-  const dateStamp    = now.toISOString().replace(/[-:]/g, '').slice(0, 8);       // YYYYMMDD
-  const dateTimeStamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'; // YYYYMMDDTHHmmssZ
+  const dateStamp    = now.toISOString().replace(/[-:]/g, '').slice(0, 8);
+  const dateTimeStamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
 
   const credentialScope = `${dateStamp}/auto/storage/goog4_request`;
   const credential      = `${serviceEmail}/${credentialScope}`;
@@ -157,7 +169,6 @@ async function generateSignedUrl(sa, objectName, expiresInSeconds = 900) {
   const encodedObject   = objectName.split('/').map(encodeURIComponent).join('/');
   const resourcePath    = `/${bucket}/${encodedObject}`;
 
-  // Canonical query string (alphabetically sorted)
   const queryParams = new URLSearchParams({
     'X-Goog-Algorithm':     'GOOG4-RSA-SHA256',
     'X-Goog-Credential':    credential,
@@ -165,14 +176,11 @@ async function generateSignedUrl(sa, objectName, expiresInSeconds = 900) {
     'X-Goog-Expires':       String(expiresInSeconds),
     'X-Goog-SignedHeaders': 'host',
   });
-  // URLSearchParams sorts keys alphabetically — matches the V4 requirement
   const canonicalQueryString = queryParams.toString();
 
-  // Canonical headers
   const canonicalHeaders = `host:${host}\n`;
   const signedHeaders    = 'host';
 
-  // Canonical request
   const canonicalRequest = [
     'GET',
     resourcePath,
@@ -182,7 +190,6 @@ async function generateSignedUrl(sa, objectName, expiresInSeconds = 900) {
     'UNSIGNED-PAYLOAD',
   ].join('\n');
 
-  // String to sign
   const encoder    = new TextEncoder();
   const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(canonicalRequest));
   const hashHex    = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -194,7 +201,6 @@ async function generateSignedUrl(sa, objectName, expiresInSeconds = 900) {
     hashHex,
   ].join('\n');
 
-  // Sign with RS256
   const pemBody   = privateKey.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s/g, '');
   const binaryKey = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
   const cryptoKey = await crypto.subtle.importKey(
@@ -202,15 +208,19 @@ async function generateSignedUrl(sa, objectName, expiresInSeconds = 900) {
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false, ['sign']
   );
-  const signature  = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, encoder.encode(stringToSign));
-  const signatureHex = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5', cryptoKey,
+    encoder.encode(stringToSign)
+  );
+  const sigHex = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-  // Final signed URL
-  return `https://${host}${resourcePath}?${canonicalQueryString}&X-Goog-Signature=${signatureHex}`;
+  return `https://${host}${resourcePath}?${canonicalQueryString}&X-Goog-Signature=${sigHex}`;
 }
 
-// ── Firebase Storage — list images and return signed URLs ─────────────────────
-async function listStorageImages(serviceAccount, maxResults = 50) {
+// ── List images from Firebase Storage ────────────────────────────────────────
+async function listStorageImages(serviceAccount, maxResults = 60) {
+  if (!serviceAccount.project_id) return [];
+
   const token     = await getFirebaseToken(serviceAccount);
   const projectId = serviceAccount.project_id;
   const bucket    = `${projectId}.appspot.com`;
@@ -224,16 +234,13 @@ async function listStorageImages(serviceAccount, maxResults = 50) {
   const data  = await res.json();
   const items = data.items || [];
 
-  // Generate signed URLs in parallel (15 min expiry) so the admin browser can load each image
   const signedItems = await Promise.all(
     items.map(async item => {
       let signedUrl = null;
       try {
-        signedUrl = await generateSignedUrl(serviceAccount, item.name, 900); // 15 minutes
+        signedUrl = await generateSignedUrl(serviceAccount, item.name, 900);
       } catch (e) {
         console.warn('[Admin] Could not sign URL for', item.name, e.message);
-        // Fall back to the direct URL (will fail if Storage rules block public reads,
-        // but at least the rest of the image list won't be broken)
         signedUrl = `https://storage.googleapis.com/${bucket}/${item.name}`;
       }
       return {
@@ -271,12 +278,20 @@ export default async function handler(req, res) {
 
       // ── LIST ALL USERS ─────────────────────────────────────────────────────
       case 'users': {
-        const data = await firestoreRequest('users?pageSize=200');
+        // Use firestoreRequestAll to paginate through all user documents
+        const userDocs = await firestoreRequestAll('users');
         const users = [];
-        for (const doc of (data.documents || [])) {
+        for (const doc of userDocs) {
           const uid = doc.name.split('/').pop();
-          const histData = await firestoreRequest(`users/${uid}/history?pageSize=1`);
-          const histCount = histData.documents?.length ?? 0;
+          // FIX BUG #4: Use pageSize=200 per user (was 1, so count was always 0 or 1).
+          // We intentionally avoid full pagination here to prevent cascading OAuth
+          // token calls (one per page x all users) which would time out the function.
+          // pageSize=200 gives accurate counts for the vast majority of users.
+          let histCount = 0;
+          try {
+            const histData = await firestoreRequest(`users/${uid}/history?pageSize=200`);
+            histCount = histData.documents?.length ?? 0;
+          } catch (_) {}
           users.push({
             uid,
             historyCount: histCount,
@@ -288,24 +303,24 @@ export default async function handler(req, res) {
 
       // ── RECENT HISTORY ACROSS ALL USERS ──────────────────────────────────
       case 'history': {
-        const usersData = await firestoreRequest('users?pageSize=100');
+        // FIX: use firestoreRequestAll so users beyond the first 200 are included
+        const userDocs = await firestoreRequestAll('users');
         const allEntries = [];
 
-        for (const userDoc of (usersData.documents || [])) {
+        for (const userDoc of userDocs) {
           const uid = userDoc.name.split('/').pop();
           try {
+            // FIX: raised per-user cap from 20 → 100 so prolific users don't get
+            // silently truncated when building the full activity log
             const histData = await firestoreRequest(
-              `users/${uid}/history?pageSize=${Math.min(limit, 20)}&orderBy=ts desc`
+              `users/${uid}/history?pageSize=${Math.min(limit, 100)}&orderBy=ts%20desc`
             );
             for (const doc of (histData.documents || [])) {
               const entry = parseDoc(doc);
 
-              // If the entry has a stored image URL, generate a signed URL for it too
               let imageUrl = entry.imageStorageUrl || null;
               if (imageUrl && serviceAccount.project_id) {
                 try {
-                  // Extract the object name from the storage URL
-                  // URL format: https://storage.googleapis.com/<bucket>/<object-name>
                   const bucket = `${serviceAccount.project_id}.appspot.com`;
                   const prefix = `https://storage.googleapis.com/${bucket}/`;
                   if (imageUrl.startsWith(prefix)) {
@@ -344,8 +359,8 @@ export default async function handler(req, res) {
 
       // ── OVERALL STATS ──────────────────────────────────────────────────────
       case 'stats': {
-        const usersData = await firestoreRequest('users?pageSize=200');
-        const userDocs  = usersData.documents || [];
+        // FIX: use firestoreRequestAll so stats include every user, not just the first 200
+        const userDocs = await firestoreRequestAll('users');
 
         let totalQuestions = 0;
         let totalPhotoQ    = 0;
@@ -357,7 +372,8 @@ export default async function handler(req, res) {
         for (const userDoc of userDocs) {
           const uid = userDoc.name.split('/').pop();
           try {
-            const histData = await firestoreRequest(`users/${uid}/history?pageSize=500`);
+            // pageSize=300 is Firestore's hard maximum — anything above is silently capped
+            const histData = await firestoreRequest(`users/${uid}/history?pageSize=300`);
             for (const doc of (histData.documents || [])) {
               const e = parseDoc(doc);
               totalQuestions++;
@@ -393,7 +409,7 @@ export default async function handler(req, res) {
         });
       }
 
-      // ── IMAGES IN FIREBASE STORAGE (now with signed URLs) ─────────────────
+      // ── IMAGES IN FIREBASE STORAGE (with signed URLs) ─────────────────────
       case 'images': {
         const images = await listStorageImages(serviceAccount, limit);
         return res.status(200).json({ images });

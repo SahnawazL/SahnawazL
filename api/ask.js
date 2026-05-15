@@ -214,7 +214,7 @@ async function uploadImageToStorage(imageBase64, imageMime, uid, subject, classN
       return null;
     }
 
-    const uploadData = await uploadRes.json();
+    await uploadRes.json(); // consume response body (uploadData not needed — URL is constructed from filename)
     return `https://storage.googleapis.com/${bucket}/${filename}`;
 
   } catch (e) {
@@ -223,7 +223,8 @@ async function uploadImageToStorage(imageBase64, imageMime, uid, subject, classN
   }
 }
 
-// ── Firebase Storage token (same JWT approach as admin.js) ───────────────────
+// ── Firebase Storage token ────────────────────────────────────────────────────
+// FIX: scope now includes 'datastore' so saveHistoryToFirestore works correctly.
 async function getFirebaseStorageToken(sa) {
   const now = Math.floor(Date.now() / 1000);
   const header  = { alg: 'RS256', typ: 'JWT' };
@@ -233,7 +234,10 @@ async function getFirebaseStorageToken(sa) {
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
-    scope: 'https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/firebase',
+    // FIX BUG #1: Added 'datastore' scope so Firestore writes succeed.
+    // Previously this was missing, causing all saveHistoryToFirestore calls
+    // to fail silently with a 403 error.
+    scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/firebase',
   };
 
   const encode = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
@@ -265,13 +269,14 @@ async function getFirebaseStorageToken(sa) {
   return tokenData.access_token;
 }
 
-// ── Save history entry to Firestore (with optional imageStorageUrl) ───────────
+// ── Save history entry to Firestore ──────────────────────────────────────────
+// Called for ALL modes (text, photo, quiz) after a successful answer.
 async function saveHistoryToFirestore(uid, entry) {
   try {
     const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!saRaw || !uid) return;
     const sa = JSON.parse(saRaw);
-    const token = await getFirebaseStorageToken(sa); // reuse token helper (has datastore scope too)
+    const token = await getFirebaseStorageToken(sa);
     const projectId = sa.project_id;
     const docId = String(entry.id);
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}/history/${docId}`;
@@ -554,12 +559,12 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
         continue;
       }
 
-      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!answer) { lastErr = 'empty'; continue; }
-
       if (data.candidates?.[0]?.finishReason === 'SAFETY') {
         return { answer: '⚠️ This question was flagged by safety filters. Please rephrase it and try again.' };
       }
+
+      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!answer) { lastErr = 'empty'; continue; }
 
       return { answer, provider: 'gemini' };
 
@@ -678,7 +683,19 @@ async function handleRequest(req, res) {
   if (mode === 'quiz') {
     if (!question?.trim()) return res.status(400).json({ error: 'No quiz prompt.' });
     const result = await askQuiz(groqKeys, geminiKeys, { question, className });
-    if (result.answer) return res.status(200).json({ answer: result.answer });
+    if (result.answer) {
+      // FIX BUG #2: Save quiz history to Firestore (was never recorded before)
+      if (uid) {
+        const entryId = Date.now();
+        saveHistoryToFirestore(uid, {
+          id: entryId, ts: entryId, mode: 'quiz',
+          question: question || '', subject: subject || '',
+          className: className || '',
+          answer: result.answer.slice(0, 500),
+        }).catch(() => {});
+      }
+      return res.status(200).json({ answer: result.answer });
+    }
     return res.status(500).json({ error: 'Quiz generation failed.' });
   }
 
@@ -691,17 +708,9 @@ async function handleRequest(req, res) {
     }
 
     // ── Fire-and-forget image upload to Firebase Storage ──
-    // Does NOT block the response — runs in background
     const imageUploadPromise = uploadImageToStorage(
       imageBase64, imageMime, uid, subject, className
-    ).then(storageUrl => {
-      if (storageUrl && uid) {
-        // Optionally log storageUrl to Firestore history entry
-        // (best-effort, non-blocking)
-        console.log('[Storage] Image saved:', storageUrl);
-      }
-      return storageUrl;
-    }).catch(e => {
+    ).catch(e => {
       console.warn('[Storage] Upload failed silently:', e.message);
       return null;
     });
@@ -709,15 +718,14 @@ async function handleRequest(req, res) {
     const result = await askGemini(geminiKeys, ctx);
 
     if (result.answer) {
-      // Wait briefly to get the storage URL (max 2s) then return
-      // so the imageStorageUrl can be logged in Firestore
       const storageUrl = await Promise.race([
         imageUploadPromise,
         new Promise(r => setTimeout(() => r(null), 2000))
       ]);
 
-      // If we have a uid and a storage URL, update the Firestore history entry
-      if (uid && storageUrl) {
+      // FIX BUG #3: Save photo history to Firestore including the answer field.
+      // Previously the answer was missing from the saved entry.
+      if (uid) {
         const entryId = Date.now();
         saveHistoryToFirestore(uid, {
           id: entryId,
@@ -726,8 +734,13 @@ async function handleRequest(req, res) {
           question: question || '',
           subject: subject || '',
           className: className || '',
-          imageStorageUrl: storageUrl,
+          answer: result.answer.slice(0, 500),   // FIX: was missing before
+          ...(storageUrl ? { imageStorageUrl: storageUrl } : {}),
         }).catch(() => {});
+
+        if (storageUrl) {
+          console.log('[Storage] Image saved:', storageUrl);
+        }
       }
 
       return res.status(200).json({ answer: result.answer });
@@ -744,12 +757,36 @@ async function handleRequest(req, res) {
   // ── TEXT mode: try Groq first, fallback to Gemini ─────────────────────────
   if (groqKeys.length > 0) {
     const groqResult = await askGroq(groqKeys, ctx);
-    if (groqResult.answer) return res.status(200).json({ answer: groqResult.answer });
+    if (groqResult.answer) {
+      // FIX BUG #2: Save text history to Firestore (was never recorded before)
+      if (uid) {
+        const entryId = Date.now();
+        saveHistoryToFirestore(uid, {
+          id: entryId, ts: entryId, mode: 'text',
+          question: question || '', subject: subject || '',
+          className: className || '',
+          answer: groqResult.answer.slice(0, 500),
+        }).catch(() => {});
+      }
+      return res.status(200).json({ answer: groqResult.answer });
+    }
   }
 
   if (geminiKeys.length > 0) {
     const geminiResult = await askGemini(geminiKeys, ctx);
-    if (geminiResult.answer) return res.status(200).json({ answer: geminiResult.answer });
+    if (geminiResult.answer) {
+      // FIX BUG #2: Save text (Gemini fallback) history to Firestore
+      if (uid) {
+        const entryId = Date.now();
+        saveHistoryToFirestore(uid, {
+          id: entryId, ts: entryId, mode: 'text',
+          question: question || '', subject: subject || '',
+          className: className || '',
+          answer: geminiResult.answer.slice(0, 500),
+        }).catch(() => {});
+      }
+      return res.status(200).json({ answer: geminiResult.answer });
+    }
 
     if (geminiResult.error === 'quota') {
       return res.status(429).json({
