@@ -1076,7 +1076,7 @@ function openAnswerModal(e) {
       <span class="meta-chip">UID: <strong>${(e.uid||'').slice(0,14)}…</strong></span>
     </div>
     ${e.question ? `<div class="modal-q">${e.question}</div>` : ''}
-    ${e.hasImage && e.imageUrl ? `<div style="margin-bottom:1rem"><img src="${e.imageUrl}" style="max-width:100%;border:1px solid var(--border)" onclick="openLightboxDirect('${e.imageUrl}','${e.subject}','${e.className}')"/></div>` : ''}
+    ${e.hasImage && e.imageUrl ? `<div style="margin-bottom:1rem"><img src="${e.imageUrl}" style="max-width:100%;border:1px solid var(--border);cursor:zoom-in" data-url="${escAttr(e.imageUrl)}" data-subj="${escAttr(e.subject||'')}" data-cls="${escAttr(e.className||'')}" onclick="openLightboxFromEl(this)"/></div>` : ''}
     <div class="modal-a-label">AI Answer</div>
     <div class="modal-a">${e.answer ? e.answer : '<em style="color:var(--muted)">Answer not stored</em>'}</div>
   `;
@@ -1153,8 +1153,9 @@ async function loadImages() {
     const grid = images.map(img=>{
       const t = img.created?new Date(img.created).toLocaleString():'—';
       const kb = img.size?Math.round(img.size/1024)+' KB':'';
-      return `<div class="img-item" onclick="openLightboxDirect('${img.url}','${img.subject||''}','${img.className||''}','${t}','${kb}')">
-        <img src="${img.url}" alt="" loading="lazy" onerror="this.style.opacity='.15'"/>
+      // Use data-url to safely store the signed URL (which contains & and = that break onclick="...")
+      return `<div class="img-item" data-url="${escAttr(img.url)}" data-subj="${escAttr(img.subject||'')}" data-cls="${escAttr(img.className||'')}" data-time="${escAttr(t)}" data-kb="${escAttr(kb)}" onclick="openLightboxFromEl(this)">
+        <img src="${escAttr(img.url)}" alt="" loading="lazy" onerror="this.style.opacity='.15'"/>
         <div class="img-meta">
           <div class="img-subj">${img.subject||'Unknown'}</div>
           <div class="img-time">${t}</div>
@@ -1247,6 +1248,25 @@ function closeModal(id, e) {
 }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') { document.querySelectorAll('.modal-overlay.open,.lightbox.open').forEach(el=>el.classList.remove('open')); } });
 
+// escAttr: safely encode a string for use inside an HTML attribute value
+function escAttr(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// openLightboxFromEl: reads URL and meta from data- attributes (safe for signed URLs with & and =)
+function openLightboxFromEl(el) {
+  const url     = el.getAttribute('data-url')     || '';
+  const subject = el.getAttribute('data-subj')    || '';
+  const cls     = el.getAttribute('data-cls')     || '';
+  const time    = el.getAttribute('data-time')    || '';
+  const size    = el.getAttribute('data-kb')      || '';
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightboxMeta').innerHTML =
+    `Subject: ${subject||'?'} · Class: ${cls||'?'}<br/>${time||''} ${size?'· '+size:''}`;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// Keep openLightboxDirect for any other callers
 function openLightboxDirect(url, subject, className, time, size) {
   document.getElementById('lightboxImg').src=url;
   document.getElementById('lightboxMeta').innerHTML=`Subject: ${subject||'?'} · Class: ${className||'?'}<br/>${time||''} ${size?'· '+size:''}`;
