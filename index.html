@@ -619,8 +619,134 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   50%     { box-shadow: 0 0 0 6px rgba(62,207,142,0); }
 }
 
-/* Copied feedback */
-.ans-action-btn.copied {
+/* ── MIC / TAP-TO-ASK BUTTON ─────────────────────────────── */
+.mic-btn {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  width: 52px; height: 52px;
+  font-size: 1.35rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  color: var(--muted);
+  position: relative;
+}
+.mic-btn:hover { border-color: var(--danger); color: var(--danger); background: rgba(247,79,79,0.07); }
+.mic-btn:active { transform: scale(0.94); }
+.mic-btn.listening {
+  border-color: var(--danger) !important;
+  color: #fff !important;
+  background: var(--danger) !important;
+  animation: micPulse 1.1s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(247,79,79,0.5); }
+  50%      { box-shadow: 0 0 0 10px rgba(247,79,79,0); }
+}
+/* Ripple ring behind mic when listening */
+.mic-btn.listening::after {
+  content: '';
+  position: absolute; inset: -6px;
+  border-radius: 20px;
+  border: 2px solid rgba(247,79,79,0.35);
+  animation: micRing 1.1s ease-out infinite;
+}
+@keyframes micRing {
+  0%   { opacity: 1; transform: scale(0.9); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+/* Smaller mic for follow-up bar */
+.followup-mic {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  width: 40px; height: 40px;
+  font-size: 1.05rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--muted);
+  transition: all 0.2s;
+}
+.followup-mic:hover { border-color: var(--danger); color: var(--danger); }
+.followup-mic:active { transform: scale(0.94); }
+.followup-mic.listening {
+  border-color: var(--danger) !important;
+  color: #fff !important;
+  background: var(--danger) !important;
+  animation: micPulse 1.1s ease-in-out infinite;
+}
+
+/* Voice status toast — floats above keyboard */
+.voice-toast {
+  position: fixed;
+  bottom: 110px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(247,79,79,0.92);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.82rem; font-weight: 700;
+  padding: 0.5rem 1.1rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  z-index: 800;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.25s ease;
+  pointer-events: none;
+  display: flex; align-items: center; gap: 0.45rem;
+}
+.voice-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.voice-toast-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #fff;
+  animation: voiceDot 0.9s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes voiceDot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.6); }
+}
+/* ── END MIC STYLES ─────────────────────────────────────── */
+
+/* Speak btn loading state */
+.ans-action-btn.speak-btn.loading {
+  opacity: 0.6; cursor: wait; animation: none;
+}
+
+/* ── KARAOKE BAR ─────────────────────────────────────────── */
+.karaoke-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0; z-index: 600;
+  background: rgba(15,17,23,0.97);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-top: 1px solid var(--border);
+  padding: 12px 50vw 22px;     /* 50vw side padding centres active word  */
+  display: flex; flex-wrap: nowrap; align-items: center;
+  gap: 0; overflow-x: auto; overflow-y: hidden;
+  scroll-behavior: smooth; scrollbar-width: none;
+  -ms-overflow-style: none; white-space: nowrap;
+  transform: translateY(110%);
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
+  opacity: 0; pointer-events: none;
+}
+.karaoke-bar::-webkit-scrollbar { display: none; }
+.karaoke-bar.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.k-word {
+  display: inline-block; font-family: var(--font-body);
+  font-size: 1rem; font-weight: 500; color: var(--muted);
+  padding: 4px 7px; border-radius: 8px; margin: 0 2px; flex-shrink: 0;
+  transition: background 0.08s ease, color 0.08s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+.k-word.spoken { color: rgba(238,240,248,0.45); }
+.k-word.active {
+  background: var(--accent); color: #fff; font-weight: 700;
+  transform: scale(1.1);
+  box-shadow: 0 0 18px rgba(79,142,247,0.55);
+}
+/* ── END KARAOKE ─────────────────────────────────────────── */
   border-color: var(--green); color: var(--green);
   background: rgba(62,207,142,0.1);
 }
@@ -1748,6 +1874,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <div class="text-question-inner">
         <div class="smart-input-wrap" id="smartTextWrap">
           <textarea class="smart-input" id="textQInput" rows="4" placeholder="Type your question here… e.g. What is photosynthesis? How do I solve this equation?"></textarea>
+          <button class="mic-btn" id="micBtnText" onclick="toggleMic('text')" title="Tap to speak your question">🎤</button>
           <button class="smart-send-btn" id="askBtnText" onclick="askQuestion()">➤</button>
         </div>
         <div class="text-q-hint" id="textQHint">💡 Type any theory question, definition, or doubt — no photo needed!</div>
@@ -1787,6 +1914,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
         <div class="photo-ask-bar" id="photoAskBar" style="display:none;">
           <div class="smart-input-wrap">
             <textarea class="smart-input photo-ctx-input" id="askInput" rows="1" placeholder="Ask anything about the photo, or just press ➤…"></textarea>
+            <button class="mic-btn" id="micBtnPhoto" onclick="toggleMic('photo')" title="Tap to speak">🎤</button>
             <button class="smart-send-btn" id="askBtnPhoto" onclick="askQuestion()">➤</button>
           </div>
         </div>
@@ -1898,6 +2026,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     <div class="followup-area" id="followupArea">
       <div class="followup-inner">
         <input class="followup-input" id="followupInput" type="text" placeholder="Ask something more about this answer…" />
+        <button class="followup-mic" id="micBtnFollowup" onclick="toggleMic('followup')" title="Tap to speak">🎤</button>
         <button class="followup-send" onclick="sendFollowup()">➤</button>
       </div>
     </div>
@@ -1922,6 +2051,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
   <div class="footer-note" id="footerNote">Made for students, parents &amp; learners in India 🇮🇳<br/>Built by <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · Full Stack Developer &amp; UI/UX Designer</div>
 
+</div>
+
+<!-- Voice listening toast -->
+<div class="voice-toast" id="voiceToast">
+  <span class="voice-toast-dot"></span>
+  <span id="voiceToastText">Listening…</span>
 </div>
 
 <!-- Firebase fully inlined — no external file dependencies -->
@@ -3566,8 +3701,13 @@ function typeText(el, text, payload, imageDataUrl) {
 // ── ANSWER ACTIONS ──
 let lastAnswerText = '';
 let conversationHistory = []; // tracks full chat thread across follow-ups
-let speakUtterance = null;
-let isSpeaking = false;
+// ── PREMIUM TTS — Google Neural2 + karaoke word-by-word highlight ────────────
+let ttsAudio       = null;   // current Audio element (premium path)
+let speakUtterance = null;   // SpeechSynthesisUtterance (browser fallback)
+let isSpeaking     = false;
+let _ttsRafId      = null;   // requestAnimationFrame id for karaoke loop
+let _ttsWords      = [];     // [{word, time}] from /api/tts
+let _ttsObjectURL  = null;   // blob URL — revoked when done
 
 function showActionsBar() {
   // Hide first in case retranslating
@@ -3623,53 +3763,171 @@ function copyAnswer() {
   });
 }
 
-// ── READ ALOUD ──
-function toggleSpeak() {
+// ── READ ALOUD (Premium Google TTS → browser fallback) ───────────────────────
+async function toggleSpeak() {
   if (isSpeaking) { stopSpeak(); return; }
-  if (!lastAnswerText || !window.speechSynthesis) return;
+  if (!lastAnswerText) return;
 
   const btn = document.getElementById('speakBtn');
   const lbl = document.getElementById('speakLabel');
 
-  // Strip markdown for clean speech
-  const cleanText = lastAnswerText
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/#{1,3}\s/g, '')
-    .replace(/`(.*?)`/g, '$1')
-    .replace(/💡/g, '.')
-    .trim();
+  // Loading state
+  btn.disabled = true;
+  btn.classList.add('speaking');
+  lbl.textContent = '⏳ Loading…';
 
-  speakUtterance = new SpeechSynthesisUtterance(cleanText);
+  try {
+    const res = await fetch('/api/tts', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ text: lastAnswerText, lang: currentLang }),
+    });
 
-  // Match language
-  const langMap = { en: 'en-IN', bn: 'bn-IN', hi: 'hi-IN', as: 'as-IN' };
-  speakUtterance.lang = langMap[currentLang] || 'en-IN';
-  speakUtterance.rate = 0.92;
-  speakUtterance.pitch = 1.05;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (err.error === 'no_key') throw new Error('no_key');
+      throw new Error(err.error || 'tts_failed');
+    }
 
-  speakUtterance.onstart = () => {
-    isSpeaking = true;
-    btn.classList.add('speaking');
-    lbl.textContent = 'Stop';
-  };
-  speakUtterance.onend = speakUtterance.onerror = () => {
-    isSpeaking = false;
-    btn.classList.remove('speaking');
-    lbl.textContent = 'Read Aloud';
-  };
+    const { audioBase64, words } = await res.json();
 
-  window.speechSynthesis.speak(speakUtterance);
+    // Decode base64 MP3 → Blob → Object URL
+    const binary  = atob(audioBase64);
+    const bytes   = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob    = new Blob([bytes], { type: 'audio/mpeg' });
+    _ttsObjectURL = URL.createObjectURL(blob);
+    ttsAudio      = new Audio(_ttsObjectURL);
+    _ttsWords     = words || [];
+
+    // Build karaoke bar
+    _buildKaraokeBar(_ttsWords);
+
+    ttsAudio.onplay = () => {
+      isSpeaking = true;
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.classList.add('speaking');
+      lbl.textContent = '■ Stop';
+      _startKaraoke();
+    };
+    ttsAudio.onended = () => stopSpeak();
+    ttsAudio.onerror = () => stopSpeak();
+
+    await ttsAudio.play();
+
+  } catch (err) {
+    console.warn('[TTS] Premium failed → browser fallback:', err.message);
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    _fallbackBrowserSpeak();
+  }
+}
+
+// Build the horizontal karaoke teleprompter bar
+function _buildKaraokeBar(words) {
+  let bar = document.getElementById('karaokeBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id        = 'karaokeBar';
+    bar.className = 'karaoke-bar';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = words
+    .map((w, i) => `<span class="k-word" id="kw-${i}">${escHtml(w.word)}</span>`)
+    .join('');
+  requestAnimationFrame(() => bar.classList.add('visible'));
+}
+
+// rAF loop — highlights the word matching audio.currentTime
+function _startKaraoke() {
+  if (!ttsAudio || !_ttsWords.length) return;
+  let lastIdx = -1;
+
+  function tick() {
+    if (!isSpeaking || !ttsAudio) return;
+    const t = ttsAudio.currentTime;
+    let idx = -1;
+    for (let i = 0; i < _ttsWords.length; i++) {
+      if (t >= _ttsWords[i].time) idx = i; else break;
+    }
+    if (idx !== lastIdx) {
+      if (lastIdx >= 0) {
+        const prev = document.getElementById(`kw-${lastIdx}`);
+        if (prev) { prev.classList.remove('active'); prev.classList.add('spoken'); }
+      }
+      if (idx >= 0) {
+        const curr = document.getElementById(`kw-${idx}`);
+        if (curr) {
+          curr.classList.add('active');
+          curr.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }
+      lastIdx = idx;
+    }
+    _ttsRafId = requestAnimationFrame(tick);
+  }
+  _ttsRafId = requestAnimationFrame(tick);
 }
 
 function stopSpeak() {
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  // Stop premium audio
+  if (ttsAudio) { try { ttsAudio.pause(); } catch(_){} ttsAudio = null; }
+  // Stop browser fallback
+  if (window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch(_){} }
+  // Stop karaoke rAF
+  if (_ttsRafId) { cancelAnimationFrame(_ttsRafId); _ttsRafId = null; }
+  // Free blob URL
+  if (_ttsObjectURL) { URL.revokeObjectURL(_ttsObjectURL); _ttsObjectURL = null; }
+
   isSpeaking = false;
+  _ttsWords  = [];
+
   const btn = document.getElementById('speakBtn');
   const lbl = document.getElementById('speakLabel');
-  if (btn) { btn.classList.remove('speaking'); }
-  if (lbl) lbl.textContent = 'Read Aloud';
+  if (btn) { btn.disabled = false; btn.classList.remove('speaking', 'loading'); }
+  const t = (typeof currentLang !== 'undefined' && T[currentLang]) ? T[currentLang] : {};
+  if (lbl) lbl.textContent = t.speakLabel || 'Read Aloud';
+
+  // Hide karaoke bar
+  const bar = document.getElementById('karaokeBar');
+  if (bar) {
+    bar.classList.remove('visible');
+    setTimeout(() => {
+      bar.querySelectorAll('.k-word').forEach(el => el.classList.remove('active','spoken'));
+    }, 400);
+  }
 }
+
+// Browser TTS fallback — used when GOOGLE_TTS_KEY is not set
+function _fallbackBrowserSpeak() {
+  if (!lastAnswerText || !window.speechSynthesis) return;
+  const cleanText = lastAnswerText
+    .replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '').replace(/`(.*?)`/g, '$1').replace(/💡/g, '.').trim();
+
+  speakUtterance      = new SpeechSynthesisUtterance(cleanText);
+  const langMap       = { en: 'en-IN', bn: 'bn-IN', hi: 'hi-IN', as: 'as-IN' };
+  speakUtterance.lang  = langMap[currentLang] || 'en-IN';
+  speakUtterance.rate  = 0.92;
+  speakUtterance.pitch = 1.05;
+
+  const btn = document.getElementById('speakBtn');
+  const lbl = document.getElementById('speakLabel');
+  speakUtterance.onstart = () => {
+    isSpeaking = true;
+    if (btn) btn.classList.add('speaking');
+    if (lbl) lbl.textContent = '■ Stop';
+  };
+  speakUtterance.onend = speakUtterance.onerror = () => {
+    isSpeaking = false;
+    if (btn) btn.classList.remove('speaking');
+    const t = (typeof currentLang !== 'undefined' && T[currentLang]) ? T[currentLang] : {};
+    if (lbl) lbl.textContent = t.speakLabel || 'Read Aloud';
+  };
+  window.speechSynthesis.speak(speakUtterance);
+}
+// ── END PREMIUM TTS ───────────────────────────────────────────────────────────
 
 // ── FOLLOW-UP ──
 function toggleFollowup() {
@@ -5038,6 +5296,155 @@ document.addEventListener('keydown', (e) => {
 
 // ── END FAMILY PROFILES ────────────────────────────────────
 
+// ══════════════════════════════════════════════════════
+// ── TAP TO ASK — VOICE INPUT ───────────────────────────
+// Uses Web Speech API (SpeechRecognition) — free, built-in
+// Works on Chrome Android, Safari iOS 15+, Edge
+// ══════════════════════════════════════════════════════
+
+let _recognition   = null;  // active SpeechRecognition instance
+let _micTarget     = null;  // 'text' | 'photo' | 'followup'
+let _isMicListening = false;
+let _voiceToastTimer = null;
+
+// Lang codes for SpeechRecognition (same as what Google expects)
+const MIC_LANG_MAP = { en: 'en-IN', bn: 'bn-BD', hi: 'hi-IN', as: 'as-IN' };
+
+function toggleMic(target) {
+  // If already listening (any target) → stop
+  if (_isMicListening) { stopMic(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    // Friendly message for unsupported browsers
+    showVoiceToast('🚫 Voice not supported — use Chrome', 3000);
+    return;
+  }
+
+  _micTarget = target;
+  _recognition = new SR();
+  _recognition.lang           = MIC_LANG_MAP[currentLang] || 'en-IN';
+  _recognition.continuous     = false;   // stop after one phrase
+  _recognition.interimResults = true;    // show words as they come in
+  _recognition.maxAlternatives = 1;
+
+  _recognition.onstart = () => {
+    _isMicListening = true;
+    _setMicBtnState(target, true);
+    const langLabel = { en:'English', bn:'Bengali', hi:'Hindi', as:'Assamese' }[currentLang] || 'English';
+    showVoiceToast(`🎤 Listening in ${langLabel}…`);
+  };
+
+  // Stream interim results into the right input live
+  _recognition.onresult = (e) => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t;
+      else interim += t;
+    }
+    const text = (final || interim).trim();
+    _setInputValue(target, text);
+  };
+
+  _recognition.onend = () => {
+    _isMicListening = false;
+    _setMicBtnState(target, false);
+    hideVoiceToast();
+    _recognition = null;
+
+    // Auto-send follow-up after voice — tiny delay so user sees the text
+    if (target === 'followup') {
+      const val = (document.getElementById('followupInput') || {}).value?.trim();
+      if (val) setTimeout(() => sendFollowup(), 600);
+    }
+  };
+
+  _recognition.onerror = (e) => {
+    _isMicListening = false;
+    _setMicBtnState(target, false);
+    hideVoiceToast();
+    _recognition = null;
+    if (e.error === 'not-allowed') {
+      showVoiceToast('🚫 Mic permission denied — check browser settings', 3500);
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      showVoiceToast('⚠️ Mic error: ' + e.error, 2500);
+    }
+  };
+
+  try {
+    _recognition.start();
+  } catch(err) {
+    _isMicListening = false;
+    _setMicBtnState(target, false);
+    showVoiceToast('⚠️ Could not start mic', 2000);
+  }
+}
+
+function stopMic() {
+  if (_recognition) {
+    try { _recognition.abort(); } catch(_) {}
+    _recognition = null;
+  }
+  _isMicListening = false;
+  if (_micTarget) _setMicBtnState(_micTarget, false);
+  _micTarget = null;
+  hideVoiceToast();
+}
+
+// Put transcribed text into the correct input field
+function _setInputValue(target, text) {
+  if (target === 'text') {
+    const el = document.getElementById('textQInput');
+    if (el) {
+      el.value = text;
+      updateStep3HeaderText();
+      updateStepper();
+    }
+  } else if (target === 'photo') {
+    const el = document.getElementById('askInput');
+    if (el) el.value = text;
+  } else if (target === 'followup') {
+    const el = document.getElementById('followupInput');
+    if (el) el.value = text;
+  }
+}
+
+// Toggle mic button visual state
+function _setMicBtnState(target, listening) {
+  const idMap = { text: 'micBtnText', photo: 'micBtnPhoto', followup: 'micBtnFollowup' };
+  const btn = document.getElementById(idMap[target]);
+  if (!btn) return;
+  if (listening) {
+    btn.classList.add('listening');
+    btn.textContent = '⏹';
+    btn.title = 'Tap to stop';
+  } else {
+    btn.classList.remove('listening');
+    btn.textContent = '🎤';
+    btn.title = 'Tap to speak';
+  }
+}
+
+// Show/hide the floating "Listening…" toast
+function showVoiceToast(msg, autoDismissMs) {
+  const toast = document.getElementById('voiceToast');
+  const label = document.getElementById('voiceToastText');
+  if (!toast) return;
+  if (label) label.textContent = msg;
+  toast.classList.add('show');
+  if (_voiceToastTimer) clearTimeout(_voiceToastTimer);
+  if (autoDismissMs) {
+    _voiceToastTimer = setTimeout(hideVoiceToast, autoDismissMs);
+  }
+}
+function hideVoiceToast() {
+  const toast = document.getElementById('voiceToast');
+  if (toast) toast.classList.remove('show');
+  if (_voiceToastTimer) { clearTimeout(_voiceToastTimer); _voiceToastTimer = null; }
+}
+// ── END VOICE INPUT ───────────────────────────────────────────────────────────
+
 // ── EXPOSE FUNCTIONS GLOBALLY (required because script is type="module") ──────
 // In a module, functions are scoped and not accessible from HTML onclick=""
 // We explicitly attach each one to window so onclick handlers keep working.
@@ -5066,6 +5473,8 @@ window.deleteProfile      = deleteProfile;
 window.toggleBookmark     = toggleBookmark;
 window.switchHistTab      = switchHistTab;
 window.simplifyAnswer     = simplifyAnswer;
+window.toggleMic          = toggleMic;
+window.stopMic            = stopMic;
 // ── END GLOBAL EXPOSURE ───────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
