@@ -2069,7 +2069,7 @@ try {
           getRedirectResult, signOut,
           onAuthStateChanged }                   = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
   const { getFirestore, collection, doc,
-          getDocs, setDoc, deleteDoc,
+          getDocs, getDoc, setDoc, deleteDoc,
           orderBy, query, writeBatch }           = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
   const app      = initializeApp({
@@ -2116,7 +2116,13 @@ try {
     } catch(e) { console.warn('[DB] loadHistory error:', e); return []; }
   }
   async function saveHistoryEntryToFirestore(uid, entry) {
-    try { await setDoc(doc(db, 'users', uid, 'history', String(entry.id)), entry); }
+    try {
+      // Strip heavy / non-serialisable fields — Firestore has a 1 MB doc limit.
+      // answerHtml can be huge (SVGs, KaTeX). payload contains nested objects.
+      // Both are regenerated client-side so they don't need to be in the cloud.
+      const { answerHtml, payload, imageDataUrl, ...lean } = entry;
+      await setDoc(doc(db, 'users', uid, 'history', String(lean.id)), lean);
+    }
     catch(e) { console.warn('[DB] saveEntry error:', e); }
   }
   async function clearHistoryFromFirestore(uid) {
@@ -2145,11 +2151,30 @@ try {
     } catch(e) { console.warn('[DB] saveProfiles error:', e); }
   }
 
+  // ── Bookmark Firestore sync ──
+  // Bookmarks are stored as a single doc to keep reads/writes cheap.
+  async function saveBookmarksToFirestore(uid, ids, folders) {
+    try {
+      await setDoc(doc(db, 'users', uid, 'bookmarks', 'data'), {
+        ids:       ids,       // flat array of bookmarked entry ids
+        folders:   folders,   // [{id,name,emoji,ids:[]}]
+        updatedAt: Date.now(),
+      });
+    } catch(e) { console.warn('[DB] saveBookmarks error:', e); }
+  }
+  async function loadBookmarksFromFirestore(uid) {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid, 'bookmarks', 'data'));
+      return snap.exists() ? snap.data() : null;
+    } catch(e) { console.warn('[DB] loadBookmarks error:', e); return null; }
+  }
+
   // Expose everything to the main script
   window._fb = {
     signInWithGoogle, signOutUser, onUserChanged, handleRedirectResult,
     loadHistoryFromFirestore, saveHistoryEntryToFirestore, clearHistoryFromFirestore,
-    loadProfilesFromFirestore, saveProfilesToFirestore
+    loadProfilesFromFirestore, saveProfilesToFirestore,
+    saveBookmarksToFirestore, loadBookmarksFromFirestore,
   };
 
   // Handle mobile redirect result on page load
@@ -2173,14 +2198,16 @@ try {
 
 // Safe Firebase proxy — calls real Firebase if available, else no-ops
 const FB = {
-  signInWithGoogle:          () => window._fb ? window._fb.signInWithGoogle()          : Promise.reject(new Error('Firebase not loaded')),
-  signOutUser:               () => window._fb ? window._fb.signOutUser()               : Promise.resolve(),
-  onUserChanged:             (cb) => window._fb ? window._fb.onUserChanged(cb)          : null,
-  loadHistoryFromFirestore:  (uid) => window._fb ? window._fb.loadHistoryFromFirestore(uid)  : Promise.resolve([]),
+  signInWithGoogle:           () => window._fb ? window._fb.signInWithGoogle()           : Promise.reject(new Error('Firebase not loaded')),
+  signOutUser:                () => window._fb ? window._fb.signOutUser()                : Promise.resolve(),
+  onUserChanged:              (cb)  => window._fb ? window._fb.onUserChanged(cb)         : null,
+  loadHistoryFromFirestore:   (uid) => window._fb ? window._fb.loadHistoryFromFirestore(uid)  : Promise.resolve([]),
   saveHistoryEntryToFirestore:(uid,e) => window._fb ? window._fb.saveHistoryEntryToFirestore(uid,e) : Promise.resolve(),
-  clearHistoryFromFirestore: (uid) => window._fb ? window._fb.clearHistoryFromFirestore(uid) : Promise.resolve(),
-  loadProfilesFromFirestore: (uid) => window._fb ? window._fb.loadProfilesFromFirestore(uid)  : Promise.resolve([]),
-  saveProfilesToFirestore:   (uid,p) => window._fb ? window._fb.saveProfilesToFirestore(uid,p) : Promise.resolve(),
+  clearHistoryFromFirestore:  (uid) => window._fb ? window._fb.clearHistoryFromFirestore(uid) : Promise.resolve(),
+  loadProfilesFromFirestore:  (uid) => window._fb ? window._fb.loadProfilesFromFirestore(uid) : Promise.resolve([]),
+  saveProfilesToFirestore:    (uid,p) => window._fb ? window._fb.saveProfilesToFirestore(uid,p) : Promise.resolve(),
+  saveBookmarksToFirestore:   (uid,ids,folders) => window._fb ? window._fb.saveBookmarksToFirestore(uid,ids,folders) : Promise.resolve(),
+  loadBookmarksFromFirestore: (uid)  => window._fb ? window._fb.loadBookmarksFromFirestore(uid)  : Promise.resolve(null),
 };
 
 let currentUser = null; // holds Firebase user object when signed in
@@ -2265,7 +2292,38 @@ function initFirebaseAuth() {
     // Load cloud history + profiles (replaces localStorage)
     sessionHistory  = await FB.loadHistoryFromFirestore(user.uid);
     familyProfiles  = await FB.loadProfilesFromFirestore(user.uid);
+
+    // ── Load bookmarks from Firestore and re-sync ──
+    const bkmData = await FB.loadBookmarksFromFirestore(user.uid);
+    if (bkmData && Array.isArray(bkmData.ids)) {
+      bookmarkedIds = new Set(bkmData.ids);
+      if (Array.isArray(bkmData.folders) && bkmData.folders.length > 0) {
+        bookmarkFolders = {};
+        for (const f of bkmData.folders) {
+          bookmarkFolders[f.id] = { ...f, ids: new Set(f.ids || []) };
+        }
+      }
+    } else {
+      // Fallback: rebuild bookmark state from the bookmarked flag on each entry
+      bookmarkedIds = new Set();
+      sessionHistory.forEach(e => { if (e.bookmarked) bookmarkedIds.add(e.id); });
+    }
+    // Ensure default folders always exist
+    for (const def of DEFAULT_FOLDERS) {
+      if (!bookmarkFolders[def.id]) bookmarkFolders[def.id] = { ...def, ids: new Set() };
+    }
+    // Migrate: any bookmarked id not in a folder → General
+    bookmarkedIds.forEach(id => {
+      const inFolder = Object.values(bookmarkFolders).some(f => f.ids.has(id));
+      if (!inFolder && bookmarkFolders['general']) bookmarkFolders['general'].ids.add(id);
+    });
+
+    // Write merged state back to localStorage as offline backup
+    persistHistory();
+    persistBookmarks();
+
     updateHistPill();
+    updateHistTabCounts();
     renderProfilesBar();
   } else {
     // ── Logged out — show the gate, block the app ──
@@ -2283,7 +2341,9 @@ function initFirebaseAuth() {
 
     loadPersistedHistory();
     loadProfiles();
+    loadBookmarks();          // re-sync bookmark state from localStorage
     updateHistPill();
+    updateHistTabCounts();    // keep tab badge counts accurate
     renderProfilesBar();
   }
   }); // end FB.onUserChanged
@@ -2344,22 +2404,26 @@ function loadPersistedHistory() {
   }
 }
 
-// ── save full array to localStorage ──
+// ── save full array to localStorage (lightweight — answerHtml stripped) ──
+// answerHtml is regenerated from answer via fmt() when restoring, so we don't
+// need to store it. This keeps localStorage small AND avoids losing data when
+// the Firestore save fails (e.g. doc size limit on large SVG answers).
 function persistHistory() {
-  // If logged in, Firestore handles persistence — skip localStorage
-  if (currentUser) return;
   try {
     // Keep newest HIST_MAX entries
     if (sessionHistory.length > HIST_MAX) {
       sessionHistory = sessionHistory.slice(-HIST_MAX);
     }
-    localStorage.setItem(HIST_KEY, JSON.stringify(sessionHistory));
+    // Strip heavy answerHtml and payload so localStorage stays small
+    const lightweight = sessionHistory.map(({ answerHtml, payload, ...rest }) => rest);
+    localStorage.setItem(HIST_KEY, JSON.stringify(lightweight));
   } catch(e) {
     // localStorage full — remove oldest 20 and retry once
     console.warn('[History] Storage full, pruning…');
     try {
       sessionHistory = sessionHistory.slice(-Math.max(sessionHistory.length - 20, 10));
-      localStorage.setItem(HIST_KEY, JSON.stringify(sessionHistory));
+      const lightweight = sessionHistory.map(({ answerHtml, payload, ...rest }) => rest);
+      localStorage.setItem(HIST_KEY, JSON.stringify(lightweight));
     } catch(_) { /* give up silently */ }
   }
 }
@@ -2637,7 +2701,8 @@ function restoreHistItem(item) {
 
   // 3. Inject answer — force result-body visible too
   rb.style.cssText = 'opacity:1; transform:translateY(0);';
-  rb.innerHTML = item.answerHtml || ('<p>' + item.answer + '</p>');
+  // answerHtml may be absent for lightweight localStorage entries — regenerate via fmt()
+  rb.innerHTML = item.answerHtml || (typeof fmt === 'function' ? fmt(item.answer) : '<p>' + item.answer + '</p>');
   injectSVGs(rb);
   rb.classList.add('reveal');
 
@@ -2647,7 +2712,15 @@ function restoreHistItem(item) {
 
   // 5. Restore state for copy/speak/follow-up
   lastAnswerText = item.answer;
-  lastPayload    = item.payload;
+  // Restore lastPayload — item.payload may be absent in lightweight localStorage entries,
+  // so fall back to a minimal payload rebuilt from the stored metadata.
+  lastPayload = item.payload || {
+    mode:      item.mode      || 'text',
+    question:  item.question  || '',
+    subject:   item.subject   || '',
+    className: item.className || '',
+    lang:      currentLang,
+  };
 
   // 6. Set bookmark button state for this item
   setBookmarkBtnState(item.id);
@@ -4709,15 +4782,27 @@ function loadBookmarks() {
 // ── Persist ───────────────────────────────────────────
 function persistBookmarks() {
   try { localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...bookmarkedIds])); } catch(_) {}
+  // Also sync to Firestore so bookmarks survive cross-device and cold-start refresh
+  if (currentUser) {
+    FB.saveBookmarksToFirestore(currentUser.uid, [...bookmarkedIds], getFoldersForStorage());
+  }
+}
+
+// Helper: serialise folders to a plain array for Firestore / localStorage
+function getFoldersForStorage() {
+  return Object.values(bookmarkFolders).map(f => ({
+    id: f.id, name: f.name, emoji: f.emoji, ids: [...f.ids],
+  }));
 }
 
 function persistFolders() {
   try {
-    const arr = Object.values(bookmarkFolders).map(f => ({
-      id: f.id, name: f.name, emoji: f.emoji, ids: [...f.ids],
-    }));
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(arr));
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(getFoldersForStorage()));
   } catch(_) {}
+  // Keep Firestore in sync whenever folders change
+  if (currentUser) {
+    FB.saveBookmarksToFirestore(currentUser.uid, [...bookmarkedIds], getFoldersForStorage());
+  }
 }
 
 // ── Folder helpers ────────────────────────────────────
