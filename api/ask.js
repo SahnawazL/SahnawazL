@@ -175,12 +175,14 @@ const CACHE_MAX_MEM = 500;    // max in-memory entries before eviction
 // Simple in-memory LRU: Map preserves insertion order, so oldest = first key.
 const answerCache = new Map();
 
-function makeCacheKey(question, subject, className, lang) {
-  const q = (question || '').toLowerCase().replace(/\s+/g, ' ').trim();
+function makeCacheKey(question, subject, className, lang, board) {
+  const q = (question  || '').toLowerCase().replace(/\s+/g, ' ').trim();
   const s = (subject   || '').toLowerCase().trim();
   const c = (className || '').toLowerCase().trim();
   const l = (lang      || 'en').trim();
-  return `cache:${c}|${s}|${l}|${q}`;
+  const b = (board     || '').toLowerCase().trim();
+  // board included so ASSEB/CBSE/ICSE never share a cached answer even for the same question
+  return `cache:${b}|${c}|${s}|${l}|${q}`;
 }
 
 function memCacheGet(key) {
@@ -380,6 +382,25 @@ async function saveHistoryToFirestore(uid, entry) {
   }
 }
 
+// ── Per-subject temperature ───────────────────────────────────────────────────
+// Precise subjects (maths/physics) need low temperature for accuracy.
+// Creative/language subjects benefit from slightly higher temperature.
+function getTemperature(subjectType) {
+  const map = {
+    math:        0.10,  // must be exact — no creativity allowed
+    physics:     0.10,  // same: formulas, unit analysis
+    chemistry:   0.15,  // mostly formulaic, some explanation
+    biology:     0.20,
+    computer:    0.20,  // code needs consistency
+    commerce:    0.20,
+    humanities:  0.30,
+    environment: 0.30,
+    language:    0.55,  // essays/creative writing need expressiveness
+    general:     0.30,
+  };
+  return map[subjectType] ?? 0.25;
+}
+
 // ── System prompt ─────────────────────────────────────────────────────────────
 function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text', simplify = false) {
   const langMap = { en: 'English', bn: 'Bengali (Bangla)', hi: 'Hindi', as: 'Assamese' };
@@ -540,13 +561,14 @@ function photoInstruction(lang) {
 // FIX: Added `history` parameter. When a conversation history is provided
 // (follow-up questions), we build a proper multi-turn messages array instead
 // of a single user message. This gives the AI full context of the conversation.
-async function askGroq(keys, { question, className, subject, lang, board, stream, mode, simplify, history = [] }) {
+async function askGroq(keys, { question, className, subject, lang, board, stream, mode, simplify, history = [], subjectType = 'general' }) {
   const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode, !!simplify);
   let lastErr = null;
 
   const senior = isSeniorClass(className);
   const model  = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
   const rot    = senior ? rotations.groqSenior : rotations.groqJunior;
+  const temp   = getTemperature(subjectType);
 
   // ── Build messages array ──────────────────────────────────────────────────
   // If we have a conversation history (follow-up flow), use it as the full
@@ -577,7 +599,7 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
         body: JSON.stringify({
           model,
           messages,
-          temperature:    0.25,
+          temperature:    temp,
           max_tokens:     8192,
           top_p:          0.92,
         }),
@@ -611,12 +633,13 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
 // we build a proper multi-turn `contents` array in Gemini's format.
 // For photo follow-ups, the original image is re-attached to the first turn
 // so the AI can still reference it throughout the conversation.
-async function askGemini(keys, { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history = [] }) {
+async function askGemini(keys, { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history = [], subjectType = 'general' }) {
   const rot = rotations.gemini;
   let lastErr = null;
 
   const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
   const mime = validMimes.includes(imageMime) ? imageMime : 'image/jpeg';
+  const temp = getTemperature(subjectType);
 
   // ── Build contents array ──────────────────────────────────────────────────
   // Gemini uses 'model' for the assistant role (not 'assistant').
@@ -674,7 +697,7 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
     system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode, !!simplify) }] },
     contents,
     generationConfig: {
-      temperature: 0.25, topK: 40, topP: 0.92,
+      temperature: temp, topK: 40, topP: 0.92,
       maxOutputTokens: 8192, candidateCount: 1,
     },
     safetySettings: [
@@ -811,6 +834,7 @@ async function handleRequest(req, res) {
   const {
     mode, question, imageBase64, imageMime,
     className, subject, lang = 'en', board = '', stream = '', uid, simplify = false,
+    subjectType = 'general',
     // FIX: Accept conversation history from the frontend.
     // This is an array of { role: 'user'|'assistant', content: string } objects
     // built up over the course of a follow-up conversation.
@@ -833,7 +857,7 @@ async function handleRequest(req, res) {
   }
 
   // FIX: Pass history through to askGroq and askGemini via ctx.
-  const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history };
+  const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history, subjectType };
 
   // ── Cache lookup (text-only, non-follow-up, non-simplify questions) ─────────
   // We only cache clean first questions — not follow-ups (history has context),
@@ -841,7 +865,7 @@ async function handleRequest(req, res) {
   const isFollowUpQ  = Array.isArray(history) && history.length > 0;
   const isCacheable  = mode === 'text' && !isFollowUpQ && !simplify && question?.trim();
   const kv           = await getKV(); // shared KV client for this request
-  const cacheKey     = isCacheable ? makeCacheKey(question, subject, className, lang) : null;
+  const cacheKey     = isCacheable ? makeCacheKey(question, subject, className, lang, board) : null;
 
   if (isCacheable && cacheKey) {
     const cached = await cacheGet(kv, cacheKey);
