@@ -152,6 +152,84 @@ async function saveToKV() {
   } catch {}
 }
 
+// ── Answer Cache (two-layer: in-memory + KV) ─────────────────────────────────
+//
+// WHAT THIS FIXES: "Same question hits API every time"
+// If 100 students ask "What is photosynthesis?", we now answer from cache
+// after the first hit — zero extra API calls, instant response.
+//
+// Layer 1 — in-memory Map (instant, lives until Vercel cold-starts)
+// Layer 2 — KV (Upstash Redis, survives cold starts, shared across instances)
+//   Requires KV linked to your project (same setup as rotation state).
+//   If KV is not linked, Layer 2 is silently skipped.
+//
+// Cache key: normalized question + subject + className + lang
+//   (subject/class/lang are included because the SAME question should get
+//    a different answer for a Class 5 student vs a Class 12 student)
+// TTL: 24 hours. Quiz and photo modes are NOT cached (answers vary).
+// In-memory cap: 500 entries (LRU-style — oldest dropped when full).
+
+const CACHE_TTL_SEC = 86_400; // 24 hours in KV
+const CACHE_MAX_MEM = 500;    // max in-memory entries before eviction
+
+// Simple in-memory LRU: Map preserves insertion order, so oldest = first key.
+const answerCache = new Map();
+
+function makeCacheKey(question, subject, className, lang) {
+  const q = (question || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const s = (subject   || '').toLowerCase().trim();
+  const c = (className || '').toLowerCase().trim();
+  const l = (lang      || 'en').trim();
+  return `cache:${c}|${s}|${l}|${q}`;
+}
+
+function memCacheGet(key) {
+  const entry = answerCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.exp) { answerCache.delete(key); return null; }
+  return entry.answer;
+}
+
+function memCacheSet(key, answer) {
+  // Evict oldest entry if at capacity
+  if (answerCache.size >= CACHE_MAX_MEM) {
+    const oldestKey = answerCache.keys().next().value;
+    answerCache.delete(oldestKey);
+  }
+  answerCache.set(key, { answer, exp: Date.now() + CACHE_TTL_SEC * 1000 });
+}
+
+async function kvCacheGet(kv, key) {
+  if (!kv) return null;
+  try {
+    const val = await kv.get(key);
+    return val ? String(val) : null;
+  } catch { return null; }
+}
+
+async function kvCacheSet(kv, key, answer) {
+  if (!kv) return;
+  try {
+    // KV values must be strings; slice to 8000 chars to stay well under limits
+    await kv.set(key, answer.slice(0, 8000), { ex: CACHE_TTL_SEC });
+  } catch {}
+}
+
+// Main cache read: check memory first (fast), then KV (persistent)
+async function cacheGet(kv, key) {
+  const mem = memCacheGet(key);
+  if (mem) return mem;
+  const kval = await kvCacheGet(kv, key);
+  if (kval) { memCacheSet(key, kval); return kval; } // warm memory from KV
+  return null;
+}
+
+// Main cache write: write to both layers
+async function cacheSet(kv, key, answer) {
+  memCacheSet(key, answer);
+  await kvCacheSet(kv, key, answer); // fire-and-forget on failure
+}
+
 // ── Per-user spam guard ───────────────────────────────────────────────────────
 const spamTracker = new Map();
 
@@ -214,7 +292,7 @@ async function uploadImageToStorage(imageBase64, imageMime, uid, subject, classN
       return null;
     }
 
-    await uploadRes.json(); // consume response body (uploadData not needed — URL is constructed from filename)
+    await uploadRes.json();
     return `https://storage.googleapis.com/${bucket}/${filename}`;
 
   } catch (e) {
@@ -234,9 +312,6 @@ async function getFirebaseStorageToken(sa) {
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
-    // FIX BUG #1: Added 'datastore' scope so Firestore writes succeed.
-    // Previously this was missing, causing all saveHistoryToFirestore calls
-    // to fail silently with a 403 error.
     scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/firebase',
   };
 
@@ -270,7 +345,6 @@ async function getFirebaseStorageToken(sa) {
 }
 
 // ── Save history entry to Firestore ──────────────────────────────────────────
-// Called for ALL modes (text, photo, quiz) after a successful answer.
 async function saveHistoryToFirestore(uid, entry) {
   try {
     const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -303,7 +377,7 @@ async function saveHistoryToFirestore(uid, entry) {
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text') {
+function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text', simplify = false) {
   const langMap = { en: 'English', bn: 'Bengali (Bangla)', hi: 'Hindi', as: 'Assamese' };
   const replyLang = langMap[lang] || 'English';
 
@@ -391,6 +465,18 @@ Only draw a diagram if it genuinely helps understanding. If needed, use SVG form
 </svg>]
 Otherwise skip the diagram entirely.`;
 
+  const simplifyBlock = simplify ? `
+
+⚠️ SIMPLIFY MODE — ACTIVE:
+The student could not understand the previous explanation. Teach the SAME concept again but completely differently:
+- Use the SIMPLEST everyday words — as if explaining to a younger sibling
+- Break into MORE steps — each step is ONE short sentence only, then pause
+- Give a real-life example or fun analogy that makes the idea click instantly
+- If any word is difficult, define it right away in simple words
+- NEVER use: "Furthermore", "Moreover", "Thus", "Hence", "Consequently"
+- Tone: warm, friendly, encouraging — like a helpful older student, not a textbook
+- End with: 💡 Simple Summary: [one sentence a 10-year-old would understand]` : '';
+
   return `You are StudyLens AI — a warm, brilliant, and patient tutor for Indian school students (Classes KG to 12).
 
 CORE MISSION:
@@ -434,7 +520,7 @@ ${board     ? `Board: ${board}`     : ''}
 ${className ? `Class: ${className}` : 'Class: Not specified (assume middle school)'}
 ${stream    ? `Stream: ${stream}`   : ''}
 ${subject   ? `Subject: ${subject}` : ''}
-Adjust explanation depth and vocabulary for this level.`;
+Adjust explanation depth and vocabulary for this level.${simplifyBlock}`;
 }
 
 function photoInstruction(lang) {
@@ -447,13 +533,31 @@ function photoInstruction(lang) {
 }
 
 // ── GROQ: text-only handler ───────────────────────────────────────────────────
-async function askGroq(keys, { question, className, subject, lang, board, stream, mode }) {
-  const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode);
+// FIX: Added `history` parameter. When a conversation history is provided
+// (follow-up questions), we build a proper multi-turn messages array instead
+// of a single user message. This gives the AI full context of the conversation.
+async function askGroq(keys, { question, className, subject, lang, board, stream, mode, simplify, history = [] }) {
+  const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode, !!simplify);
   let lastErr = null;
 
   const senior = isSeniorClass(className);
   const model  = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
   const rot    = senior ? rotations.groqSenior : rotations.groqJunior;
+
+  // ── Build messages array ──────────────────────────────────────────────────
+  // If we have a conversation history (follow-up flow), use it as the full
+  // messages array. Cap at the last 6 messages (3 rounds) to avoid token overflow.
+  // Otherwise fall back to a single user message (original question flow).
+  const hasHistory = Array.isArray(history) && history.length > 1;
+  // FIX: Ensure recentHistory always starts with a 'user' turn.
+  // slice(-6) on a long history can cut mid-conversation and leave an
+  // 'assistant' turn first — both Groq and Gemini reject that ordering.
+  let recentHistory = hasHistory ? history.slice(-6) : null;
+  if (recentHistory && recentHistory[0]?.role !== 'user') recentHistory = recentHistory.slice(1);
+
+  const messages = recentHistory
+    ? [{ role: 'system', content: sysPrompt }, ...recentHistory]
+    : [{ role: 'system', content: sysPrompt }, { role: 'user', content: question.trim() }];
 
   for (let attempt = 0; attempt < Math.max(keys.length, 1); attempt++) {
     const key = pickKey(keys, rot);
@@ -468,10 +572,7 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
         },
         body: JSON.stringify({
           model,
-          messages: [
-            { role: 'system', content: sysPrompt },
-            { role: 'user',   content: question.trim() },
-          ],
+          messages,
           temperature:    0.25,
           max_tokens:     8192,
           top_p:          0.92,
@@ -502,26 +603,72 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
 }
 
 // ── GEMINI: text + photo handler ──────────────────────────────────────────────
-async function askGemini(keys, { question, imageBase64, imageMime, className, subject, lang, board, stream, mode }) {
+// FIX: Added `history` parameter. When a conversation history is provided,
+// we build a proper multi-turn `contents` array in Gemini's format.
+// For photo follow-ups, the original image is re-attached to the first turn
+// so the AI can still reference it throughout the conversation.
+async function askGemini(keys, { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history = [] }) {
   const rot = rotations.gemini;
   let lastErr = null;
 
-  const parts = [];
-  if (mode === 'photo') {
-    const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-    const mime = validMimes.includes(imageMime) ? imageMime : 'image/jpeg';
-    parts.push({ inline_data: { mime_type: mime, data: imageBase64 } });
-    const textPart = question?.trim()
-      ? `${question.trim()}\n\nPlease read this image carefully and answer the question completely, step by step.`
-      : photoInstruction(lang);
-    parts.push({ text: textPart });
+  const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+  const mime = validMimes.includes(imageMime) ? imageMime : 'image/jpeg';
+
+  // ── Build contents array ──────────────────────────────────────────────────
+  // Gemini uses 'model' for the assistant role (not 'assistant').
+  // When history is present: map the full conversation into Gemini's format.
+  // For photo mode with history: inject the image into the FIRST user turn so
+  // the AI still has visual context when answering follow-up questions.
+  const hasHistory = Array.isArray(history) && history.length > 1;
+  let contents;
+
+  if (hasHistory) {
+    // FIX: Ensure recentHistory always starts with a 'user' turn (same as askGroq).
+    let recentHistory = history.slice(-6); // cap at 3 rounds
+    if (recentHistory[0]?.role !== 'user') recentHistory = recentHistory.slice(1);
+
+    if (mode === 'photo') {
+      // Photo follow-up: first user turn carries the image + original question text.
+      // Subsequent turns are plain text.
+      const [firstMsg, ...restMsgs] = recentHistory;
+      contents = [
+        {
+          role: 'user',
+          parts: [
+            { inline_data: { mime_type: mime, data: imageBase64 } },
+            { text: firstMsg.content || photoInstruction(lang) },
+          ],
+        },
+        ...restMsgs.map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content || '' }],
+        })),
+      ];
+    } else {
+      // Text follow-up: straightforward role mapping.
+      contents = recentHistory.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content || '' }],
+      }));
+    }
   } else {
-    parts.push({ text: question.trim() });
+    // Single-turn (original question, no history yet).
+    const parts = [];
+    if (mode === 'photo') {
+      parts.push({ inline_data: { mime_type: mime, data: imageBase64 } });
+      const textPart = question?.trim()
+        ? `${question.trim()}\n\nPlease read this image carefully and answer the question completely, step by step.`
+        : photoInstruction(lang);
+      parts.push({ text: textPart });
+    } else {
+      parts.push({ text: question.trim() });
+    }
+    contents = [{ role: 'user', parts }];
   }
 
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode) }] },
-    contents: [{ role: 'user', parts }],
+    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode, !!simplify) }] },
+    contents,
     generationConfig: {
       temperature: 0.25, topK: 40, topP: 0.92,
       maxOutputTokens: 8192, candidateCount: 1,
@@ -659,7 +806,11 @@ async function handleRequest(req, res) {
 
   const {
     mode, question, imageBase64, imageMime,
-    className, subject, lang = 'en', board = '', stream = '', uid
+    className, subject, lang = 'en', board = '', stream = '', uid, simplify = false,
+    // FIX: Accept conversation history from the frontend.
+    // This is an array of { role: 'user'|'assistant', content: string } objects
+    // built up over the course of a follow-up conversation.
+    history = [],
   } = req.body || {};
 
   const ip         = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
@@ -670,21 +821,38 @@ async function handleRequest(req, res) {
     });
   }
 
-  if (mode === 'text' && !question?.trim()) {
+  if (mode === 'text' && !question?.trim() && (!Array.isArray(history) || history.length === 0)) {
     return res.status(400).json({ error: '❌ Please type your question.' });
   }
   if (mode === 'photo' && !imageBase64) {
     return res.status(400).json({ error: '❌ No image received. Please try adding the photo again.' });
   }
 
-  const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode };
+  // FIX: Pass history through to askGroq and askGemini via ctx.
+  const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history };
+
+  // ── Cache lookup (text-only, non-follow-up, non-simplify questions) ─────────
+  // We only cache clean first questions — not follow-ups (history has context),
+  // not simplify (personalised retry), not photo (image varies), not quiz (random).
+  const isFollowUpQ  = Array.isArray(history) && history.length > 0;
+  const isCacheable  = mode === 'text' && !isFollowUpQ && !simplify && question?.trim();
+  const kv           = await getKV(); // shared KV client for this request
+  const cacheKey     = isCacheable ? makeCacheKey(question, subject, className, lang) : null;
+
+  if (isCacheable && cacheKey) {
+    const cached = await cacheGet(kv, cacheKey);
+    if (cached) {
+      console.log('[Cache] HIT:', cacheKey.slice(0, 80));
+      return res.status(200).json({ answer: cached, cached: true });
+    }
+    console.log('[Cache] MISS:', cacheKey.slice(0, 80));
+  }
 
   // ── QUIZ mode ──────────────────────────────────────────────────────────────
   if (mode === 'quiz') {
     if (!question?.trim()) return res.status(400).json({ error: 'No quiz prompt.' });
     const result = await askQuiz(groqKeys, geminiKeys, { question, className });
     if (result.answer) {
-      // FIX BUG #2: Save quiz history to Firestore (was never recorded before)
       if (uid) {
         const entryId = Date.now();
         saveHistoryToFirestore(uid, {
@@ -707,13 +875,14 @@ async function handleRequest(req, res) {
       });
     }
 
-    // ── Fire-and-forget image upload to Firebase Storage ──
-    const imageUploadPromise = uploadImageToStorage(
-      imageBase64, imageMime, uid, subject, className
-    ).catch(e => {
-      console.warn('[Storage] Upload failed silently:', e.message);
-      return null;
-    });
+    // Fire-and-forget image upload (only on first question, not follow-ups)
+    const isFollowUp = Array.isArray(history) && history.length > 1;
+    const imageUploadPromise = isFollowUp
+      ? Promise.resolve(null)
+      : uploadImageToStorage(imageBase64, imageMime, uid, subject, className).catch(e => {
+          console.warn('[Storage] Upload failed silently:', e.message);
+          return null;
+        });
 
     const result = await askGemini(geminiKeys, ctx);
 
@@ -723,24 +892,17 @@ async function handleRequest(req, res) {
         new Promise(r => setTimeout(() => r(null), 2000))
       ]);
 
-      // FIX BUG #3: Save photo history to Firestore including the answer field.
-      // Previously the answer was missing from the saved entry.
       if (uid) {
         const entryId = Date.now();
         saveHistoryToFirestore(uid, {
-          id: entryId,
-          ts: entryId,
-          mode: 'photo',
-          question: question || '',
-          subject: subject || '',
+          id: entryId, ts: entryId, mode: 'photo',
+          question: question || '', subject: subject || '',
           className: className || '',
-          answer: result.answer.slice(0, 500),   // FIX: was missing before
+          answer: result.answer.slice(0, 500),
           ...(storageUrl ? { imageStorageUrl: storageUrl } : {}),
         }).catch(() => {});
 
-        if (storageUrl) {
-          console.log('[Storage] Image saved:', storageUrl);
-        }
+        if (storageUrl) console.log('[Storage] Image saved:', storageUrl);
       }
 
       return res.status(200).json({ answer: result.answer });
@@ -758,7 +920,8 @@ async function handleRequest(req, res) {
   if (groqKeys.length > 0) {
     const groqResult = await askGroq(groqKeys, ctx);
     if (groqResult.answer) {
-      // FIX BUG #2: Save text history to Firestore (was never recorded before)
+      // Cache the answer so the same question is free next time
+      if (isCacheable && cacheKey) cacheSet(kv, cacheKey, groqResult.answer).catch(() => {});
       if (uid) {
         const entryId = Date.now();
         saveHistoryToFirestore(uid, {
@@ -775,7 +938,8 @@ async function handleRequest(req, res) {
   if (geminiKeys.length > 0) {
     const geminiResult = await askGemini(geminiKeys, ctx);
     if (geminiResult.answer) {
-      // FIX BUG #2: Save text (Gemini fallback) history to Firestore
+      // Cache the answer so the same question is free next time
+      if (isCacheable && cacheKey) cacheSet(kv, cacheKey, geminiResult.answer).catch(() => {});
       if (uid) {
         const entryId = Date.now();
         saveHistoryToFirestore(uid, {
