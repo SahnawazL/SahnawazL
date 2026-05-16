@@ -1009,6 +1009,27 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   min-height: 0;
 }
 
+/* GEO BADGE — "Made for Assam" pill under hero subtitle */
+.geo-badge {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: rgba(62,207,142,0.1);
+  border: 1px solid rgba(62,207,142,0.28);
+  border-radius: 100px;
+  padding: 0.26rem 0.7rem;
+  font-size: 0.72rem; font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.02em;
+  margin-top: 0.75rem;
+  animation: fadeUp 0.5s 0.35s ease both; opacity: 0;
+}
+.geo-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: glow 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
 /* FOOTER */
 .footer-note { text-align: center; font-size: 0.74rem; color: var(--muted); padding: 1rem 0 0.4rem; border-top: 1px solid var(--border); line-height: 1.6; }
 .footer-dev-link {
@@ -1673,9 +1694,10 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
     <!-- Features list -->
     <div class="login-features">
-      <div class="login-feature"><span class="login-feature-icon">🧠</span>AI answers in English, Bengali, Hindi & Assamese</div>
-      <div class="login-feature"><span class="login-feature-icon">📷</span>Photo questions from books & worksheets</div>
-      <div class="login-feature"><span class="login-feature-icon">☁️</span>History & profiles synced across devices</div>
+      <div class="login-feature"><span class="login-feature-icon">🗺️</span>Built for Assam — covers SEBA, AHSEC, CBSE &amp; ICSE syllabi</div>
+      <div class="login-feature"><span class="login-feature-icon">🧠</span>AI answers in English, Bengali, Hindi &amp; Assamese</div>
+      <div class="login-feature"><span class="login-feature-icon">📷</span>Photo questions from books &amp; worksheets</div>
+      <div class="login-feature"><span class="login-feature-icon">☁️</span>History &amp; profiles synced across devices</div>
     </div>
 
     <!-- Google Sign-in button -->
@@ -1730,7 +1752,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   <div class="hero-section">
     <span class="hero-icon">📚</span>
     <h1 class="hero-title" id="h-title">Your <span class="highlight">AI Study</span> Helper</h1>
-    <p class="hero-sub" id="h-sub">Select your class & subject, then add your question photo — get a clear step-by-step answer instantly.</p>
+    <p class="hero-sub" id="h-sub">Select your board, class &amp; subject, type your question or add a photo — get a clear step-by-step answer instantly.</p>
+    <div class="geo-badge" id="geoBadge">
+      <span class="geo-badge-dot"></span>
+      <span id="geo-badge-text">Made for Assam · SEBA · AHSEC · CBSE · ICSE</span>
+    </div>
   </div>
 
   <!-- ── FAMILY PROFILES BAR ── -->
@@ -2065,11 +2091,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
   <div class="tips">
     <div class="tip"><span class="tip-icon">💡</span><span id="tip1">Take a clear, well-lit photo. Make sure the text is readable.</span></div>
-    <div class="tip"><span class="tip-icon">🗣️</span><span id="tip2">You can ask in your own language — Bengali, Hindi, or English.</span></div>
+    <div class="tip"><span class="tip-icon">🗣️</span><span id="tip2">You can ask in your own language — Assamese, Bengali, Hindi, or English.</span></div>
     <div class="tip"><span class="tip-icon">📷</span><span id="tip3">Works with printed books, handwritten notes, and worksheets.</span></div>
   </div>
 
-  <div class="footer-note" id="footerNote">Made for students, parents &amp; learners in India 🇮🇳<br/>Built by <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · Full Stack Developer &amp; UI/UX Designer</div>
+  <div class="footer-note" id="footerNote">Made for students, parents &amp; learners in Assam 🌿<br/>Built by <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · Full Stack Developer &amp; UI/UX Designer</div>
 
 </div>
 
@@ -3129,7 +3155,8 @@ function getSubjects() {
 const T = {
   en:{
     heroTitle:'Your <span class="highlight">AI Study</span> Helper',
-    heroSub:'Select your class & subject, type your question or add a photo — get a clear answer instantly.',
+    heroSub:'Select your board, class & subject, type your question or add a photo — get a clear answer instantly.',
+    geoBadge:'Made for Assam · SEBA · AHSEC · CBSE · ICSE',
     lblCls:'Select Class',phCls:'Tap to choose your class…',selCls:'Class',
     lblSubj:'Choose Subject',phSubj:'Choose your class first…',phSubj2:'Tap to choose your subject…',
     lblPhoto:'Add Your Question',phPhoto:'Choose subject first…',readyPhoto:'✓ Photo ready',readyText:'✓ Question typed',
@@ -3148,12 +3175,13 @@ const T = {
     tip1:'Type any question — theory, definition, formula, or concept.',
     tip2:'You can ask in Assamese, Bengali, Hindi, or English.',
     tip3:'Works with typed questions AND photos of books, notes & worksheets.',
-    footer:'Made for students, parents &amp; learners in India 🇮🇳<br/>Built by <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · Full Stack Developer &amp; UI/UX Designer',
+    footer:'Made for students, parents &amp; learners in Assam 🌿<br/>Built by <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · Full Stack Developer &amp; UI/UX Designer',
     subs:{math:'Maths',science:'Science',eng1:'English 1',eng2:'English 2',bn1:'Bengali 1',bn2:'Bengali 2',hindi:'Hindi',evs:'EVS',sst:'SST',gk:'GK',computer:'Computer',moral:'Moral Sci.',history:'History',geo:'Geography',conv:'Conversation'},
   },
   bn:{
     heroTitle:'তোমার <span class="highlight">AI পড়ার</span> সাথী',
-    heroSub:'ক্লাস ও বিষয় বেছে নাও, প্রশ্ন লেখো বা ছবি যোগ করো — এক্ষুনি সহজ উত্তর পাও।',
+    heroSub:'বোর্ড, ক্লাস ও বিষয় বেছে নাও, প্রশ্ন লেখো বা ছবি যোগ করো — এক্ষুনি সহজ উত্তর পাও।',
+    geoBadge:'অসমের জন্য · SEBA · AHSEC · CBSE · ICSE',
     lblCls:'ক্লাস বেছে নাও',phCls:'তোমার ক্লাস বেছে নিতে ট্যাপ করো…',selCls:'ক্লাস',
     lblSubj:'বিষয় বেছে নাও',phSubj:'আগে ক্লাস বেছে নাও…',phSubj2:'তোমার বিষয় বেছে নিতে ট্যাপ করো…',
     lblPhoto:'তোমার প্রশ্ন যোগ করো',phPhoto:'আগে বিষয় বেছে নাও…',readyPhoto:'✓ ছবি প্রস্তুত',readyText:'✓ প্রশ্ন লেখা হয়েছে',
@@ -3170,14 +3198,15 @@ const T = {
     copyLabel:'কপি', speakLabel:'পড়ে শোনাও', stopLabel:'থামো', followLabel:'আরও জিজ্ঞেস করো',
     followPlaceholder:'এই উত্তর সম্পর্কে আরও কিছু জিজ্ঞেস করো…',
     tip1:'যেকোনো তাত্ত্বিক প্রশ্ন, সংজ্ঞা বা সূত্র লিখে জিজ্ঞেস করো।',
-    tip2:'বাংলায়, হিন্দিতে বা ইংরেজিতে প্রশ্ন করতে পারো।',
+    tip2:'অসমীয়া, বাংলায়, হিন্দিতে বা ইংরেজিতে প্রশ্ন করতে পারো।',
     tip3:'লেখা প্রশ্ন এবং বইয়ের ছবি — দুটোতেই কাজ করে।',
-    footer:'ভারতের শিক্ষার্থী, অভিভাবক ও শিক্ষানুরাগীদের জন্য 🇮🇳<br/>তৈরি করেছেন <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · ফুল স্ট্যাক ডেভেলপার',
+    footer:'অসমের শিক্ষার্থী, অভিভাবক ও শিক্ষানুরাগীদের জন্য 🌿<br/>তৈরি করেছেন <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · ফুল স্ট্যাক ডেভেলপার',
     subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংরেজি ১',eng2:'ইংরেজি ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দি',evs:'পরিবেশ বিদ্যা',sst:'সমাজবিজ্ঞান',gk:'সাধারণ জ্ঞান',computer:'কম্পিউটার',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
   },
   hi:{
     heroTitle:'तुम्हारा <span class="highlight">AI पढ़ाई</span> साथी',
-    heroSub:'अपनी क्लास और विषय चुनो, सवाल टाइप करो या फोटो डालो — तुरंत आसान जवाब पाओ।',
+    heroSub:'अपना बोर्ड, क्लास और विषय चुनो, सवाल टाइप करो या फोटो डालो — तुरंत आसान जवाब पाओ।',
+    geoBadge:'असम के लिए · SEBA · AHSEC · CBSE · ICSE',
     lblCls:'कक्षा चुनो',phCls:'अपनी कक्षा चुनने के लिए टैप करो…',selCls:'कक्षा',
     lblSubj:'विषय चुनो',phSubj:'पहले कक्षा चुनो…',phSubj2:'अपना विषय चुनने के लिए टैप करो…',
     lblPhoto:'अपना सवाल डालो',phPhoto:'पहले विषय चुनो…',readyPhoto:'✓ फोटो तैयार',readyText:'✓ सवाल टाइप हो गया',
@@ -3194,14 +3223,15 @@ const T = {
     copyLabel:'कॉपी', speakLabel:'पढ़कर सुनाओ', stopLabel:'रोको', followLabel:'और पूछो',
     followPlaceholder:'इस जवाब के बारे में और कुछ पूछो…',
     tip1:'कोई भी थ्योरी सवाल, परिभाषा या फॉर्मूला टाइप करके पूछो।',
-    tip2:'हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
+    tip2:'असमिया, हिंदी, बंगाली या अंग्रेजी में पूछ सकते हो।',
     tip3:'टाइप किए सवाल और किताब की फोटो — दोनों पर काम करता है।',
-    footer:'भारत के छात्रों, माता-पिता और सीखने वालों के लिए 🇮🇳<br/>निर्मित: <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · फुल स्टैक डेवलपर',
-    subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংৰাজী ১',eng2:'ইংৰাজী ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দী',evs:'পৰিবেশ',sst:'সমাজ বিজ্ঞান',gk:'সাধাৰণ জ্ঞান',computer:'কম্পিউটাৰ',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
+    footer:'असम के छात्रों, माता-पिता और सीखने वालों के लिए 🌿<br/>निर्मित: <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · फुल स्टैक डेवलपर',
+    subs:{math:'गणित',science:'विज्ञान',eng1:'अंग्रेजी १',eng2:'अंग्रेजी २',bn1:'बंगाली १',bn2:'बंगाली २',hindi:'हिंदी',evs:'पर्यावरण',sst:'सामाजिक विज्ञान',gk:'सामान्य ज्ञान',computer:'कंप्यूटर',moral:'नैतिक शिक्षा',history:'इतिहास',geo:'भूगोल',conv:'बातचीत'},
   },
   as:{
     heroTitle:'তোমাৰ <span class="highlight">AI পঢ়াৰ</span> সঙ্গী',
-    heroSub:'শ্ৰেণী আৰু বিষয় বাছো, প্ৰশ্ন লিখা বা ফটো যোগ কৰা — তৎক্ষণাৎ সহজ উত্তৰ পোৱা।',
+    heroSub:'বোৰ্ড, শ্ৰেণী আৰু বিষয় বাছো, প্ৰশ্ন লিখা বা ফটো যোগ কৰা — তৎক্ষণাৎ সহজ উত্তৰ পোৱা।',
+    geoBadge:'অসমৰ বাবে · SEBA · AHSEC · CBSE · ICSE',
     lblCls:'শ্ৰেণী বাছো',phCls:'তোমাৰ শ্ৰেণী বাছিবলৈ টেপ কৰা…',selCls:'শ্ৰেণী',
     lblSubj:'বিষয় বাছো',phSubj:'আগতে শ্ৰেণী বাছা…',phSubj2:'তোমাৰ বিষয় বাছিবলৈ টেপ কৰা…',
     lblPhoto:'তোমাৰ প্ৰশ্ন যোগ কৰা',phPhoto:'আগতে বিষয় বাছা…',readyPhoto:'✓ ফটো প্ৰস্তুত',readyText:'✓ প্ৰশ্ন লিখা হৈছে',
@@ -3220,7 +3250,7 @@ const T = {
     tip1:'যিকোনো তাত্ত্বিক প্ৰশ্ন, সংজ্ঞা বা সূত্ৰ লিখি সুধা।',
     tip2:'অসমীয়া, বাংলা, হিন্দী বা ইংৰাজীত প্ৰশ্ন কৰিব পাৰা।',
     tip3:'লিখা প্ৰশ্ন আৰু কিতাপৰ ফটো — দুয়োটাতে কাম কৰে।',
-    footer:'ভাৰতৰ শিক্ষাৰ্থী, অভিভাৱক আৰু শিকাৰুসকলৰ বাবে 🇮🇳<br/>নিৰ্মাতা: <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · ফুল স্টেক ডেভেলপাৰ',
+    footer:'অসমৰ শিক্ষাৰ্থী, অভিভাৱক আৰু শিকাৰুসকলৰ বাবে 🌿<br/>নিৰ্মাতা: <a href="https://sahnawaz-portfolio.vercel.app" target="_blank" class="footer-dev-link">Sahnawaz Ahmed Laskar</a> · ফুল স্টেক ডেভেলপাৰ',
     subs:{math:'গণিত',science:'বিজ্ঞান',eng1:'ইংৰাজী ১',eng2:'ইংৰাজী ২',bn1:'বাংলা ১',bn2:'বাংলা ২',hindi:'হিন্দী',evs:'পৰিবেশ বিদ্যা',sst:'সমাজ বিজ্ঞান',gk:'সাধাৰণ জ্ঞান',computer:'কম্পিউটাৰ',moral:'নৈতিক শিক্ষা',history:'ইতিহাস',geo:'ভূগোল',conv:'কথোপকথন'},
   }
 };
@@ -3608,6 +3638,8 @@ function applyLang(lang) {
   document.getElementById('tip2').textContent=t.tip2;
   document.getElementById('tip3').textContent=t.tip3;
   document.getElementById('footerNote').innerHTML=t.footer;
+  const geoBadgeEl = document.getElementById('geo-badge-text');
+  if (geoBadgeEl && t.geoBadge) geoBadgeEl.textContent = t.geoBadge;
   document.getElementById('rtag-ai').textContent=t.aiTag;
   if (t.copyLabel)   document.getElementById('copyLabel').textContent   = t.copyLabel;
   if (t.speakLabel)  document.getElementById('speakLabel').textContent  = isSpeaking ? (t.stopLabel||'Stop') : t.speakLabel;
