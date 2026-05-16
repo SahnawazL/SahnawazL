@@ -567,7 +567,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 /* ANSWER ACTIONS BAR */
 .ans-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.5rem;
   padding: 0.75rem 0.9rem 0.9rem;
   border-top: 1px solid var(--border);
@@ -898,6 +898,158 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .ans-action-btn.quiz-btn:hover,
 .ans-action-btn.quiz-btn:focus { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.08); }
 .ans-action-btn.quiz-btn.active { border-color: #a78bfa; color: #a78bfa; background: rgba(167,139,250,0.12); }
+
+/* BOOKMARK BUTTON */
+.ans-action-btn.bookmark-btn:hover,
+.ans-action-btn.bookmark-btn:focus { border-color: var(--accent2); color: var(--accent2); background: rgba(247,201,72,0.08); }
+.ans-action-btn.bookmark-btn.bookmarked {
+  border-color: var(--accent2); color: var(--accent2);
+  background: rgba(247,201,72,0.14);
+}
+.ans-action-btn.bookmark-btn.bookmarked .ans-action-icon { filter: drop-shadow(0 0 4px rgba(247,201,72,0.6)); }
+
+/* BOOKMARK FOLDER PILLS */
+.folder-pills-bar {
+  display: flex; gap: 0.35rem; padding: 0.5rem 1.1rem 0;
+  overflow-x: auto; flex-shrink: 0;
+  scrollbar-width: none;
+}
+.folder-pills-bar::-webkit-scrollbar { display: none; }
+.folder-pill {
+  display: flex; align-items: center; gap: 0.28rem;
+  padding: 0.3rem 0.75rem; border-radius: 100px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
+  color: var(--muted); white-space: nowrap; cursor: pointer;
+  transition: all 0.17s; flex-shrink: 0;
+}
+.folder-pill:hover { border-color: var(--accent2); color: var(--text); }
+.folder-pill.active {
+  border-color: var(--accent2); background: rgba(247,201,72,0.13);
+  color: var(--accent2);
+}
+.folder-pill .fp-count {
+  font-size: 0.6rem; font-weight: 800;
+  background: rgba(247,201,72,0.2); color: var(--accent2);
+  border-radius: 100px; min-width: 14px; height: 14px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 3px;
+}
+.folder-pill.add-folder-pill {
+  border-style: dashed; color: var(--muted);
+  border-color: var(--border);
+}
+.folder-pill.add-folder-pill:hover { border-color: var(--accent2); color: var(--accent2); }
+
+/* FOLDER BADGE ON BOOKMARK ROWS */
+.hist-folder-badge {
+  font-size: 0.6rem; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 100px; padding: 1px 6px; flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* FOLDER PICKER MODAL */
+.folder-picker-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+  z-index: 9000; display: none; align-items: flex-end; justify-content: center;
+}
+.folder-picker-backdrop.open { display: flex; animation: fadeIn 0.18s ease; }
+.folder-picker-sheet {
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 540px; padding: 0 0 env(safe-area-inset-bottom,16px);
+  animation: slideUp 0.25s ease;
+}
+.folder-picker-handle {
+  width: 36px; height: 4px; background: var(--border);
+  border-radius: 4px; margin: 10px auto 0;
+}
+.folder-picker-title {
+  font-family: var(--font-head); font-size: 1rem; font-weight: 800;
+  color: var(--text); padding: 0.9rem 1.2rem 0.5rem; text-align: center;
+}
+.folder-picker-list {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  padding: 0.4rem 1rem 0.5rem; max-height: 55vh; overflow-y: auto;
+}
+.folder-picker-item {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.7rem 0.9rem; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  cursor: pointer; transition: all 0.15s;
+}
+.folder-picker-item:hover, .folder-picker-item:active {
+  border-color: var(--accent2); background: rgba(247,201,72,0.08);
+}
+.folder-picker-item.selected {
+  border-color: var(--accent2); background: rgba(247,201,72,0.12);
+}
+.folder-picker-emoji { font-size: 1.2rem; flex-shrink: 0; }
+.folder-picker-name {
+  font-family: var(--font-body); font-size: 0.9rem; font-weight: 600;
+  color: var(--text); flex: 1;
+}
+.folder-picker-cnt {
+  font-size: 0.72rem; color: var(--muted); font-weight: 700;
+}
+.folder-picker-new {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.65rem 1.9rem; border-radius: 12px;
+  border: 1.5px dashed var(--border); background: transparent;
+  cursor: pointer; color: var(--muted); font-size: 0.85rem; font-weight: 700;
+  font-family: var(--font-body); width: 100%; transition: all 0.15s;
+  margin-top: 0.2rem;
+}
+.folder-picker-new:hover { border-color: var(--accent2); color: var(--accent2); }
+.folder-picker-cancel {
+  width: calc(100% - 2rem); margin: 0.4rem 1rem;
+  padding: 0.7rem; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  color: var(--muted); font-size: 0.85rem; font-weight: 700;
+  font-family: var(--font-body); cursor: pointer; transition: all 0.15s;
+}
+.folder-picker-cancel:hover { color: var(--danger); border-color: var(--danger); }
+
+/* MOVE FOLDER BUTTON on bookmark rows */
+.hist-move-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.75rem; color: var(--muted); flex-shrink: 0;
+  padding: 2px 4px; border-radius: 6px; transition: color 0.15s;
+}
+.hist-move-btn:hover { color: var(--accent2); }
+
+/* SIMPLER BUTTON */
+.ans-action-btn.simpler-btn:hover,
+.ans-action-btn.simpler-btn:focus { border-color: #06b6d4; color: #06b6d4; background: rgba(6,182,212,0.08); }
+.ans-action-btn.simpler-btn.loading {
+  border-color: #06b6d4; color: #06b6d4;
+  background: rgba(6,182,212,0.08);
+  animation: speakPulse 1.4s ease-in-out infinite;
+}
+
+/* HISTORY TABS */
+.hist-tabs {
+  display: flex; gap: 0.3rem;
+  padding: 0.45rem 1.1rem 0;
+  flex-shrink: 0;
+}
+.hist-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  padding: 0.42rem 0.5rem; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-family: var(--font-body); font-size: 0.74rem; font-weight: 700;
+  color: var(--muted); cursor: pointer; transition: all 0.18s;
+}
+.hist-tab:hover { border-color: var(--accent); color: var(--text); }
+.hist-tab.active-all  { border-color: var(--accent); background: rgba(79,142,247,0.12); color: var(--accent); }
+.hist-tab.active-bookmarks { border-color: var(--accent2); background: rgba(247,201,72,0.12); color: var(--accent2); }
+.hist-tab-count {
+  font-size: 0.62rem; font-weight: 800;
+  background: var(--border); color: var(--text);
+  border-radius: 100px; min-width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+.hist-tab.active-bookmarks .hist-tab-count { background: rgba(247,201,72,0.3); color: var(--accent2); }
+.hist-tab.active-all .hist-tab-count { background: rgba(79,142,247,0.25); color: var(--accent); }
 
 /* QUIZ CARD */
 .quiz-card {
@@ -1664,7 +1816,27 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       </div>
       <button class="hist-close-btn" onclick="closeHistSheet()">✕</button>
     </div>
+    <div class="hist-tabs" id="histTabs">
+      <button class="hist-tab active-all" id="histTabAll" onclick="switchHistTab('all')">
+        All <span class="hist-tab-count" id="histTabAllCount">0</span>
+      </button>
+      <button class="hist-tab" id="histTabBookmarks" onclick="switchHistTab('bookmarks')">
+        ⭐ My Doubts <span class="hist-tab-count" id="histTabBookmarkCount">0</span>
+      </button>
+    </div>
+    <!-- Folder pills — shown only in bookmarks tab -->
+    <div class="folder-pills-bar" id="folderPillsBar" style="display:none;"></div>
     <div class="hist-list" id="histList"></div>
+  </div>
+
+  <!-- Folder picker modal -->
+  <div class="folder-picker-backdrop" id="folderPickerBackdrop">
+    <div class="folder-picker-sheet">
+      <div class="folder-picker-handle"></div>
+      <div class="folder-picker-title">Save to folder</div>
+      <div class="folder-picker-list" id="folderPickerList"></div>
+      <button class="folder-picker-cancel" onclick="closeFolderPicker()">Cancel</button>
+    </div>
   </div>
 
   <div class="result-card" id="resultCard">
@@ -1711,6 +1883,14 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <button class="ans-action-btn quiz-btn" id="quizBtn" onclick="startQuiz()">
         <span class="ans-action-icon">🧠</span>
         <span id="quizLabel">Quiz Me</span>
+      </button>
+      <button class="ans-action-btn bookmark-btn" id="bookmarkBtn" onclick="toggleBookmark()">
+        <span class="ans-action-icon" id="bookmarkIcon">☆</span>
+        <span id="bookmarkLabel">Bookmark</span>
+      </button>
+      <button class="ans-action-btn simpler-btn" id="simplerBtn" onclick="simplifyAnswer()">
+        <span class="ans-action-icon">🐢</span>
+        <span id="simplerLabel">Simpler</span>
       </button>
     </div>
 
@@ -2087,9 +2267,12 @@ async function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
     className: payload.className || '',
     answer: answerText,
     answerHtml: safeHtml,
+    bookmarked: false,
     payload: { ...payload, imageBase64: undefined }
   };
   sessionHistory.push(entry);
+  // Set the current item id for bookmark button
+  setBookmarkBtnState(id);
   // Save to Firestore if logged in, otherwise localStorage handles it
   if (currentUser) FB.saveHistoryEntryToFirestore(currentUser.uid, entry);
   updateHistPill();  // immediate feedback
@@ -2162,16 +2345,41 @@ function buildHistList() {
   const list = document.getElementById('histList');
   list.innerHTML = '';
 
-  if (sessionHistory.length === 0) {
+  // Update tab counts
+  updateHistTabCounts();
+
+  // Filter based on active tab + active folder
+  let source;
+  if (histActiveTab === 'bookmarks') {
+    let bookmarked = sessionHistory.filter(e => bookmarkedIds.has(e.id));
+    if (activeFolderId !== 'all') {
+      const folder = bookmarkFolders[activeFolderId];
+      bookmarked = folder ? bookmarked.filter(e => folder.ids.has(e.id)) : [];
+    }
+    source = bookmarked;
+  } else {
+    source = sessionHistory;
+  }
+
+  if (source.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'hist-empty-state';
-    empty.innerHTML = '<span class="hist-empty-icon">📖</span>No saved answers yet.<br/>Ask a question to start your revision history!';
+    if (histActiveTab === 'bookmarks') {
+      if (activeFolderId !== 'all') {
+        const f = bookmarkFolders[activeFolderId];
+        empty.innerHTML = `<span class="hist-empty-icon">${f?.emoji || '📁'}</span>No bookmarks in <b>${f?.name || 'this folder'}</b> yet.<br/>Tap ☆ Bookmark on any answer and choose this folder!`;
+      } else {
+        empty.innerHTML = '<span class="hist-empty-icon">⭐</span>No bookmarks yet.<br/>Tap ☆ Bookmark on any answer to save it here for later review!';
+      }
+    } else {
+      empty.innerHTML = '<span class="hist-empty-icon">📖</span>No saved answers yet.<br/>Ask a question to start your revision history!';
+    }
     list.appendChild(empty);
     return;
   }
 
   // Newest first, grouped by date
-  const reversed = [...sessionHistory].reverse();
+  const reversed = [...source].reverse();
 
   let lastLabel = null;
   reversed.forEach((item, idx) => {
@@ -2218,25 +2426,61 @@ function buildHistList() {
       prev.textContent = (item.question || '').replace(/\n/g, ' ');
     }
 
-    // persisted dot (all localStorage entries are "saved")
-    const dot = document.createElement('span');
-    dot.className = 'hist-saved-dot';
-    dot.title = 'Saved';
+    // bookmark star + folder badge + move button (shown if bookmarked)
+    if (bookmarkedIds.has(item.id)) {
+      const folder = getFolderForEntry(item.id);
+      const star = document.createElement('span');
+      star.style.cssText = 'font-size:0.8rem;flex-shrink:0;';
+      star.textContent = '⭐';
+      star.title = 'Bookmarked';
 
-    row.appendChild(num);
-    if (thumbEl) row.appendChild(thumbEl);
-    row.appendChild(chip);
-    row.appendChild(prev);
-    row.appendChild(dot);
+      row.appendChild(num);
+      if (thumbEl) row.appendChild(thumbEl);
+      row.appendChild(chip);
+      row.appendChild(prev);
+
+      // Folder badge (show in 'all' folder view so user knows which folder it's in)
+      if (folder && (activeFolderId === 'all' || histActiveTab !== 'bookmarks')) {
+        const badge = document.createElement('span');
+        badge.className = 'hist-folder-badge';
+        badge.textContent = folder.emoji + ' ' + folder.name;
+        row.appendChild(badge);
+      }
+
+      // Move button (only in bookmarks tab)
+      if (histActiveTab === 'bookmarks') {
+        const moveBtn = document.createElement('button');
+        moveBtn.className = 'hist-move-btn';
+        moveBtn.title = 'Move to folder';
+        moveBtn.textContent = '📂';
+        moveBtn.onclick = (e) => moveToFolder(item.id, e);
+        row.appendChild(moveBtn);
+      }
+
+      row.appendChild(star);
+    } else {
+      // persisted dot (all localStorage entries are "saved")
+      const dot = document.createElement('span');
+      dot.className = 'hist-saved-dot';
+      dot.title = 'Saved';
+      row.appendChild(num);
+      if (thumbEl) row.appendChild(thumbEl);
+      row.appendChild(chip);
+      row.appendChild(prev);
+      row.appendChild(dot);
+    }
+
     list.appendChild(row);
   });
 
-  // Clear history button at bottom
-  const clearBtn = document.createElement('button');
-  clearBtn.className = 'hist-clear-btn';
-  clearBtn.innerHTML = '🗑️ Clear All History';
-  clearBtn.onclick = clearAllHistory;
-  list.appendChild(clearBtn);
+  // Clear history button at bottom (only on All tab)
+  if (histActiveTab === 'all') {
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'hist-clear-btn';
+    clearBtn.innerHTML = '🗑️ Clear All History';
+    clearBtn.onclick = clearAllHistory;
+    list.appendChild(clearBtn);
+  }
 }
 
 function restoreHistItem(item) {
@@ -2270,10 +2514,13 @@ function restoreHistItem(item) {
   lastAnswerText = item.answer;
   lastPayload    = item.payload;
 
-  // 6. Show actions bar
+  // 6. Set bookmark button state for this item
+  setBookmarkBtnState(item.id);
+
+  // 7. Show actions bar
   showActionsBar();
 
-  // 7. Scroll to it
+  // 8. Scroll to it
   setTimeout(() => rc.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
@@ -3229,6 +3476,11 @@ async function askQuestion() {
     // Brief pause so hiding animation plays before answer appears
     setTimeout(() => {
       lastAnswerText = data.answer;
+      // FIX: Seed the conversation history so follow-ups have full context.
+      conversationHistory = [
+        { role: 'user',      content: payload.question || '' },
+        { role: 'assistant', content: data.answer },
+      ];
       typeText(rb, data.answer, payload, _imageDataUrl);
       rb.classList.add('reveal');
       rc.classList.remove('thinking');
@@ -3313,6 +3565,7 @@ function typeText(el, text, payload, imageDataUrl) {
 }
 // ── ANSWER ACTIONS ──
 let lastAnswerText = '';
+let conversationHistory = []; // tracks full chat thread across follow-ups
 let speakUtterance = null;
 let isSpeaking = false;
 
@@ -3324,6 +3577,7 @@ function showActionsBar() {
 }
 
 function hideActionsBar() {
+  conversationHistory = []; // reset conversation when a new question starts
   document.getElementById('ansActions').classList.remove('visible');
   // Also close follow-up if open
   document.getElementById('followupArea').classList.remove('open');
@@ -3334,6 +3588,13 @@ function hideActionsBar() {
   if (qb) qb.classList.remove('active');
   quizState = { questions: [], answers: [], score: 0, done: false };
   stopSpeak();
+  // Reset bookmark button (new question starting)
+  setBookmarkBtnState(null);
+  // Reset simpler button
+  const sb = document.getElementById('simplerBtn');
+  const sl = document.getElementById('simplerLabel');
+  if (sb) sb.classList.remove('loading');
+  if (sl) sl.textContent = 'Simpler';
 }
 
 // ── COPY ──
@@ -3433,18 +3694,24 @@ async function sendFollowup() {
   const q = input.value.trim();
   if (!q) return;
 
-  // Build follow-up payload — preserve image context if original was a photo
   const wasPhoto = lastPayload && lastPayload.mode === 'photo' && lastPayload.imageBase64;
-  const contextQ = wasPhoto
-    ? `${q}\n\n(This is a follow-up about the same image you already analysed. Answer this specific question about that image.)`
-    : `Previous answer for context:\n${lastAnswerText}\n\nFollow-up question: ${q}`;
+
+  // FIX: Build a proper conversation history array instead of stuffing the
+  // previous answer as plain text into the question string. This gives the AI
+  // real multi-turn context — it sees every Q&A round, not just the last one.
+  const updatedHistory = [
+    ...conversationHistory,
+    { role: 'user', content: q },
+  ];
+
   const payload = {
     ...lastPayload,
     lang: currentLang,
     mode: wasPhoto ? 'photo' : 'text',
-    question: contextQ,
+    question: q,                                       // clean question text
+    history: updatedHistory,                           // full conversation so far
     imageBase64: wasPhoto ? lastPayload.imageBase64 : undefined,
-    imageMime: wasPhoto ? lastPayload.imageMime : undefined,
+    imageMime:   wasPhoto ? lastPayload.imageMime   : undefined,
     uid: currentUser ? currentUser.uid : null,
   };
 
@@ -3458,6 +3725,9 @@ async function sendFollowup() {
   const rb = document.getElementById('resultBody');
   const rc = document.getElementById('resultCard');
   hideActionsBar();
+  // Re-seed history after hideActionsBar cleared it (hideActionsBar resets it for new questions,
+  // but we still need the previous context here for the ongoing follow-up thread).
+  conversationHistory = updatedHistory.slice(0, -1); // restore all but the new user message
   rb.classList.remove('reveal');
   rb.innerHTML = '';
   rc.classList.remove('answered');
@@ -3467,24 +3737,39 @@ async function sendFollowup() {
   rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   try {
-    const res  = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
     let data;
     try { data = await res.json(); } catch (_) { data = { error: `❌ Server error (${res.status}). Please try again.` }; }
-    stopThinkingMessages(); hideThinking();
+    stopThinkingMessages();
+    hideThinking();
+
     setTimeout(() => {
       if (!res.ok || data.error) {
         rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Something went wrong.'}</span>`;
       } else {
         lastAnswerText = data.answer;
-        lastPayload = { ...payload, question: q }; // store clean question for retranslate
+        lastPayload = { ...payload, question: q };
+        // FIX: Append the AI's reply to the history so the NEXT follow-up
+        // also has full context (supports unlimited follow-up rounds).
+        conversationHistory = [
+          ...updatedHistory,
+          { role: 'assistant', content: data.answer },
+        ];
         typeText(rb, data.answer, { ...payload, question: q }, null);
-        rc.classList.remove('thinking'); rc.classList.add('answered');
+        rc.classList.remove('thinking');
+        rc.classList.add('answered');
       }
       rb.classList.add('reveal');
       rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 320);
+
   } catch (e) {
-    stopThinkingMessages(); hideThinking();
+    stopThinkingMessages();
+    hideThinking();
     setTimeout(() => {
       rb.innerHTML = `<span style="color:var(--danger)">❌ Connection error. Please try again.</span>`;
       rb.classList.add('reveal');
@@ -3493,6 +3778,84 @@ async function sendFollowup() {
 }
 
 // Enter key on follow-up input — merged into main DOMContentLoaded below
+
+// ── SIMPLER (re-ask with simplify: true) ──
+async function simplifyAnswer() {
+  if (!lastPayload) return;
+
+  const btn = document.getElementById('simplerBtn');
+  const lbl = document.getElementById('simplerLabel');
+  if (btn.classList.contains('loading')) return; // already in flight
+
+  // Close follow-up / quiz if open
+  document.getElementById('followupArea').classList.remove('open');
+  document.getElementById('followBtn').style.borderColor = '';
+  document.getElementById('followBtn').style.color = '';
+  const qc = document.getElementById('quizCard');
+  if (qc) qc.style.display = 'none';
+  const qb = document.getElementById('quizBtn');
+  if (qb) qb.classList.remove('active');
+
+  // Button loading state
+  btn.classList.add('loading');
+  lbl.textContent = 'Simplifying…';
+
+  const rb = document.getElementById('resultBody');
+  const rc = document.getElementById('resultCard');
+  hideActionsBar();
+  rb.classList.remove('reveal');
+  rb.innerHTML = '';
+  rc.classList.remove('answered');
+  rc.classList.add('thinking');
+  showThinking();
+  startThinkingMessages();
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const payload = {
+    ...lastPayload,
+    lang: currentLang,
+    simplify: true,
+    uid: currentUser ? currentUser.uid : null,
+  };
+
+  try {
+    const res  = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    let data;
+    try { data = await res.json(); } catch (_) { data = { error: `❌ Server error (${res.status}). Please try again.` }; }
+    stopThinkingMessages();
+    hideThinking();
+
+    setTimeout(() => {
+      if (!res.ok || data.error) {
+        rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Could not simplify. Please try again.'}</span>`;
+        rc.classList.remove('thinking');
+        rc.classList.add('answered');
+      } else {
+        lastAnswerText = data.answer;
+        lastPayload = { ...payload };
+        typeText(rb, data.answer, { ...payload }, null);
+        rc.classList.remove('thinking');
+        rc.classList.add('answered');
+      }
+      rb.classList.add('reveal');
+      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 320);
+
+  } catch (e) {
+    stopThinkingMessages();
+    hideThinking();
+    setTimeout(() => {
+      rb.innerHTML = `<span style="color:var(--danger)">❌ Connection error. Please try again.</span>`;
+      rb.classList.add('reveal');
+      rc.classList.remove('thinking');
+      rc.classList.add('answered');
+    }, 320);
+  }
+}
 
 function fmt(t) {
   // ── Helper: render a LaTeX string with KaTeX (mhchem loaded, so \ce{} works inside math too)
@@ -4026,6 +4389,304 @@ function updateQuizScore() {
 
 
 // ══════════════════════════════════════════════════════
+// ── BOOKMARK / "MY DOUBTS" SYSTEM ─────────────────────
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// ── BOOKMARK + FOLDER SYSTEM ──────────────────────────
+// ══════════════════════════════════════════════════════
+
+const BOOKMARK_KEY = 'studylens_bookmarks_v1';
+const FOLDERS_KEY  = 'studylens_folders_v1';
+
+let bookmarkedIds     = new Set();  // Set of bookmarked entry ids
+let currentHistItemId = null;       // id of history entry currently shown
+let histActiveTab     = 'all';      // 'all' | 'bookmarks'
+let activeFolderId    = 'all';      // 'all' or a folder id — active filter in bookmarks tab
+let _folderPickerCallback = null;   // resolve fn for folder picker promise
+
+// Default folders created on first use
+const DEFAULT_FOLDERS = [
+  { id: 'general', name: 'General',     emoji: '📌' },
+  { id: 'exam',    name: 'Exam Prep',   emoji: '📝' },
+  { id: 'weak',    name: 'Weak Topics', emoji: '⚠️' },
+];
+
+// bookmarkFolders: { folderId: { id, name, emoji, ids: [] } }
+let bookmarkFolders = {};
+
+// ── Load ──────────────────────────────────────────────
+function loadBookmarks() {
+  try {
+    const raw = localStorage.getItem(BOOKMARK_KEY);
+    if (raw) bookmarkedIds = new Set(JSON.parse(raw));
+  } catch(_) { bookmarkedIds = new Set(); }
+  sessionHistory.forEach(e => { if (e.bookmarked) bookmarkedIds.add(e.id); });
+
+  // Load folders
+  try {
+    const rawF = localStorage.getItem(FOLDERS_KEY);
+    if (rawF) {
+      const parsed = JSON.parse(rawF);
+      bookmarkFolders = {};
+      for (const f of parsed) {
+        bookmarkFolders[f.id] = { ...f, ids: new Set(f.ids || []) };
+      }
+    }
+  } catch(_) {}
+
+  // Create defaults if missing
+  for (const def of DEFAULT_FOLDERS) {
+    if (!bookmarkFolders[def.id]) {
+      bookmarkFolders[def.id] = { ...def, ids: new Set() };
+    }
+  }
+
+  // Migrate: any bookmarked id not in any folder → put in General
+  bookmarkedIds.forEach(id => {
+    const inFolder = Object.values(bookmarkFolders).some(f => f.ids.has(id));
+    if (!inFolder) bookmarkFolders['general'].ids.add(id);
+  });
+}
+
+// ── Persist ───────────────────────────────────────────
+function persistBookmarks() {
+  try { localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...bookmarkedIds])); } catch(_) {}
+}
+
+function persistFolders() {
+  try {
+    const arr = Object.values(bookmarkFolders).map(f => ({
+      id: f.id, name: f.name, emoji: f.emoji, ids: [...f.ids],
+    }));
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(arr));
+  } catch(_) {}
+}
+
+// ── Folder helpers ────────────────────────────────────
+function getFolderForEntry(entryId) {
+  for (const f of Object.values(bookmarkFolders)) {
+    if (f.ids.has(entryId)) return f;
+  }
+  return null;
+}
+
+function addToFolder(folderId, entryId) {
+  // Remove from all other folders first
+  Object.values(bookmarkFolders).forEach(f => f.ids.delete(entryId));
+  if (bookmarkFolders[folderId]) bookmarkFolders[folderId].ids.add(entryId);
+  persistFolders();
+}
+
+function removeFromAllFolders(entryId) {
+  Object.values(bookmarkFolders).forEach(f => f.ids.delete(entryId));
+  persistFolders();
+}
+
+// ── Folder picker (bottom sheet) ──────────────────────
+function openFolderPicker(currentFolderId, title) {
+  return new Promise(resolve => {
+    _folderPickerCallback = resolve;
+    const titleEl = document.querySelector('.folder-picker-title');
+    if (titleEl) titleEl.textContent = title || 'Save to folder';
+
+    const list = document.getElementById('folderPickerList');
+    list.innerHTML = '';
+
+    Object.values(bookmarkFolders).forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'folder-picker-item' + (f.id === currentFolderId ? ' selected' : '');
+      item.innerHTML = `
+        <span class="folder-picker-emoji">${f.emoji}</span>
+        <span class="folder-picker-name">${f.name}</span>
+        <span class="folder-picker-cnt">${f.ids.size} saved</span>`;
+      item.onclick = () => { closeFolderPicker(); resolve(f.id); };
+      list.appendChild(item);
+    });
+
+    // New folder option
+    const newBtn = document.createElement('button');
+    newBtn.className = 'folder-picker-new';
+    newBtn.innerHTML = '➕ &nbsp;Create new folder';
+    newBtn.onclick = () => {
+      closeFolderPicker();
+      createNewFolder().then(resolve);
+    };
+    list.appendChild(newBtn);
+
+    document.getElementById('folderPickerBackdrop').classList.add('open');
+  });
+}
+
+function closeFolderPicker() {
+  document.getElementById('folderPickerBackdrop').classList.remove('open');
+  _folderPickerCallback = null;
+}
+
+async function createNewFolder() {
+  const name = prompt('📁 Folder name (e.g. "Physics", "Revision"):');
+  if (!name || !name.trim()) return null;
+  const emojis = ['📂','🔵','🟣','🟠','🟢','🔴','⭐','🏆','💡','🎯'];
+  const emoji   = emojis[Object.keys(bookmarkFolders).length % emojis.length];
+  const id      = 'folder_' + Date.now();
+  bookmarkFolders[id] = { id, name: name.trim(), emoji, ids: new Set() };
+  persistFolders();
+  return id;
+}
+
+// ── Toggle bookmark ───────────────────────────────────
+function toggleBookmark() {
+  if (!currentHistItemId) return;
+
+  const btn  = document.getElementById('bookmarkBtn');
+  const icon = document.getElementById('bookmarkIcon');
+  const lbl  = document.getElementById('bookmarkLabel');
+
+  if (bookmarkedIds.has(currentHistItemId)) {
+    // ── Remove bookmark ──
+    bookmarkedIds.delete(currentHistItemId);
+    removeFromAllFolders(currentHistItemId);
+    btn.classList.remove('bookmarked');
+    icon.textContent = '☆';
+    lbl.textContent = 'Bookmark';
+    const entry = sessionHistory.find(e => e.id === currentHistItemId);
+    if (entry) { entry.bookmarked = false; persistHistory(); }
+    persistBookmarks();
+    showBookmarkToast('Bookmark removed');
+  } else {
+    // ── Add bookmark — save instantly to General ──
+    bookmarkedIds.add(currentHistItemId);
+    addToFolder('general', currentHistItemId);
+    btn.classList.add('bookmarked');
+    icon.textContent = '⭐';
+    lbl.textContent = 'Bookmarked';
+    const entry = sessionHistory.find(e => e.id === currentHistItemId);
+    if (entry) { entry.bookmarked = true; persistHistory(); }
+    persistBookmarks();
+
+    // Show folder hint toast once, plain "Saved!" after that
+    const hintShown = localStorage.getItem('studylens_folder_hint_shown');
+    if (!hintShown) {
+      localStorage.setItem('studylens_folder_hint_shown', '1');
+      showBookmarkToast('⭐ Saved! Tap 📂 in My Doubts to organize into folders');
+    } else {
+      showBookmarkToast('⭐ Saved to My Doubts!');
+    }
+  }
+  updateHistTabCounts();
+  if (histActiveTab === 'bookmarks') buildHistList();
+}
+
+// ── Move entry to a different folder ─────────────────
+async function moveToFolder(entryId, e) {
+  e && e.stopPropagation();
+  const cur = getFolderForEntry(entryId);
+  const chosen = await openFolderPicker(cur?.id || 'general', 'Move to folder');
+  if (!chosen) return;
+  addToFolder(chosen, entryId);
+  const fName = bookmarkFolders[chosen]?.name || 'folder';
+  showBookmarkToast(`📂 Moved to ${fName}`);
+  buildHistList();
+}
+
+function setBookmarkBtnState(itemId) {
+  currentHistItemId = itemId || null;
+  const btn  = document.getElementById('bookmarkBtn');
+  const icon = document.getElementById('bookmarkIcon');
+  const lbl  = document.getElementById('bookmarkLabel');
+  if (!btn) return;
+  if (itemId && bookmarkedIds.has(itemId)) {
+    btn.classList.add('bookmarked');
+    icon.textContent = '⭐';
+    lbl.textContent = 'Bookmarked';
+  } else {
+    btn.classList.remove('bookmarked');
+    icon.textContent = '☆';
+    lbl.textContent = 'Bookmark';
+  }
+}
+
+// ── Build folder pills bar ────────────────────────────
+function buildFolderPills() {
+  const bar = document.getElementById('folderPillsBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  // "All ★" pill
+  const allPill = document.createElement('div');
+  allPill.className = 'folder-pill' + (activeFolderId === 'all' ? ' active' : '');
+  const allCount = bookmarkedIds.size;
+  allPill.innerHTML = `⭐ All <span class="fp-count">${allCount}</span>`;
+  allPill.onclick = () => { activeFolderId = 'all'; buildFolderPills(); buildHistList(); };
+  bar.appendChild(allPill);
+
+  // One pill per folder (only show folders that have items OR are defaults)
+  Object.values(bookmarkFolders).forEach(f => {
+    const cnt = [...f.ids].filter(id => bookmarkedIds.has(id)).length;
+    if (cnt === 0 && !DEFAULT_FOLDERS.find(d => d.id === f.id)) return; // hide empty custom folders
+    const pill = document.createElement('div');
+    pill.className = 'folder-pill' + (activeFolderId === f.id ? ' active' : '');
+    pill.innerHTML = `${f.emoji} ${f.name} <span class="fp-count">${cnt}</span>`;
+    pill.onclick = () => { activeFolderId = f.id; buildFolderPills(); buildHistList(); };
+    bar.appendChild(pill);
+  });
+
+  // + New folder pill
+  const addPill = document.createElement('div');
+  addPill.className = 'folder-pill add-folder-pill';
+  addPill.innerHTML = '＋ New';
+  addPill.onclick = async () => {
+    const id = await createNewFolder();
+    if (id) { activeFolderId = id; buildFolderPills(); buildHistList(); }
+  };
+  bar.appendChild(addPill);
+}
+
+function switchHistTab(tab) {
+  histActiveTab = tab;
+  const tabAll  = document.getElementById('histTabAll');
+  const tabBkm  = document.getElementById('histTabBookmarks');
+  tabAll.className  = 'hist-tab' + (tab === 'all'       ? ' active-all'       : '');
+  tabBkm.className  = 'hist-tab' + (tab === 'bookmarks' ? ' active-bookmarks' : '');
+  // Show folder pills only in bookmarks tab
+  const pillsBar = document.getElementById('folderPillsBar');
+  if (pillsBar) {
+    if (tab === 'bookmarks') {
+      pillsBar.style.display = 'flex';
+      buildFolderPills();
+    } else {
+      pillsBar.style.display = 'none';
+      activeFolderId = 'all'; // reset folder filter when leaving bookmarks tab
+    }
+  }
+  buildHistList();
+}
+
+function updateHistTabCounts() {
+  const total = sessionHistory.length;
+  const bkmCount = sessionHistory.filter(e => bookmarkedIds.has(e.id)).length;
+  const allCountEl = document.getElementById('histTabAllCount');
+  const bkmCountEl = document.getElementById('histTabBookmarkCount');
+  if (allCountEl) allCountEl.textContent = total;
+  if (bkmCountEl) bkmCountEl.textContent = bkmCount;
+}
+
+// Toast for bookmark feedback (reuse profileToast styling)
+let _bkmToastTimer = null;
+function showBookmarkToast(msg) {
+  const toast = document.getElementById('profileToast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if (_bkmToastTimer) clearTimeout(_bkmToastTimer);
+  // Longer display for the one-time folder hint (it's longer text)
+  const duration = msg.includes('organize') ? 3800 : 2200;
+  _bkmToastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+// ── END BOOKMARK SYSTEM ───────────────────────────────
+
+
+// ══════════════════════════════════════════════════════
 // ── FAMILY PROFILES SYSTEM ────────────────────────────
 // ══════════════════════════════════════════════════════
 const PROFILES_KEY = 'studylens_profiles_v1';
@@ -4402,13 +5063,18 @@ window.openProfileModal   = openProfileModal;
 window.closeProfileModal  = closeProfileModal;
 window.confirmSaveProfile = confirmSaveProfile;
 window.deleteProfile      = deleteProfile;
+window.toggleBookmark     = toggleBookmark;
+window.switchHistTab      = switchHistTab;
+window.simplifyAnswer     = simplifyAnswer;
 // ── END GLOBAL EXPOSURE ───────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
   // Load localStorage immediately so app works even before Firebase responds
   loadPersistedHistory();
   loadProfiles();
+  loadBookmarks();
   updateHistPill();
+  updateHistTabCounts();
   renderProfilesBar();
 
   applyLang('en'); updateStepper();
