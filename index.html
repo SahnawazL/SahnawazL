@@ -312,7 +312,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .cls-chip.sel .cls-sub { color: rgba(79,142,247,0.8); }
 
 /* BOARD SELECTOR */
-.board-grid { padding: 0.65rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+.board-grid { padding: 0.65rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
 .board-chip { background: var(--surface2); border: 2px solid var(--border); border-radius: 13px; padding: 0.9rem 0.5rem 0.75rem; text-align: center; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
 .board-chip:hover { border-color: var(--accent); background: rgba(79,142,247,0.1); }
 .board-chip.sel { border-color: var(--accent); background: rgba(79,142,247,0.18); box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
@@ -1344,6 +1344,20 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .hist-list::-webkit-scrollbar { width: 3px; }
 .hist-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+/* HISTORY SEARCH */
+.hist-search-wrap {
+  padding: 0.4rem 0.9rem 0.35rem; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.hist-search-input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 0.4rem 0.75rem; font-family: var(--font-body);
+  font-size: 0.8rem; color: var(--text); outline: none;
+  transition: border-color 0.2s;
+}
+.hist-search-input::placeholder { color: var(--muted); }
+.hist-search-input:focus { border-color: var(--accent); }
+
 /* HISTORY ROW — single slim line */
 .hist-row {
   display: flex; align-items: center; gap: 0.55rem;
@@ -1954,6 +1968,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     </div>
     <!-- Folder pills — shown only in bookmarks tab -->
     <div class="folder-pills-bar" id="folderPillsBar" style="display:none;"></div>
+    <!-- Bug 8 fix: search bar -->
+    <div class="hist-search-wrap" id="histSearchWrap">
+      <input type="search" class="hist-search-input" id="histSearchInput"
+        placeholder="🔍 Search questions or subjects…"
+        oninput="buildHistList()" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    </div>
     <div class="hist-list" id="histList"></div>
   </div>
 
@@ -2293,6 +2313,14 @@ function initFirebaseAuth() {
     sessionHistory  = await FB.loadHistoryFromFirestore(user.uid);
     familyProfiles  = await FB.loadProfilesFromFirestore(user.uid);
 
+    // FIX Bug 7: Track highest seqNum seen from Firestore so new questions
+    // always continue the correct sequence even if the cloud load returns
+    // fewer entries than localStorage (or returns [] on error).
+    if (sessionHistory.length > 0) {
+      const maxSeen = Math.max(...sessionHistory.map(e => e.seqNum || 0));
+      if (maxSeen > 0) window._maxCloudSeqNum = maxSeen;
+    }
+
     // ── Load bookmarks from Firestore and re-sync ──
     const bkmData = await FB.loadBookmarksFromFirestore(user.uid);
     if (bkmData && Array.isArray(bkmData.ids)) {
@@ -2453,7 +2481,11 @@ async function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
   const subjEmoji = selSubj ? selSubj.emoji : '';
   const safeHtml  = (answerHtml && answerHtml.trim()) ? answerHtml : fmt(answerText);
 
-  const seqNum = sessionHistory.length + 1;
+  // FIX Bug 7: Use the higher of sessionHistory.length vs maxCloudSeqNum so
+  // the sequence never resets to a lower number when Firestore load failed
+  // and fell back to a shorter localStorage array.
+  const seqNum = Math.max(sessionHistory.length, window._maxCloudSeqNum || 0) + 1;
+  window._maxCloudSeqNum = seqNum; // keep it updated for subsequent questions
   const id     = Date.now();
 
   // Placeholder entry first (no thumbnail yet) — pill updates immediately
@@ -2528,6 +2560,9 @@ function toggleHistSheet() {
 function closeHistSheet() {
   document.getElementById('histSheet').classList.remove('open');
   document.getElementById('histBackdrop').classList.remove('open');
+  // Clear search so it doesn't persist to next open
+  const si = document.getElementById('histSearchInput');
+  if (si) si.value = '';
 }
 
 function clearAllHistory() {
@@ -2560,10 +2595,22 @@ function buildHistList() {
     source = sessionHistory;
   }
 
+  // FIX Bug 8: Search filter — match question text or subject name
+  const searchTerm = (document.getElementById('histSearchInput')?.value || '').trim().toLowerCase();
+  if (searchTerm) {
+    source = source.filter(e => {
+      const q = (e.question || '').toLowerCase();
+      const s = (e.subject || '').toLowerCase();
+      return q.includes(searchTerm) || s.includes(searchTerm);
+    });
+  }
+
   if (source.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'hist-empty-state';
-    if (histActiveTab === 'bookmarks') {
+    if (searchTerm) {
+      empty.innerHTML = `<span class="hist-empty-icon">🔍</span>No results for "<b>${searchTerm}</b>".<br/>Try a different word or subject name.`;
+    } else if (histActiveTab === 'bookmarks') {
       if (activeFolderId !== 'all') {
         const f = bookmarkFolders[activeFolderId];
         empty.innerHTML = `<span class="hist-empty-icon">${f?.emoji || '📁'}</span>No bookmarks in <b>${f?.name || 'this folder'}</b> yet.<br/>Tap ☆ Bookmark on any answer and choose this folder!`;
@@ -2603,11 +2650,15 @@ function buildHistList() {
     num.textContent = 'Q' + (item.seqNum || (sessionHistory.length - idx));
 
     // thumbnail (photo mode only)
+    // FIX Bug 6: Use imageStorageUrl (Firebase Storage) as fallback if no
+    // local thumbnail — this happens when history is loaded from Firestore
+    // (imageDataUrl is not stored there to keep docs small).
     let thumbEl = null;
-    if (item.mode === 'photo' && item.imageDataUrl) {
+    const thumbSrc = item.imageDataUrl || item.imageStorageUrl || null;
+    if (item.mode === 'photo' && thumbSrc) {
       thumbEl = document.createElement('img');
       thumbEl.className = 'hist-thumb';
-      thumbEl.src = item.imageDataUrl;
+      thumbEl.src = thumbSrc;
       thumbEl.alt = '';
     }
 
@@ -2706,6 +2757,20 @@ function restoreHistItem(item) {
   injectSVGs(rb);
   rb.classList.add('reveal');
 
+  // FIX Bug 6: If this is a photo entry, show the image above the answer.
+  // imageStorageUrl comes from Firestore (set by backend after upload).
+  // imageDataUrl is the local thumbnail (may be absent for Firestore-loaded entries).
+  const imgSrc = item.imageDataUrl || item.imageStorageUrl || null;
+  const existingRestored = document.getElementById('restoredPhotoImg');
+  if (existingRestored) existingRestored.remove();
+  if (item.mode === 'photo' && imgSrc) {
+    const imgEl = document.createElement('img');
+    imgEl.id = 'restoredPhotoImg';
+    imgEl.src = imgSrc;
+    imgEl.style.cssText = 'width:100%;max-height:220px;object-fit:contain;border-radius:10px;margin-bottom:0.7rem;display:block;';
+    rb.prepend(imgEl);
+  }
+
   // 4. Hide thinking panel just in case
   const tp = document.getElementById('thinkingPanel');
   if (tp) tp.classList.remove('visible');
@@ -2803,8 +2868,9 @@ function updateStep3HeaderPhoto() {
 }
 
 const BOARDS = [
-  { id: 'asseb', name: 'ASSEB (State)', shortName: 'ASSEB', desc: 'Assam State Board', hint: 'SEBA (1–10) · AHSEC (11–12)' },
-  { id: 'cbse',  name: 'CBSE',          shortName: 'CBSE',  desc: 'Central Board',    hint: 'NCERT Curriculum' },
+  { id: 'asseb', name: 'ASSEB (State)', shortName: 'ASSEB', desc: 'Assam State Board',  hint: 'SEBA (1–10) · AHSEC (11–12)' },
+  { id: 'cbse',  name: 'CBSE',          shortName: 'CBSE',  desc: 'Central Board',      hint: 'NCERT Curriculum' },
+  { id: 'icse',  name: 'ICSE / ISC',    shortName: 'ICSE',  desc: 'Council — CISCE',   hint: 'ICSE (1–10) · ISC (11–12)' },
 ];
 
 const CLASSES = [
@@ -2837,6 +2903,7 @@ const SUBJECT_MAP = {
     {key:'hindi',     emoji:'हि', subject:'Hindi (Basic)'},
     {key:'assamese',  emoji:'অ',  subject:'Assamese (Basic)'},
     {key:'bengali',   emoji:'বা', subject:'Bengali (Basic)'},
+    {key:'bodo',      emoji:'ब',  subject:'Bodo (Basic)'},
     {key:'lifeskills',emoji:'🌟', subject:'Life Skills & Habits'},
   ],
   // KG2 (UKG) — age 4-5
@@ -2852,30 +2919,66 @@ const SUBJECT_MAP = {
     {key:'hindi',     emoji:'हि', subject:'Hindi'},
     {key:'assamese',  emoji:'অ',  subject:'Assamese'},
     {key:'bengali',   emoji:'বা', subject:'Bengali'},
+    {key:'bodo',      emoji:'ब',  subject:'Bodo'},
     {key:'lifeskills',emoji:'🌟', subject:'Life Skills & Good Habits'},
   ],
-  // Class 1–10 (any board)
+  // ── Class 1–5 (Lower Primary / Primary) ──────────────────────────────────
+  // SCERT Assam LP school books: Mother tongue, English, Maths, EVS only.
+  primary: [
+    {key:'math',      emoji:'🔢', subject:'Mathematics'},
+    {key:'eng',       emoji:'🔤', subject:'English'},
+    {key:'assamese',  emoji:'অ',  subject:'Assamese'},
+    {key:'bengali',   emoji:'বা', subject:'Bengali'},
+    {key:'bodo',      emoji:'ब',  subject:'Bodo'},
+    {key:'hindi',     emoji:'हि', subject:'Hindi'},
+    {key:'evs',       emoji:'🌿', subject:'EVS (Environmental Studies)'},
+    {key:'artcraft',  emoji:'🎨', subject:'Art & Craft'},
+    {key:'moral',     emoji:'🙏', subject:'Moral Science / Value Education'},
+    {key:'gk',        emoji:'🌍', subject:'General Knowledge'},
+  ],
+  // ── Class 6–8 (Upper Primary / Middle School) ─────────────────────────────
+  // SEBA/SCERT: Maths, General Science, Social Science, English, MIL, Hindi,
+  // Computer Science, Sanskrit (optional).
+  upper_primary: [
+    {key:'math',      emoji:'🔢', subject:'Mathematics'},
+    {key:'science',   emoji:'🔬', subject:'General Science'},
+    {key:'sst',       emoji:'🗺️', subject:'Social Science'},
+    {key:'eng',       emoji:'🔤', subject:'English'},
+    {key:'assamese',  emoji:'অ',  subject:'Assamese'},
+    {key:'bengali',   emoji:'বা', subject:'Bengali'},
+    {key:'bodo',      emoji:'ब',  subject:'Bodo'},
+    {key:'hindi',     emoji:'हि', subject:'Hindi'},
+    {key:'sanskrit',  emoji:'🕉️', subject:'Sanskrit'},
+    {key:'computer',  emoji:'💻', subject:'Computer Science'},
+    {key:'artcraft',  emoji:'🎨', subject:'Art & Craft'},
+    {key:'moral',     emoji:'🙏', subject:'Moral Science'},
+    {key:'gk',        emoji:'🌍', subject:'General Knowledge'},
+  ],
+  // ── Class 9–10 (Secondary / SEBA HSLC) ───────────────────────────────────
+  // Core: English (C1), Gen. Maths (C2), Gen. Science (C3), Social Science (C4)
+  // Optional/elective: Advanced Maths, Computer, Sanskrit, Arabic, IT/ITES, Home Science
   any_lower: [
-    {key:'math',   emoji:'🔢', subject:'Mathematics'},
-    {key:'science',emoji:'🔬', subject:'Science'},
-    {key:'eng1',   emoji:'🔤', subject:'English (First Language)'},
-    {key:'eng2',   emoji:'📝', subject:'English (Second Language)'},
-    {key:'assamese',emoji:'অ', subject:'Assamese'},
-    {key:'bengali',emoji:'বা', subject:'Bengali'},
-    {key:'hindi',  emoji:'हि', subject:'Hindi'},
-    {key:'evs',    emoji:'🌿', subject:'EVS'},
-    {key:'sst',    emoji:'🗺️', subject:'Social Studies'},
-    {key:'gk',     emoji:'🌍', subject:'General Knowledge'},
-    {key:'computer',emoji:'💻',subject:'Computer Science'},
-    {key:'moral',  emoji:'🙏', subject:'Moral Science'},
-    {key:'history',emoji:'🏛️', subject:'History & Civics'},
-    {key:'geo',    emoji:'🧭', subject:'Geography'},
-    {key:'sanskrit',emoji:'🕉️',subject:'Sanskrit'},
-    {key:'arabic', emoji:'📖', subject:'Arabic'},
-    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+    {key:'math',       emoji:'🔢', subject:'Mathematics (General)'},
+    {key:'advmath',    emoji:'📐', subject:'Advanced Mathematics'},
+    {key:'science',    emoji:'🔬', subject:'General Science'},
+    {key:'sst',        emoji:'🗺️', subject:'Social Science'},
+    {key:'history',    emoji:'🏛️', subject:'History'},
+    {key:'geo',        emoji:'🧭', subject:'Geography'},
+    {key:'polsci',     emoji:'🗳️', subject:'Political Science'},
+    {key:'economics',  emoji:'💰', subject:'Economics'},
+    {key:'eng',        emoji:'🔤', subject:'English'},
+    {key:'assamese',   emoji:'অ',  subject:'Assamese (MIL)'},
+    {key:'bengali',    emoji:'বা', subject:'Bengali (MIL)'},
+    {key:'hindi',      emoji:'हि', subject:'Hindi (MIL)'},
+    {key:'computer',   emoji:'💻', subject:'Computer Science'},
+    {key:'sanskrit',   emoji:'🕉️', subject:'Sanskrit'},
+    {key:'arabic',     emoji:'📖', subject:'Arabic'},
+    {key:'homescience',emoji:'🏠', subject:'Home Science'},
+    {key:'itites',     emoji:'📟', subject:'IT / ITES (Vocational)'},
   ],
   asseb_science: [
     {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'alteng', emoji:'📝', subject:'Alternative English'},
     {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
     {key:'physics',emoji:'⚛️', subject:'Physics'},
     {key:'chemistry',emoji:'🧪',subject:'Chemistry'},
@@ -2887,38 +2990,45 @@ const SUBJECT_MAP = {
     {key:'stats',  emoji:'📊', subject:'Statistics'},
   ],
   asseb_arts: [
-    {key:'eng',    emoji:'🔤', subject:'English'},
-    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
-    {key:'history',emoji:'🏛️', subject:'History'},
-    {key:'polsci', emoji:'🏛️', subject:'Political Science'},
-    {key:'economics',emoji:'💰',subject:'Economics'},
-    {key:'geo',    emoji:'🧭', subject:'Geography'},
-    {key:'education',emoji:'📚',subject:'Education'},
-    {key:'psychology',emoji:'🧠',subject:'Psychology'},
-    {key:'sociology',emoji:'👥',subject:'Sociology'},
-    {key:'logic',  emoji:'💡', subject:'Logic & Philosophy'},
-    {key:'math',   emoji:'🔢', subject:'Mathematics'},
-    {key:'stats',  emoji:'📊', subject:'Statistics'},
-    {key:'homescience',emoji:'🏠',subject:'Home Science'},
-    {key:'sanskrit',emoji:'🕉️',subject:'Sanskrit Adhyayan'},
+    {key:'eng',       emoji:'🔤', subject:'English'},
+    {key:'alteng',    emoji:'📝', subject:'Alternative English'},
+    {key:'mil',       emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'history',   emoji:'🏛️', subject:'History'},
+    {key:'polsci',    emoji:'🗳️', subject:'Political Science'},
+    {key:'economics', emoji:'💰', subject:'Economics'},
+    {key:'geo',       emoji:'🧭', subject:'Geography'},
+    {key:'education', emoji:'📚', subject:'Education'},
+    {key:'psychology',emoji:'🧠', subject:'Psychology'},
+    {key:'sociology', emoji:'👥', subject:'Sociology'},
+    {key:'anthropo',  emoji:'🦴', subject:'Anthropology'},
+    {key:'logic',     emoji:'💡', subject:'Logic & Philosophy'},
+    {key:'math',      emoji:'🔢', subject:'Mathematics'},
+    {key:'stats',     emoji:'📊', subject:'Statistics'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science (Community Science)'},
+    {key:'sanskrit',  emoji:'🕉️', subject:'Sanskrit Adhyayan'},
+    {key:'swadesh',   emoji:'🇮🇳', subject:'Swadesh Adhyayan'},
   ],
   asseb_commerce: [
-    {key:'eng',    emoji:'🔤', subject:'English'},
-    {key:'mil',    emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
+    {key:'eng',      emoji:'🔤', subject:'English'},
+    {key:'alteng',   emoji:'📝', subject:'Alternative English'},
+    {key:'mil',      emoji:'অ',  subject:'MIL (Assamese/Bengali/Hindi)'},
     {key:'accountancy',emoji:'📒',subject:'Accountancy'},
     {key:'bizstudies',emoji:'💼',subject:'Business Studies'},
-    {key:'economics',emoji:'💰',subject:'Economics'},
-    {key:'math',   emoji:'🔢', subject:'Mathematics/Business Maths'},
-    {key:'salesmgmt',emoji:'🤝',subject:'Sales Management'},
-    {key:'insurance',emoji:'🔐',subject:'Insurance'},
-    {key:'finance',emoji:'💵', subject:'Finance'},
-    {key:'ecogeo', emoji:'🌐', subject:'Economic Geography'},
-    {key:'computer',emoji:'💻',subject:'Computer Applications'},
-    {key:'entrep', emoji:'🚀', subject:'Entrepreneurship'},
-    {key:'stats',  emoji:'📊', subject:'Statistics'},
+    {key:'economics',emoji:'💰', subject:'Economics'},
+    {key:'math',     emoji:'🔢', subject:'Mathematics/Business Maths'},
+    {key:'salesmgmt',emoji:'🤝', subject:'Sales Management & Advertising'},
+    {key:'insurance',emoji:'🔐', subject:'Insurance'},
+    {key:'banking',  emoji:'🏦', subject:'Banking'},
+    {key:'finance',  emoji:'💵', subject:'Finance'},
+    {key:'ecogeo',   emoji:'🌐', subject:'Economic Geography'},
+    {key:'computer', emoji:'💻', subject:'Computer Applications'},
+    {key:'multimedia',emoji:'🖥️',subject:'Multimedia & Web Technology'},
+    {key:'entrep',   emoji:'🚀', subject:'Entrepreneurship Development'},
+    {key:'stats',    emoji:'📊', subject:'Statistics'},
   ],
   cbse_science: [
     {key:'eng',    emoji:'🔤', subject:'English'},
+    {key:'hindi',  emoji:'हि', subject:'Hindi'},
     {key:'physics',emoji:'⚛️', subject:'Physics'},
     {key:'chemistry',emoji:'🧪',subject:'Chemistry'},
     {key:'math',   emoji:'🔢', subject:'Mathematics'},
@@ -2932,13 +3042,15 @@ const SUBJECT_MAP = {
     {key:'eng',    emoji:'🔤', subject:'English'},
     {key:'hindi',  emoji:'हि', subject:'Hindi'},
     {key:'history',emoji:'🏛️', subject:'History'},
-    {key:'polsci', emoji:'🏛️', subject:'Political Science'},
+    {key:'polsci', emoji:'🗳️', subject:'Political Science'},
     {key:'economics',emoji:'💰',subject:'Economics'},
     {key:'geo',    emoji:'🧭', subject:'Geography'},
     {key:'psychology',emoji:'🧠',subject:'Psychology'},
     {key:'sociology',emoji:'👥',subject:'Sociology'},
     {key:'math',   emoji:'🔢', subject:'Mathematics'},
     {key:'finearts',emoji:'🎨',subject:'Fine Arts'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+    {key:'legal',  emoji:'⚖️', subject:'Legal Studies'},
     {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
   ],
   cbse_commerce: [
@@ -2952,12 +3064,62 @@ const SUBJECT_MAP = {
     {key:'entrep', emoji:'🚀', subject:'Entrepreneurship'},
     {key:'phyed',  emoji:'🏃', subject:'Physical Education'},
   ],
+  // ── ICSE / ISC (Class 11–12) ─────────────────────────────────────────────
+  icse_science: [
+    {key:'eng',        emoji:'🔤', subject:'English'},
+    {key:'envedu',     emoji:'🌿', subject:'Environmental Education'},
+    {key:'physics',    emoji:'⚛️', subject:'Physics'},
+    {key:'chemistry',  emoji:'🧪', subject:'Chemistry'},
+    {key:'math',       emoji:'🔢', subject:'Mathematics'},
+    {key:'biology',    emoji:'🧬', subject:'Biology'},
+    {key:'computer',   emoji:'💻', subject:'Computer Science'},
+    {key:'envscience', emoji:'🌎', subject:'Environmental Science'},
+    {key:'biotech',    emoji:'🔭', subject:'Biotechnology'},
+    {key:'homescience',emoji:'🏠', subject:'Home Science'},
+    {key:'phyed',      emoji:'🏃', subject:'Physical Education'},
+  ],
+  icse_arts: [
+    {key:'eng',       emoji:'🔤', subject:'English'},
+    {key:'envedu',    emoji:'🌿', subject:'Environmental Education'},
+    {key:'history',   emoji:'🏛️', subject:'History'},
+    {key:'polsci',    emoji:'🗳️', subject:'Political Science'},
+    {key:'economics', emoji:'💰', subject:'Economics'},
+    {key:'geo',       emoji:'🧭', subject:'Geography'},
+    {key:'psychology',emoji:'🧠', subject:'Psychology'},
+    {key:'sociology', emoji:'👥', subject:'Sociology'},
+    {key:'finearts',  emoji:'🎨', subject:'Art & Craft'},
+    {key:'math',      emoji:'🔢', subject:'Mathematics'},
+    {key:'homescience',emoji:'🏠',subject:'Home Science'},
+    {key:'sanskrit',  emoji:'🕉️', subject:'Sanskrit'},
+    {key:'phyed',     emoji:'🏃', subject:'Physical Education'},
+  ],
+  icse_commerce: [
+    {key:'eng',         emoji:'🔤', subject:'English'},
+    {key:'envedu',      emoji:'🌿', subject:'Environmental Education'},
+    {key:'accountancy', emoji:'📒', subject:'Accounts'},
+    {key:'bizstudies',  emoji:'💼', subject:'Commerce'},
+    {key:'economics',   emoji:'💰', subject:'Economics'},
+    {key:'math',        emoji:'🔢', subject:'Mathematics'},
+    {key:'computer',    emoji:'💻', subject:'Computer Applications'},
+    {key:'entrep',      emoji:'🚀', subject:'Entrepreneurship'},
+    {key:'phyed',       emoji:'🏃', subject:'Physical Education'},
+  ],
 };
 
 function getSubjects() {
-  if (selClass && (selClass.id === 'kg1')) return SUBJECT_MAP.kg1;
-  if (selClass && (selClass.id === 'kg2')) return SUBJECT_MAP.kg2;
-  if (!isHigherSecondary()) return SUBJECT_MAP.any_lower;
+  if (!selClass) return SUBJECT_MAP.any_lower;
+  if (selClass.id === 'kg1') return SUBJECT_MAP.kg1;
+  if (selClass.id === 'kg2') return SUBJECT_MAP.kg2;
+
+  // Class 1–5: Lower Primary — only core LP school subjects
+  const primaryIds      = ['c1','c2','c3','c4','c5'];
+  // Class 6–8: Upper Primary — full ME school subjects
+  const upperPrimaryIds = ['c6','c7','c8'];
+
+  if (primaryIds.includes(selClass.id))      return SUBJECT_MAP.primary;
+  if (upperPrimaryIds.includes(selClass.id)) return SUBJECT_MAP.upper_primary;
+  if (!isHigherSecondary())                  return SUBJECT_MAP.any_lower; // Class 9–10
+
   const board  = selBoard ? selBoard.id : 'asseb';
   const stream = selStream ? selStream.id : null;
   if (!stream) return [];
