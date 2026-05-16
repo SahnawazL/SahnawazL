@@ -345,6 +345,10 @@ async function getFirebaseStorageToken(sa) {
 }
 
 // ── Save history entry to Firestore ──────────────────────────────────────────
+// Only scalar fields stored here (no HTML blobs, no base64, no nested objects).
+// The client-side saveHistoryEntryToFirestore has the same constraint.
+// Firestore limit is 1 MB per document — keeping entries lean avoids silent
+// write failures that cause history to disappear on refresh.
 async function saveHistoryToFirestore(uid, entry) {
   try {
     const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
