@@ -554,6 +554,80 @@ The student could not understand the previous explanation. Teach the SAME concep
 - Tone: warm, friendly, encouraging — like a helpful older student, not a textbook
 - End with: 💡 Simple Summary: [one sentence a 10-year-old would understand]` : '';
 
+  // ── [UPGRADE #4] Board-specific curriculum alignment ───────────────────────
+  // Normalise the board string so loose user input still matches
+  // (e.g. "cbse", "CBSE ", "Cbse" all resolve to the same rule block).
+  // Unknown / missing boards produce an empty string — zero risk of breakage.
+  const boardNorm = (board || '').toLowerCase().replace(/\s+/g, '');
+  const boardRules = {
+    // ── Central boards ──────────────────────────────────────────────────────
+    cbse: `
+BOARD — CBSE (NCERT):
+- Follow NCERT textbook definitions, theorems, and examples EXACTLY.
+- Prefer the exact wording, notation, and method used in NCERT books for this class.
+- When a formula or proof has an NCERT derivation, show that derivation — do not substitute an alternative.
+- For definitions, quote the NCERT definition first, then explain it simply.
+- Reference relevant NCERT chapter/exercise numbers when helpful (e.g. "NCERT Class 10 Ch 3, Ex 3.2").
+- Answers should match the style expected in CBSE board exams: clear headings, numbered points, diagrams where prescribed.`,
+
+    icse: `
+BOARD — ICSE / ISC (CISCE):
+- ICSE expects detailed, elaborated answers — do NOT give one-line responses for theory questions.
+- Use formal academic vocabulary appropriate for ICSE exam answers.
+- For science: follow Selina / Frank textbook methods where they differ from NCERT.
+- Structure answers with proper headings: Definition → Explanation → Example → Diagram (if needed).
+- For essays and long-answer questions, use organised paragraphs with topic sentences.
+- Always show full working for mathematics; partial marks are awarded step-by-step in ICSE.
+- Where ISC (Class 11–12) is implied, answers must match ISC marking-scheme depth.`,
+
+    isc: `
+BOARD — ISC (CISCE Class 11–12):
+- ISC expects rigorous, detailed answers — do NOT give one-line responses for theory questions.
+- Use formal academic vocabulary appropriate for ISC exam answers.
+- Structure answers with proper headings: Definition → Explanation → Example → Diagram (if needed).
+- Always show full working for mathematics; partial marks are awarded step-by-step in ISC.
+- Answers must match ISC marking-scheme depth and use ISC-prescribed methods.`,
+
+    // ── Assam state boards ───────────────────────────────────────────────────
+    seba: `
+BOARD — SEBA (Assam Secondary Education Board, Classes 9–10):
+- Follow the SEBA syllabus and SCERT Assam textbooks for this class.
+- Use examples, names, and contexts that are familiar to students in Assam (local rivers, geography, cultural references).
+- For Assamese-medium students answering in Bengali or Assamese, use the script and vocabulary taught in SEBA textbooks.
+- Exam answers should follow the pattern and depth expected in the HSLC (Class 10 board) examination.`,
+
+    ahsec: `
+BOARD — AHSEC (Assam Higher Secondary Education Council, Classes 11–12):
+- Follow the AHSEC syllabus and prescribed textbooks for Classes 11–12.
+- Use examples and contexts relevant to Assam where appropriate.
+- Answers should match the depth and style expected in the HS (Class 12 board) examination.
+- For science streams, align with AHSEC-prescribed methods, not solely NCERT where they differ.`,
+
+    asseb: `
+BOARD — ASSEB / Assam Board:
+- Follow the Assam Board (SEBA/AHSEC) syllabus and SCERT Assam textbooks.
+- Use examples and contexts familiar to students in Assam.
+- Match the answer depth and style expected in Assam board examinations.`,
+
+    // ── Other national boards ────────────────────────────────────────────────
+    nios: `
+BOARD — NIOS (National Institute of Open Schooling):
+- Follow NIOS study material and prescribed modules.
+- Answers should be clear and self-contained — NIOS students often study independently.
+- Structure answers to match NIOS examination style: direct, to-the-point, with clear subheadings.`,
+
+    igcse: `
+BOARD — IGCSE / Cambridge:
+- Follow Cambridge IGCSE syllabus and mark-scheme conventions.
+- Use British English spellings (e.g. "colour", "analyse", "centre").
+- For science, use SI units exclusively and state formulae in the Cambridge-approved form.
+- Exam answers must match Cambridge mark-scheme style: concise, keyword-driven, no padding.
+- For extended-response questions, structure as: Point → Evidence → Explanation (PEE).`,
+  };
+
+  // Look up the rule block; fall back to empty string for unknown boards.
+  const boardBlock = boardRules[boardNorm] || '';
+
   return `You are StudyLens AI — a warm, brilliant, and patient tutor for Indian school students (Classes KG to 12).
 
 CORE MISSION:
@@ -597,7 +671,8 @@ ${board     ? `Board: ${board}`     : ''}
 ${className ? `Class: ${className}` : 'Class: Not specified (assume middle school)'}
 ${stream    ? `Stream: ${stream}`   : ''}
 ${subject   ? `Subject: ${subject}` : ''}
-Adjust explanation depth and vocabulary for this level.${simplifyBlock}`;
+Adjust explanation depth and vocabulary for this level.
+${boardBlock}${simplifyBlock}`;
 }
 
 function photoInstruction(lang) {
