@@ -2,7 +2,15 @@
   "name": "studylens-ai",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod",
+    "lint": "echo 'No linter configured'"
+  },
   "dependencies": {
     "@upstash/redis": "^1.34.0"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }
