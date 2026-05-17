@@ -14,6 +14,23 @@
  * ║    Supports: GEMINI_KEY_1 … GEMINI_KEY_9                    ║
  * ║                                                              ║
  * ║  Fallback chain: Groq fails → Gemini for text too           ║
+ * ║                                                              ║
+ * ║  ── UPGRADE #1: GEMINI THINKING MODE ──────────────────────║
+ * ║  Class 11–12 Math / Physics / Chemistry questions routed    ║
+ * ║  through Gemini with thinkingConfig enabled (budget: 8192). ║
+ * ║  The model reasons through the problem silently before       ║
+ * ║  writing its answer — dramatically cuts arithmetic errors    ║
+ * ║  on derivations, integrations, and equation solving.        ║
+ * ║  Requires temp=1.0 (Gemini API rule). Not used for photos   ║
+ * ║  or follow-up turns (saves quota).                          ║
+ * ║                                                              ║
+ * ║  ── UPGRADE #2: GOOGLE SEARCH GROUNDING ───────────────────║
+ * ║  GK / Humanities / Geography / EVS / General questions      ║
+ * ║  answered with live Google Search results baked in.         ║
+ * ║  Prevents outdated answers for current-affairs questions     ║
+ * ║  (Chief Ministers, recent events, COP summits, etc.).       ║
+ * ║  Automatically disabled for hard science (they need          ║
+ * ║  precision, not web lookup) and for photo mode.             ║
  * ╚══════════════════════════════════════════════════════════════╝
  *
  * HOW TO ADD KEYS in Vercel → Settings → Environment Variables:
@@ -58,6 +75,19 @@ function isSeniorClass(className) {
 
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+// ── [UPGRADE #1] Subjects that benefit from Gemini Thinking Mode ──────────────
+// Only exact sciences where chain-of-thought reasoning prevents calculation
+// errors and wrong theorem application. Language/humanities don't benefit.
+const THINKING_SUBJECTS = ['math', 'physics', 'chemistry'];
+
+// ── [UPGRADE #2] Subjects that benefit from Google Search Grounding ───────────
+// GK, humanities, geography, and general queries can go stale in training data.
+// Hard sciences are intentionally EXCLUDED — they need precision, not web search.
+const GROUNDING_SUBJECTS = ['humanities', 'general', 'environment'];
+const GROUNDING_SUBJECT_KEYWORDS = ['gk', 'general knowledge', 'current', 'affairs',
+  'geography', 'geograph', 'map', 'evs', 'civics', 'history', 'polsci',
+  'social', 'sociology', 'political'];
 
 // ── Load API keys ─────────────────────────────────────────────────────────────
 function loadKeys(prefix) {
@@ -385,6 +415,8 @@ async function saveHistoryToFirestore(uid, entry) {
 // ── Per-subject temperature ───────────────────────────────────────────────────
 // Precise subjects (maths/physics) need low temperature for accuracy.
 // Creative/language subjects benefit from slightly higher temperature.
+// NOTE: When Gemini Thinking Mode is active, temperature is forced to 1.0
+// regardless of this map (that is a hard Gemini API requirement).
 function getTemperature(subjectType) {
   const map = {
     math:        0.10,  // must be exact — no creativity allowed
@@ -399,6 +431,26 @@ function getTemperature(subjectType) {
     general:     0.30,
   };
   return map[subjectType] ?? 0.25;
+}
+
+// ── [UPGRADE #2] Should this request use Google Search Grounding? ─────────────
+// Grounding fetches live Google results and injects them before generation.
+// Only makes sense for knowledge that changes over time (GK, current affairs,
+// geography facts, historical events). Hard science never uses grounding —
+// the model must apply precise formulas, not search the web.
+//
+// IMPORTANT: Grounding and Thinking Mode are mutually exclusive features
+// (Gemini API restriction). Since THINKING_SUBJECTS and GROUNDING_SUBJECTS
+// are designed to be disjoint sets, there is no conflict in practice.
+function needsSearchGrounding(subjectType, subject) {
+  if (!subjectType && !subject) return false;
+  // Hard science subjects are explicitly excluded from grounding
+  if (THINKING_SUBJECTS.includes(subjectType)) return false;
+  // Grounding is valuable for these subject types
+  if (GROUNDING_SUBJECTS.includes(subjectType)) return true;
+  // Also check raw subject string for keyword matches
+  const s = (subject || '').toLowerCase();
+  return GROUNDING_SUBJECT_KEYWORDS.some(kw => s.includes(kw));
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
@@ -629,6 +681,18 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
 }
 
 // ── GEMINI: text + photo handler ──────────────────────────────────────────────
+// [UPGRADE #1] Thinking Mode: enabled for Class 11–12 Math/Physics/Chemistry
+//   on fresh (non-follow-up) text questions. Gemini reasons through the problem
+//   silently using up to 8192 thinking tokens before writing the answer.
+//   This is the single largest accuracy improvement for board exam questions.
+//   Requires temperature=1.0 (hard Gemini API requirement for thinking).
+//
+// [UPGRADE #2] Search Grounding: enabled for GK/Humanities/Geography/General
+//   subjects. Injects live Google Search results so answers about current events,
+//   office-holders, recent news, and facts-that-change stay accurate.
+//   Automatically skipped for hard science (they need formula precision, not web).
+//   Also skipped when Thinking Mode is active (both can't be used together).
+//
 // FIX: Added `history` parameter. When a conversation history is provided,
 // we build a proper multi-turn `contents` array in Gemini's format.
 // For photo follow-ups, the original image is re-attached to the first turn
@@ -639,14 +703,43 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
 
   const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
   const mime = validMimes.includes(imageMime) ? imageMime : 'image/jpeg';
-  const temp = getTemperature(subjectType);
+
+  // ── [UPGRADE #1] Thinking Mode decision ──────────────────────────────────
+  // Conditions for activating Gemini extended thinking:
+  //   1. Senior class (11 or 12) — where board exam precision matters most
+  //   2. Hard science subject (math / physics / chemistry)
+  //   3. Not photo mode — vision + thinking is not supported by Gemini
+  //   4. Not a follow-up turn — conserve quota for fresh questions
+  const hasHistory  = Array.isArray(history) && history.length > 1;
+  const senior      = isSeniorClass(className);
+  const useThinking = senior
+    && THINKING_SUBJECTS.includes(subjectType)
+    && mode !== 'photo'
+    && !hasHistory;  // follow-ups don't get thinking (quota conservation)
+
+  // ── [UPGRADE #2] Search Grounding decision ────────────────────────────────
+  // Grounding and Thinking are mutually exclusive (Gemini API restriction).
+  // In practice, THINKING_SUBJECTS ∩ GROUNDING_SUBJECTS = ∅, so this
+  // guard is a safety net rather than something that should ever trigger.
+  const useGrounding = !useThinking
+    && mode !== 'photo'         // grounding doesn't work with inline image uploads
+    && needsSearchGrounding(subjectType, subject);
+
+  // Temperature: thinking mode requires exactly 1.0; otherwise use subject map.
+  const temp = useThinking ? 1.0 : getTemperature(subjectType);
+
+  if (useThinking) {
+    console.log(`[Gemini] Thinking mode ON — ${subjectType} / Class ${className}`);
+  }
+  if (useGrounding) {
+    console.log(`[Gemini] Search grounding ON — ${subjectType} / ${subject}`);
+  }
 
   // ── Build contents array ──────────────────────────────────────────────────
   // Gemini uses 'model' for the assistant role (not 'assistant').
   // When history is present: map the full conversation into Gemini's format.
   // For photo mode with history: inject the image into the FIRST user turn so
   // the AI still has visual context when answering follow-up questions.
-  const hasHistory = Array.isArray(history) && history.length > 1;
   let contents;
 
   if (hasHistory) {
@@ -693,12 +786,25 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
     contents = [{ role: 'user', parts }];
   }
 
+  // ── Build the Gemini request body ─────────────────────────────────────────
   const body = {
     system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode, !!simplify) }] },
     contents,
     generationConfig: {
-      temperature: temp, topK: 40, topP: 0.92,
-      maxOutputTokens: 8192, candidateCount: 1,
+      // [UPGRADE #1] Thinking requires temp=1.0 and a thinkingConfig block.
+      // Standard requests use the subject-tuned temperature from getTemperature().
+      temperature:      temp,
+      topK:             useThinking ? undefined : 40,  // thinking ignores topK
+      topP:             0.92,
+      maxOutputTokens:  useThinking ? 16384 : 8192,    // thinking needs more output budget
+      candidateCount:   1,
+      ...(useThinking ? {
+        thinkingConfig: {
+          // Budget of 8192 thinking tokens — enough for complex derivations
+          // and multi-step proofs without being extravagant on quota.
+          thinkingBudget: 8192,
+        },
+      } : {}),
     },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -706,6 +812,10 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
       { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH'        },
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
     ],
+    // [UPGRADE #2] Attach the Google Search tool when grounding is needed.
+    // This causes Gemini to pull live web results before generating the answer,
+    // keeping GK / current-affairs / geography answers factually up to date.
+    ...(useGrounding ? { tools: [{ googleSearch: {} }] } : {}),
   };
 
   for (let attempt = 0; attempt < Math.max(keys.length, 1); attempt++) {
@@ -727,6 +837,33 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
         const isQuota  = status === 'RESOURCE_EXHAUSTED' || code === 429
           || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exhausted');
         const isBadKey = msg.toLowerCase().includes('api key') || code === 400 || status === 'INVALID_ARGUMENT';
+
+        // [UPGRADE #1] If thinking mode caused an error, retry without it.
+        // This guards against the rare case where the model version doesn't
+        // support thinkingConfig on a particular key/region.
+        if (useThinking && (isBadKey || msg.toLowerCase().includes('thinking'))) {
+          console.warn('[Gemini] Thinking mode rejected, retrying without it:', msg);
+          // Rebuild body without thinking and retry the same key once
+          const fallbackBody = {
+            ...body,
+            generationConfig: {
+              temperature: getTemperature(subjectType),
+              topK: 40, topP: 0.92,
+              maxOutputTokens: 8192, candidateCount: 1,
+            },
+          };
+          delete fallbackBody.generationConfig.thinkingConfig;
+          try {
+            const r2   = await fetch(`${GEMINI_URL}?key=${key}`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fallbackBody),
+            });
+            const d2 = await r2.json();
+            const fallbackAnswer = extractGeminiText(d2);
+            if (fallbackAnswer) return { answer: fallbackAnswer, provider: 'gemini' };
+          } catch {}
+        }
+
         if (isQuota || isBadKey) { rot.exhausted.add(key); lastErr = 'quota'; continue; }
         if (code === 503 || msg.toLowerCase().includes('overload')) { lastErr = 'overload'; continue; }
         lastErr = msg;
@@ -737,7 +874,13 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
         return { answer: '⚠️ This question was flagged by safety filters. Please rephrase it and try again.' };
       }
 
-      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      // ── Extract answer text ───────────────────────────────────────────────
+      // [UPGRADE #1] Thinking responses: Gemini returns thought parts (role=
+      //   'thought') before the actual answer parts. We skip those and only
+      //   collect parts where thought !== true.
+      // [UPGRADE #2] Grounded responses: Gemini may return multiple text parts
+      //   (answer text + citation snippets). We join all non-thought text parts.
+      const answer = extractGeminiText(data);
       if (!answer) { lastErr = 'empty'; continue; }
 
       return { answer, provider: 'gemini' };
@@ -751,8 +894,33 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
   return { error: lastErr };
 }
 
+// ── Extract answer text from a Gemini API response ───────────────────────────
+// Handles three response shapes:
+//   1. Standard:  parts = [{ text: '...' }]
+//   2. Thinking:  parts = [{ thought: true, text: '<internal reasoning>' },
+//                           { text: '<actual answer>' }]
+//                 → skip thought parts, join the rest
+//   3. Grounded:  parts = [{ text: '...' }, { text: '...' }]  (answer + snippets)
+//                 → join all non-thought text parts
+function extractGeminiText(data) {
+  const parts = data.candidates?.[0]?.content?.parts;
+  if (!parts || parts.length === 0) return null;
+
+  // Collect all text parts that are NOT internal thought blocks
+  const textParts = parts
+    .filter(p => p.text && !p.thought)
+    .map(p => p.text.trim())
+    .filter(Boolean);
+
+  return textParts.length > 0 ? textParts.join('\n\n') : null;
+}
+
 // ── Quiz system prompt ────────────────────────────────────────────────────────
 const QUIZ_SYSTEM = `You are a JSON quiz generator. You output ONLY valid JSON arrays, nothing else.
+No markdown, no code fences, no explanation, no preamble — just the raw JSON array starting with [ and ending with ].`;
+
+// ── Suggestions system prompt ─────────────────────────────────────────────────
+const SUGGESTIONS_SYSTEM = `You are a helpful study assistant. You output ONLY valid JSON arrays of strings, nothing else.
 No markdown, no code fences, no explanation, no preamble — just the raw JSON array starting with [ and ending with ].`;
 
 // ── Quiz handler ──────────────────────────────────────────────────────────────
@@ -811,9 +979,95 @@ async function askQuiz(groqKeys, geminiKeys, { question, className }) {
           if (isQuota) { grot.exhausted.add(key); continue; }
           continue;
         }
-        const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const answer = extractGeminiText(data);
         if (answer) return { answer };
       } catch(e) { continue; }
+    }
+  }
+
+  return { error: 'failed' };
+}
+
+// ── Suggestions handler ───────────────────────────────────────────────────────
+// Generates 3 short follow-up question chips shown below every answer.
+// Uses the same Groq/Gemini rotation as quiz — light-weight JSON output only.
+async function askSuggestions(groqKeys, geminiKeys, { question, answer, className, subject, lang, subjectType }) {
+  const langMap    = { en: 'English', bn: 'Bengali (Bangla)', hi: 'Hindi', as: 'Assamese' };
+  const replyLang  = langMap[lang] || 'English';
+  const senior     = isSeniorClass(className);
+  const model      = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
+  const rot        = senior ? rotations.groqSenior : rotations.groqJunior;
+
+  const prompt = `A student just asked about "${subject || 'General'}" (${className || 'school level'}):
+Question: "${question || '(photo/image question)'}"
+
+Based on this topic, generate exactly 3 short follow-up questions the student would naturally want to ask next.
+
+Rules:
+- All questions MUST be in ${replyLang}
+- Each question must be under 12 words
+- Make them genuinely useful: one deepens the concept, one asks for a real-life example, one is exam-oriented
+- Do NOT repeat or rephrase the original question
+- Questions should work as standalone follow-ups
+
+Respond ONLY with a JSON array of exactly 3 strings (no other text):
+["Question 1?", "Question 2?", "Question 3?"]`;
+
+  // Try Groq first
+  if (groqKeys.length > 0) {
+    for (let attempt = 0; attempt < Math.max(groqKeys.length, 1); attempt++) {
+      const key = pickKey(groqKeys, rot);
+      if (!key) break;
+      try {
+        const r = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: SUGGESTIONS_SYSTEM },
+              { role: 'user',   content: prompt },
+            ],
+            temperature: 0.55, max_tokens: 256, top_p: 0.9,
+          }),
+        });
+        const data = await r.json();
+        if (data.error) {
+          const isQuota = data.error.code === 429 || (data.error.message || '').toLowerCase().includes('rate');
+          if (isQuota) { rot.exhausted.add(key); continue; }
+          continue;
+        }
+        const ans = data.choices?.[0]?.message?.content;
+        if (ans) return { answer: ans };
+      } catch (_) { continue; }
+    }
+  }
+
+  // Gemini fallback
+  if (geminiKeys.length > 0) {
+    const grot = rotations.gemini;
+    for (let attempt = 0; attempt < Math.max(geminiKeys.length, 1); attempt++) {
+      const key = pickKey(geminiKeys, grot);
+      if (!key) break;
+      try {
+        const r = await fetch(`${GEMINI_URL}?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: SUGGESTIONS_SYSTEM }] },
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.55, maxOutputTokens: 256, candidateCount: 1 },
+          }),
+        });
+        const data = await r.json();
+        if (data.error) {
+          const isQuota = data.error.status === 'RESOURCE_EXHAUSTED' || data.error.code === 429;
+          if (isQuota) { grot.exhausted.add(key); continue; }
+          continue;
+        }
+        const ans = extractGeminiText(data);
+        if (ans) return { answer: ans };
+      } catch (_) { continue; }
     }
   }
 
@@ -874,6 +1128,26 @@ async function handleRequest(req, res) {
       return res.status(200).json({ answer: cached, cached: true });
     }
     console.log('[Cache] MISS:', cacheKey.slice(0, 80));
+  }
+
+  // ── SUGGESTIONS mode ─────────────────────────────────────────────────────────
+  // Lightweight endpoint: generates 3 follow-up question chips for the frontend.
+  // Called fire-and-forget after every answer — failures are silently ignored by
+  // the client so they never block the user.
+  if (mode === 'suggestions') {
+    if (!question?.trim() && !req.body?.answer) {
+      return res.status(400).json({ error: 'No content for suggestions.' });
+    }
+    const result = await askSuggestions(groqKeys, geminiKeys, {
+      question:    req.body.question    || '',
+      answer:      req.body.answer      || '',
+      className,
+      subject,
+      lang,
+      subjectType: req.body.subjectType || 'general',
+    });
+    if (result.answer) return res.status(200).json({ answer: result.answer });
+    return res.status(500).json({ error: 'Suggestions generation failed.' });
   }
 
   // ── QUIZ mode ──────────────────────────────────────────────────────────────
@@ -944,11 +1218,49 @@ async function handleRequest(req, res) {
     return res.status(500).json({ error: '❌ Could not read the photo. Please try again or type your question.' });
   }
 
-  // ── TEXT mode: try Groq first, fallback to Gemini ─────────────────────────
+  // ── TEXT mode ──────────────────────────────────────────────────────────────
+  // Routing logic with Upgrades #1 and #2 in mind:
+  //
+  // • Class 11–12 Math/Physics/Chemistry (fresh question, not follow-up):
+  //     → Gemini FIRST (Thinking Mode active) for maximum accuracy
+  //     → Groq as fallback if Gemini quota is exhausted
+  //
+  // • GK / Humanities / Geography / General (any class):
+  //     → Gemini FIRST (Search Grounding active) for live/current answers
+  //     → Groq as fallback
+  //
+  // • Everything else (standard questions, follow-ups, junior classes):
+  //     → Groq FIRST (fast and free), Gemini as fallback
+  //
+  const senior = isSeniorClass(className);
+  const wantsThinking  = senior && THINKING_SUBJECTS.includes(subjectType) && !isFollowUpQ;
+  const wantsGrounding = needsSearchGrounding(subjectType, subject) && mode !== 'photo';
+  const geminiFirst    = geminiKeys.length > 0 && (wantsThinking || wantsGrounding);
+
+  if (geminiFirst) {
+    // Gemini leads for smart-routing cases (thinking or grounding)
+    const geminiResult = await askGemini(geminiKeys, ctx);
+    if (geminiResult.answer) {
+      if (isCacheable && cacheKey) cacheSet(kv, cacheKey, geminiResult.answer).catch(() => {});
+      if (uid) {
+        const entryId = Date.now();
+        saveHistoryToFirestore(uid, {
+          id: entryId, ts: entryId, mode: 'text',
+          question: question || '', subject: subject || '',
+          className: className || '',
+          answer: geminiResult.answer.slice(0, 500),
+        }).catch(() => {});
+      }
+      return res.status(200).json({ answer: geminiResult.answer });
+    }
+    // Gemini failed/quota — fall through to Groq below
+    console.warn('[Gemini] Smart-route failed, falling back to Groq. Error:', geminiResult.error);
+  }
+
+  // Groq path (primary for standard questions, fallback for smart-routed ones)
   if (groqKeys.length > 0) {
     const groqResult = await askGroq(groqKeys, ctx);
     if (groqResult.answer) {
-      // Cache the answer so the same question is free next time
       if (isCacheable && cacheKey) cacheSet(kv, cacheKey, groqResult.answer).catch(() => {});
       if (uid) {
         const entryId = Date.now();
@@ -963,10 +1275,10 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (geminiKeys.length > 0) {
+  // Final Gemini fallback (for standard questions where Groq failed)
+  if (geminiKeys.length > 0 && !geminiFirst) {
     const geminiResult = await askGemini(geminiKeys, ctx);
     if (geminiResult.answer) {
-      // Cache the answer so the same question is free next time
       if (isCacheable && cacheKey) cacheSet(kv, cacheKey, geminiResult.answer).catch(() => {});
       if (uid) {
         const entryId = Date.now();
