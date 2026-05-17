@@ -1303,6 +1303,88 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .quiz-shimmer:nth-child(2) { width: 88%; animation-delay: 0.1s; }
 .quiz-shimmer:nth-child(3) { width: 70%; animation-delay: 0.2s; }
 
+/* ── FOLLOW-UP SUGGESTION CHIPS ─────────────────────── */
+.suggestion-chips-wrap {
+  padding: 0 0.9rem 0.85rem;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.45s ease 0.15s, transform 0.4s ease 0.15s;
+  pointer-events: none;
+}
+.suggestion-chips-wrap.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.suggestion-chips-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.6rem 0 0.45rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.suggestion-chip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.suggestion-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s;
+  width: 100%;
+  line-height: 1.45;
+  animation: fadeUp 0.4s ease both;
+}
+.suggestion-chip:nth-child(1) { animation-delay: 0s; }
+.suggestion-chip:nth-child(2) { animation-delay: 0.08s; }
+.suggestion-chip:nth-child(3) { animation-delay: 0.16s; }
+.suggestion-chip:hover {
+  border-color: var(--accent2);
+  background: rgba(247,201,72,0.09);
+  color: var(--accent2);
+  transform: translateX(3px);
+}
+.suggestion-chip:active { transform: scale(0.98) translateX(0); }
+.suggestion-chip-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  opacity: 0.65;
+}
+/* Shimmer placeholder while suggestions load */
+.suggestion-chip-shimmer {
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(90deg,
+    var(--surface2) 25%,
+    rgba(247,201,72,0.07) 50%,
+    var(--surface2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  margin-bottom: 0.4rem;
+}
+.suggestion-chip-shimmer:nth-child(2) { animation-delay: 0.12s; opacity: 0.8; }
+.suggestion-chip-shimmer:nth-child(3) { animation-delay: 0.24s; opacity: 0.6; }
+/* ── END SUGGESTION CHIPS ───────────────────────────── */
+
 /* HISTORY PILL */
 .hist-pill-wrap { display: flex; justify-content: flex-end; margin-bottom: 0.6rem; }
 .hist-pill {
@@ -1645,6 +1727,77 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   z-index: 550; white-space: nowrap;
 }
 .profile-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── WEAK TOPIC ANALYTICS DASHBOARD ─────────────────────── */
+.hist-tab.active-insights { border-color: var(--green); background: rgba(62,207,142,0.12); color: var(--green); }
+.hist-tab.active-insights .hist-tab-count { background: rgba(62,207,142,0.25); color: var(--green); }
+
+.analytics-panel {
+  display: none; flex-direction: column; flex: 1; overflow-y: auto;
+  padding: 0.8rem 1rem 1.2rem;
+}
+.analytics-panel.active { display: flex; }
+.analytics-panel::-webkit-scrollbar { width: 3px; }
+.analytics-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.analytics-section-title {
+  font-family: var(--font-head); font-size: 0.7rem; font-weight: 800;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.09em;
+  margin-bottom: 0.7rem;
+}
+.analytics-empty {
+  text-align: center; padding: 2.5rem 1rem;
+  font-size: 0.82rem; color: var(--muted); line-height: 1.7;
+}
+.analytics-empty-icon { font-size: 2.4rem; display: block; margin-bottom: 0.5rem; }
+
+.analytics-subject-row { margin-bottom: 0.72rem; }
+.analytics-subject-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.28rem;
+}
+.analytics-subject-name {
+  font-size: 0.79rem; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 0.28rem; flex-wrap: wrap;
+}
+.analytics-subject-count { font-size: 0.7rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.analytics-bar-track {
+  width: 100%; background: var(--surface2); border-radius: 100px;
+  height: 7px; overflow: hidden; border: 1px solid var(--border);
+}
+.analytics-bar-fill {
+  height: 100%; border-radius: 100px; width: 0%;
+  transition: width 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.analytics-bar-fill.tier-top    { background: linear-gradient(90deg, var(--accent), #7b5eff); }
+.analytics-bar-fill.tier-mid    { background: linear-gradient(90deg, var(--green), var(--accent)); }
+.analytics-bar-fill.tier-low    { background: linear-gradient(90deg, var(--accent2), #f79a48); }
+.analytics-bar-fill.tier-weak   { background: linear-gradient(90deg, var(--danger), #f77b4f); }
+.analytics-weak-badge {
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--danger);
+  background: rgba(247,79,79,0.1); border: 1px solid rgba(247,79,79,0.22);
+  border-radius: 100px; padding: 0.07rem 0.38rem;
+}
+
+.analytics-divider { border: none; border-top: 1px solid var(--border); margin: 0.9rem 0 0.8rem; }
+
+.analytics-practise-btn {
+  display: flex; align-items: center; gap: 0.5rem;
+  width: 100%; background: rgba(247,201,72,0.06);
+  border: 1.5px solid rgba(247,201,72,0.22); border-radius: 11px;
+  padding: 0.65rem 0.85rem; margin-bottom: 0.45rem;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700;
+  color: var(--text); cursor: pointer; text-align: left;
+  transition: border-color 0.18s, background 0.18s, transform 0.15s;
+}
+.analytics-practise-btn:hover  { border-color: var(--accent2); background: rgba(247,201,72,0.13); transform: translateX(3px); }
+.analytics-practise-btn:active { transform: scale(0.98); }
+.analytics-practise-emoji { font-size: 1.15rem; flex-shrink: 0; }
+.analytics-practise-info  { flex: 1; }
+.analytics-practise-sub   { font-size: 0.67rem; color: var(--muted); font-weight: 400; margin-top: 0.1rem; }
+.analytics-practise-arrow { color: var(--accent2); font-size: 0.85rem; flex-shrink: 0; }
+/* ── END ANALYTICS ─────────────────────────────────────── */
 
 /* ── AUTH UI ── */
 .auth-btn {
@@ -1991,6 +2144,9 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       <button class="hist-tab" id="histTabBookmarks" onclick="switchHistTab('bookmarks')">
         ⭐ My Doubts <span class="hist-tab-count" id="histTabBookmarkCount">0</span>
       </button>
+      <button class="hist-tab" id="histTabInsights" onclick="switchHistTab('insights')">
+        📊 Insights
+      </button>
     </div>
     <!-- Folder pills — shown only in bookmarks tab -->
     <div class="folder-pills-bar" id="folderPillsBar" style="display:none;"></div>
@@ -2001,6 +2157,8 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
         oninput="buildHistList()" autocomplete="off" autocorrect="off" spellcheck="false"/>
     </div>
     <div class="hist-list" id="histList"></div>
+    <!-- Weak Topic Analytics Panel — shown when Insights tab is active -->
+    <div class="analytics-panel" id="analyticsPanel"></div>
   </div>
 
   <!-- Folder picker modal -->
@@ -2066,6 +2224,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
         <span class="ans-action-icon">🐢</span>
         <span id="simplerLabel">Simpler</span>
       </button>
+    </div>
+
+    <!-- Follow-Up Suggestion Chips — auto-generated after every answer -->
+    <div class="suggestion-chips-wrap" id="suggestionChipsWrap" style="display:none;">
+      <div class="suggestion-chips-label">💡 Ask next</div>
+      <div class="suggestion-chip-list" id="suggestionChipsList"></div>
     </div>
 
     <!-- Follow-up input -->
@@ -2154,26 +2318,42 @@ try {
   }
 
   // ── Firestore DB functions ──
-  async function loadHistoryFromFirestore(uid) {
+  //
+  // Profile-aware path helpers
+  // profileId = null  →  old root paths (backward compat for "no profile" / default)
+  // profileId = 'p_…' →  users/{uid}/profiles/{profileId}/history|bookmarks
+  //
+  function _histCol(uid, profileId) {
+    return profileId
+      ? collection(db, 'users', uid, 'profiles', profileId, 'history')
+      : collection(db, 'users', uid, 'history');
+  }
+  function _bkmDoc(uid, profileId) {
+    return profileId
+      ? doc(db, 'users', uid, 'profiles', profileId, 'bookmarks', 'data')
+      : doc(db, 'users', uid, 'bookmarks', 'data');
+  }
+
+  async function loadHistoryFromFirestore(uid, profileId) {
     try {
-      const q = query(collection(db, 'users', uid, 'history'), orderBy('ts', 'asc'));
+      const q = query(_histCol(uid, profileId), orderBy('ts', 'asc'));
       const snap = await getDocs(q);
       return snap.docs.map(d => d.data());
     } catch(e) { console.warn('[DB] loadHistory error:', e); return []; }
   }
-  async function saveHistoryEntryToFirestore(uid, entry) {
+  async function saveHistoryEntryToFirestore(uid, profileId, entry) {
     try {
       // Strip heavy / non-serialisable fields — Firestore has a 1 MB doc limit.
       // answerHtml can be huge (SVGs, KaTeX). payload contains nested objects.
       // Both are regenerated client-side so they don't need to be in the cloud.
       const { answerHtml, payload, imageDataUrl, ...lean } = entry;
-      await setDoc(doc(db, 'users', uid, 'history', String(lean.id)), lean);
+      await setDoc(doc(_histCol(uid, profileId), String(lean.id)), lean);
     }
     catch(e) { console.warn('[DB] saveEntry error:', e); }
   }
-  async function clearHistoryFromFirestore(uid) {
+  async function clearHistoryFromFirestore(uid, profileId) {
     try {
-      const snap = await getDocs(collection(db, 'users', uid, 'history'));
+      const snap = await getDocs(_histCol(uid, profileId));
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
@@ -2182,35 +2362,37 @@ try {
   async function loadProfilesFromFirestore(uid) {
     try {
       const snap = await getDocs(collection(db, 'users', uid, 'profiles'));
-      return snap.docs.map(d => d.data());
+      // Filter out sub-collections masquerading as profile docs — real profiles
+      // always have an 'id' field. Sub-collection sentinel docs don't.
+      return snap.docs.map(d => d.data()).filter(d => !!d.id);
     } catch(e) { console.warn('[DB] loadProfiles error:', e); return []; }
   }
   async function saveProfilesToFirestore(uid, profiles) {
     try {
       const batch = writeBatch(db);
       const col   = collection(db, 'users', uid, 'profiles');
-      // Clear then rewrite
+      // Re-read then rewrite only the profile metadata docs (not sub-collections)
       const snap  = await getDocs(col);
-      snap.docs.forEach(d => batch.delete(d.ref));
+      snap.docs.filter(d => d.data().id).forEach(d => batch.delete(d.ref));
       profiles.forEach(p => batch.set(doc(col, String(p.id)), p));
       await batch.commit();
     } catch(e) { console.warn('[DB] saveProfiles error:', e); }
   }
 
   // ── Bookmark Firestore sync ──
-  // Bookmarks are stored as a single doc to keep reads/writes cheap.
-  async function saveBookmarksToFirestore(uid, ids, folders) {
+  // Bookmarks stored as a single doc per profile to keep reads/writes cheap.
+  async function saveBookmarksToFirestore(uid, profileId, ids, folders) {
     try {
-      await setDoc(doc(db, 'users', uid, 'bookmarks', 'data'), {
+      await setDoc(_bkmDoc(uid, profileId), {
         ids:       ids,       // flat array of bookmarked entry ids
         folders:   folders,   // [{id,name,emoji,ids:[]}]
         updatedAt: Date.now(),
       });
     } catch(e) { console.warn('[DB] saveBookmarks error:', e); }
   }
-  async function loadBookmarksFromFirestore(uid) {
+  async function loadBookmarksFromFirestore(uid, profileId) {
     try {
-      const snap = await getDoc(doc(db, 'users', uid, 'bookmarks', 'data'));
+      const snap = await getDoc(_bkmDoc(uid, profileId));
       return snap.exists() ? snap.data() : null;
     } catch(e) { console.warn('[DB] loadBookmarks error:', e); return null; }
   }
@@ -2247,13 +2429,13 @@ const FB = {
   signInWithGoogle:           () => window._fb ? window._fb.signInWithGoogle()           : Promise.reject(new Error('Firebase not loaded')),
   signOutUser:                () => window._fb ? window._fb.signOutUser()                : Promise.resolve(),
   onUserChanged:              (cb)  => window._fb ? window._fb.onUserChanged(cb)         : null,
-  loadHistoryFromFirestore:   (uid) => window._fb ? window._fb.loadHistoryFromFirestore(uid)  : Promise.resolve([]),
-  saveHistoryEntryToFirestore:(uid,e) => window._fb ? window._fb.saveHistoryEntryToFirestore(uid,e) : Promise.resolve(),
-  clearHistoryFromFirestore:  (uid) => window._fb ? window._fb.clearHistoryFromFirestore(uid) : Promise.resolve(),
-  loadProfilesFromFirestore:  (uid) => window._fb ? window._fb.loadProfilesFromFirestore(uid) : Promise.resolve([]),
-  saveProfilesToFirestore:    (uid,p) => window._fb ? window._fb.saveProfilesToFirestore(uid,p) : Promise.resolve(),
-  saveBookmarksToFirestore:   (uid,ids,folders) => window._fb ? window._fb.saveBookmarksToFirestore(uid,ids,folders) : Promise.resolve(),
-  loadBookmarksFromFirestore: (uid)  => window._fb ? window._fb.loadBookmarksFromFirestore(uid)  : Promise.resolve(null),
+  loadHistoryFromFirestore:   (uid, pid)       => window._fb ? window._fb.loadHistoryFromFirestore(uid, pid)        : Promise.resolve([]),
+  saveHistoryEntryToFirestore:(uid, pid, e)    => window._fb ? window._fb.saveHistoryEntryToFirestore(uid, pid, e)  : Promise.resolve(),
+  clearHistoryFromFirestore:  (uid, pid)       => window._fb ? window._fb.clearHistoryFromFirestore(uid, pid)       : Promise.resolve(),
+  loadProfilesFromFirestore:  (uid)            => window._fb ? window._fb.loadProfilesFromFirestore(uid)            : Promise.resolve([]),
+  saveProfilesToFirestore:    (uid, p)         => window._fb ? window._fb.saveProfilesToFirestore(uid, p)           : Promise.resolve(),
+  saveBookmarksToFirestore:   (uid, pid, ids, folders) => window._fb ? window._fb.saveBookmarksToFirestore(uid, pid, ids, folders) : Promise.resolve(),
+  loadBookmarksFromFirestore: (uid, pid)       => window._fb ? window._fb.loadBookmarksFromFirestore(uid, pid)      : Promise.resolve(null),
 };
 
 let currentUser = null; // holds Firebase user object when signed in
@@ -2336,7 +2518,7 @@ function initFirebaseAuth() {
     btn.title         = 'Tap to sign out';
 
     // Load cloud history + profiles (replaces localStorage)
-    sessionHistory  = await FB.loadHistoryFromFirestore(user.uid);
+    sessionHistory  = await FB.loadHistoryFromFirestore(user.uid, activeProfileId);
     familyProfiles  = await FB.loadProfilesFromFirestore(user.uid);
 
     // FIX Bug 7: Track highest seqNum seen from Firestore so new questions
@@ -2348,7 +2530,7 @@ function initFirebaseAuth() {
     }
 
     // ── Load bookmarks from Firestore and re-sync ──
-    const bkmData = await FB.loadBookmarksFromFirestore(user.uid);
+    const bkmData = await FB.loadBookmarksFromFirestore(user.uid, activeProfileId);
     if (bkmData && Array.isArray(bkmData.ids)) {
       bookmarkedIds = new Set(bkmData.ids);
       if (Array.isArray(bkmData.folders) && bkmData.folders.length > 0) {
@@ -2446,10 +2628,18 @@ const HIST_IMG_DIM = 64;       // thumbnail max px (keeps localStorage small)
 
 let sessionHistory = [];
 
+// ── Profile-keyed localStorage key helpers ──────────────────────────────────
+// When activeProfileId is set, we use profile-specific keys so each profile
+// has its own history, bookmarks, and folders. When no profile is active we
+// fall back to the original keys (backward compatible — existing data safe).
+function histKey()     { return activeProfileId ? HIST_KEY     + '_' + activeProfileId : HIST_KEY;     }
+function bookmarkKey() { return activeProfileId ? BOOKMARK_KEY + '_' + activeProfileId : BOOKMARK_KEY; }
+function foldersKey()  { return activeProfileId ? FOLDERS_KEY  + '_' + activeProfileId : FOLDERS_KEY;  }
+
 // ── load from localStorage on boot ──
 function loadPersistedHistory() {
   try {
-    const raw = localStorage.getItem(HIST_KEY);
+    const raw = localStorage.getItem(histKey());
     if (!raw) return;
     const arr = JSON.parse(raw);
     if (Array.isArray(arr)) sessionHistory = arr;
@@ -2470,14 +2660,14 @@ function persistHistory() {
     }
     // Strip heavy answerHtml and payload so localStorage stays small
     const lightweight = sessionHistory.map(({ answerHtml, payload, ...rest }) => rest);
-    localStorage.setItem(HIST_KEY, JSON.stringify(lightweight));
+    localStorage.setItem(histKey(), JSON.stringify(lightweight));
   } catch(e) {
     // localStorage full — remove oldest 20 and retry once
     console.warn('[History] Storage full, pruning…');
     try {
       sessionHistory = sessionHistory.slice(-Math.max(sessionHistory.length - 20, 10));
       const lightweight = sessionHistory.map(({ answerHtml, payload, ...rest }) => rest);
-      localStorage.setItem(HIST_KEY, JSON.stringify(lightweight));
+      localStorage.setItem(histKey(), JSON.stringify(lightweight));
     } catch(_) { /* give up silently */ }
   }
 }
@@ -2531,7 +2721,7 @@ async function saveToHistory(payload, answerText, answerHtml, imageDataUrl) {
   // Set the current item id for bookmark button
   setBookmarkBtnState(id);
   // Save to Firestore if logged in, otherwise localStorage handles it
-  if (currentUser) FB.saveHistoryEntryToFirestore(currentUser.uid, entry);
+  if (currentUser) FB.saveHistoryEntryToFirestore(currentUser.uid, activeProfileId, entry);
   updateHistPill();  // immediate feedback
 
   // Shrink photo thumbnail asynchronously, then persist
@@ -2594,9 +2784,9 @@ function closeHistSheet() {
 function clearAllHistory() {
   if (!confirm('Clear all saved answers? This cannot be undone.')) return;
   sessionHistory = [];
-  try { localStorage.removeItem(HIST_KEY); } catch(_) {}
+  try { localStorage.removeItem(histKey()); } catch(_) {}
   // Also clear Firestore if logged in
-  if (currentUser) FB.clearHistoryFromFirestore(currentUser.uid);
+  if (currentUser) FB.clearHistoryFromFirestore(currentUser.uid, activeProfileId);
   updateHistPill();
   buildHistList();  // refresh (shows empty state)
 }
@@ -3980,7 +4170,11 @@ function showActionsBar() {
   // Hide first in case retranslating
   const bar = document.getElementById('ansActions');
   bar.classList.remove('visible');
-  setTimeout(() => bar.classList.add('visible'), 100);
+  setTimeout(() => {
+    bar.classList.add('visible');
+    // Generate follow-up suggestion chips after the action bar appears
+    generateSuggestions();
+  }, 100);
 }
 
 function hideActionsBar() {
@@ -3988,6 +4182,8 @@ function hideActionsBar() {
   document.getElementById('ansActions').classList.remove('visible');
   // Also close follow-up if open
   document.getElementById('followupArea').classList.remove('open');
+  // Hide suggestion chips
+  _hideSuggestions();
   // Hide quiz card
   const qc = document.getElementById('quizCard');
   if (qc) qc.style.display = 'none';
@@ -4381,6 +4577,103 @@ async function simplifyAnswer() {
     }, 320);
   }
 }
+
+// ── FOLLOW-UP SUGGESTION CHIPS ────────────────────────────────────────────────
+// Called automatically after every answer. Fires a lightweight /api/ask call
+// with mode:'suggestions' to get 3 tappable follow-up question chips.
+// The request is fire-and-forget: if it fails, the chips simply don't appear.
+async function generateSuggestions() {
+  if (!lastPayload || !lastAnswerText) return;
+
+  const wrap = document.getElementById('suggestionChipsWrap');
+  const list = document.getElementById('suggestionChipsList');
+  if (!wrap || !list) return;
+
+  // Show loading shimmer immediately while we wait for the API
+  list.innerHTML = `
+    <div class="suggestion-chip-shimmer"></div>
+    <div class="suggestion-chip-shimmer"></div>
+    <div class="suggestion-chip-shimmer"></div>`;
+  wrap.style.display = 'block';
+  // Small delay before making visible so it flows in after the answer actions bar
+  requestAnimationFrame(() => setTimeout(() => wrap.classList.add('visible'), 120));
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode:        'suggestions',
+        question:    lastPayload.question    || '',
+        answer:      lastAnswerText,
+        className:   lastPayload.className   || '',
+        subject:     lastPayload.subject     || '',
+        subjectType: lastPayload.subjectType || 'general',
+        lang:        currentLang,
+        uid:         currentUser ? currentUser.uid : null,
+      }),
+    });
+
+    if (!res.ok) { _hideSuggestions(); return; }
+
+    const data = await res.json();
+    if (!data.answer) { _hideSuggestions(); return; }
+
+    // Parse the returned JSON array
+    let raw = data.answer.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    const start = raw.indexOf('[');
+    const end   = raw.lastIndexOf(']');
+    if (start === -1 || end === -1) { _hideSuggestions(); return; }
+
+    let suggestions;
+    try { suggestions = JSON.parse(raw.slice(start, end + 1)); } catch (_) { _hideSuggestions(); return; }
+
+    if (!Array.isArray(suggestions) || suggestions.length === 0) { _hideSuggestions(); return; }
+
+    // Render chips
+    list.innerHTML = '';
+    suggestions.slice(0, 3).forEach(q => {
+      if (!q || typeof q !== 'string') return;
+      const btn = document.createElement('button');
+      btn.className = 'suggestion-chip';
+      btn.innerHTML = `<span class="suggestion-chip-icon">💬</span><span>${escHtml(q.trim())}</span>`;
+      btn.onclick = () => sendSuggestionChip(q.trim());
+      list.appendChild(btn);
+    });
+
+  } catch (_) {
+    _hideSuggestions();
+  }
+}
+
+function _hideSuggestions() {
+  const wrap = document.getElementById('suggestionChipsWrap');
+  if (wrap) { wrap.classList.remove('visible'); wrap.style.display = 'none'; }
+  const list = document.getElementById('suggestionChipsList');
+  if (list) list.innerHTML = '';
+}
+
+// Called when a suggestion chip is tapped — pre-fills the follow-up input and sends
+function sendSuggestionChip(question) {
+  // Hide chips straight away so UI doesn't look cluttered
+  _hideSuggestions();
+
+  // Put the question text into the follow-up input
+  const input = document.getElementById('followupInput');
+  if (input) input.value = question;
+
+  // Make sure the follow-up area is open (visible) so user can see the question
+  const area    = document.getElementById('followupArea');
+  const followB = document.getElementById('followBtn');
+  if (area && !area.classList.contains('open')) {
+    area.classList.add('open');
+    if (followB) { followB.style.borderColor = 'var(--accent2)'; followB.style.color = 'var(--accent2)'; }
+  }
+
+  // Short delay so the text visually appears before the loading state kicks in
+  setTimeout(() => sendFollowup(), 280);
+}
+// ── END SUGGESTION CHIPS ──────────────────────────────────────────────────────
 
 function fmt(t) {
   // ── Helper: render a LaTeX string with KaTeX (mhchem loaded, so \ce{} works inside math too)
@@ -4942,14 +5235,14 @@ let bookmarkFolders = {};
 // ── Load ──────────────────────────────────────────────
 function loadBookmarks() {
   try {
-    const raw = localStorage.getItem(BOOKMARK_KEY);
+    const raw = localStorage.getItem(bookmarkKey());
     if (raw) bookmarkedIds = new Set(JSON.parse(raw));
   } catch(_) { bookmarkedIds = new Set(); }
   sessionHistory.forEach(e => { if (e.bookmarked) bookmarkedIds.add(e.id); });
 
   // Load folders
   try {
-    const rawF = localStorage.getItem(FOLDERS_KEY);
+    const rawF = localStorage.getItem(foldersKey());
     if (rawF) {
       const parsed = JSON.parse(rawF);
       bookmarkFolders = {};
@@ -4975,10 +5268,10 @@ function loadBookmarks() {
 
 // ── Persist ───────────────────────────────────────────
 function persistBookmarks() {
-  try { localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...bookmarkedIds])); } catch(_) {}
+  try { localStorage.setItem(bookmarkKey(), JSON.stringify([...bookmarkedIds])); } catch(_) {}
   // Also sync to Firestore so bookmarks survive cross-device and cold-start refresh
   if (currentUser) {
-    FB.saveBookmarksToFirestore(currentUser.uid, [...bookmarkedIds], getFoldersForStorage());
+    FB.saveBookmarksToFirestore(currentUser.uid, activeProfileId, [...bookmarkedIds], getFoldersForStorage());
   }
 }
 
@@ -4991,11 +5284,11 @@ function getFoldersForStorage() {
 
 function persistFolders() {
   try {
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(getFoldersForStorage()));
+    localStorage.setItem(foldersKey(), JSON.stringify(getFoldersForStorage()));
   } catch(_) {}
   // Keep Firestore in sync whenever folders change
   if (currentUser) {
-    FB.saveBookmarksToFirestore(currentUser.uid, [...bookmarkedIds], getFoldersForStorage());
+    FB.saveBookmarksToFirestore(currentUser.uid, activeProfileId, [...bookmarkedIds], getFoldersForStorage());
   }
 }
 
@@ -5182,8 +5475,20 @@ function switchHistTab(tab) {
   histActiveTab = tab;
   const tabAll  = document.getElementById('histTabAll');
   const tabBkm  = document.getElementById('histTabBookmarks');
+  const tabIns  = document.getElementById('histTabInsights');
   tabAll.className  = 'hist-tab' + (tab === 'all'       ? ' active-all'       : '');
   tabBkm.className  = 'hist-tab' + (tab === 'bookmarks' ? ' active-bookmarks' : '');
+  if (tabIns) tabIns.className = 'hist-tab' + (tab === 'insights' ? ' active-insights' : '');
+
+  // Show analytics panel and hide history list/search when on insights tab
+  const isInsights  = tab === 'insights';
+  const analytics   = document.getElementById('analyticsPanel');
+  const histListEl  = document.getElementById('histList');
+  const searchWrap  = document.getElementById('histSearchWrap');
+  if (analytics)  analytics.classList.toggle('active', isInsights);
+  if (histListEl)  histListEl.style.display   = isInsights ? 'none' : '';
+  if (searchWrap)  searchWrap.style.display   = isInsights ? 'none' : '';
+
   // Show folder pills only in bookmarks tab
   const pillsBar = document.getElementById('folderPillsBar');
   if (pillsBar) {
@@ -5195,7 +5500,12 @@ function switchHistTab(tab) {
       activeFolderId = 'all'; // reset folder filter when leaving bookmarks tab
     }
   }
-  buildHistList();
+
+  if (isInsights) {
+    buildAnalytics();
+  } else {
+    buildHistList();
+  }
 }
 
 function updateHistTabCounts() {
@@ -5331,6 +5641,26 @@ function loadProfile(id) {
 
   activeProfileId = id;
 
+  // ── Switch history + bookmark data to this profile ──
+  // Reset in-memory state immediately so UI is clean while async load runs.
+  sessionHistory = [];
+  bookmarkedIds  = new Set();
+  bookmarkFolders = {};
+  window._maxCloudSeqNum = 0;
+  updateHistPill();
+  updateHistTabCounts();
+
+  if (currentUser) {
+    // Async load from Firestore for this profile
+    _loadProfileData(currentUser.uid, id);
+  } else {
+    // Load from profile-keyed localStorage
+    loadPersistedHistory();
+    loadBookmarks();
+    updateHistPill();
+    updateHistTabCounts();
+  }
+
   // Restore state
   selBoard  = p.board  || null;
   selClass  = p.cls    || null;
@@ -5398,6 +5728,54 @@ function loadProfile(id) {
   setTimeout(() => {
     document.getElementById('card5').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, 250);
+}
+
+// Async Firestore loader for a specific profile — called by loadProfile() when
+// the user is signed in. Loads history + bookmarks for that profileId and
+// refreshes the UI once the data arrives.
+async function _loadProfileData(uid, profileId) {
+  try {
+    sessionHistory = await FB.loadHistoryFromFirestore(uid, profileId);
+    if (sessionHistory.length > 0) {
+      const maxSeen = Math.max(...sessionHistory.map(e => e.seqNum || 0));
+      if (maxSeen > 0) window._maxCloudSeqNum = maxSeen;
+    }
+
+    const bkmData = await FB.loadBookmarksFromFirestore(uid, profileId);
+    if (bkmData && Array.isArray(bkmData.ids)) {
+      bookmarkedIds = new Set(bkmData.ids);
+      if (Array.isArray(bkmData.folders) && bkmData.folders.length > 0) {
+        bookmarkFolders = {};
+        for (const f of bkmData.folders) {
+          bookmarkFolders[f.id] = { ...f, ids: new Set(f.ids || []) };
+        }
+      }
+    } else {
+      bookmarkedIds = new Set();
+      sessionHistory.forEach(e => { if (e.bookmarked) bookmarkedIds.add(e.id); });
+    }
+    // Ensure default folders always exist
+    for (const def of DEFAULT_FOLDERS) {
+      if (!bookmarkFolders[def.id]) bookmarkFolders[def.id] = { ...def, ids: new Set() };
+    }
+    // Migrate: bookmarked ids not in any folder → General
+    bookmarkedIds.forEach(id => {
+      const inFolder = Object.values(bookmarkFolders).some(f => f.ids.has(id));
+      if (!inFolder && bookmarkFolders['general']) bookmarkFolders['general'].ids.add(id);
+    });
+
+    // Write to profile-keyed localStorage as offline backup
+    persistHistory();
+    persistBookmarks();
+  } catch(e) {
+    console.warn('[Profile] _loadProfileData error:', e);
+    // Fall back to profile-keyed localStorage silently
+    loadPersistedHistory();
+    loadBookmarks();
+  }
+
+  updateHistPill();
+  updateHistTabCounts();
 }
 
 // Show save profile banner when all setup is complete + no active profile covers this combo
@@ -5475,6 +5853,17 @@ function confirmSaveProfile() {
   persistProfiles();
   activeProfileId = id;
 
+  // New profile starts with a clean slate — reset history + bookmarks
+  sessionHistory  = [];
+  bookmarkedIds   = new Set();
+  bookmarkFolders = {};
+  window._maxCloudSeqNum = 0;
+  for (const def of DEFAULT_FOLDERS) {
+    bookmarkFolders[def.id] = { ...def, ids: new Set() };
+  }
+  updateHistPill();
+  updateHistTabCounts();
+
   closeProfileModal();
   document.getElementById('saveProfileBanner').classList.remove('show');
   renderProfilesBar();
@@ -5492,7 +5881,24 @@ function deleteProfile(e, id) {
   if (!p) return;
   if (!confirm('Remove ' + p.name + "'s profile?")) return;
   familyProfiles = familyProfiles.filter(x => x.id !== id);
-  if (activeProfileId === id) activeProfileId = null;
+
+  // If the deleted profile was active, switch back to shared (no-profile) data
+  if (activeProfileId === id) {
+    activeProfileId = null;
+    sessionHistory  = [];
+    bookmarkedIds   = new Set();
+    bookmarkFolders = {};
+    window._maxCloudSeqNum = 0;
+    if (currentUser) {
+      _loadProfileData(currentUser.uid, null);
+    } else {
+      loadPersistedHistory();
+      loadBookmarks();
+      updateHistPill();
+      updateHistTabCounts();
+    }
+  }
+
   persistProfiles();
   renderProfilesBar();
   checkSaveProfileBanner();
@@ -5726,7 +6132,139 @@ function hideVoiceToast() {
 
 // ── EXPOSE FUNCTIONS GLOBALLY (required because script is type="module") ──────
 // In a module, functions are scoped and not accessible from HTML onclick=""
-// We explicitly attach each one to window so onclick handlers keep working.
+// ══════════════════════════════════════════════════════
+// ── WEAK TOPIC ANALYTICS DASHBOARD (#2) ───────────────
+// Pure frontend — reads sessionHistory, zero API calls.
+// Shows subject breakdown + "Practise weak spots" buttons.
+// ══════════════════════════════════════════════════════
+function buildAnalytics() {
+  const panel = document.getElementById('analyticsPanel');
+  if (!panel) return;
+  panel.innerHTML = '';
+
+  if (sessionHistory.length === 0) {
+    panel.innerHTML = `
+      <div class="analytics-empty">
+        <span class="analytics-empty-icon">📊</span>
+        No questions yet!<br/>Ask a few questions first, then come<br/>back to see your topic breakdown.
+      </div>`;
+    return;
+  }
+
+  // ── Count questions per subject ──
+  const counts   = {};
+  const emojiMap = {};   // subject → emoji (best-effort from history entries)
+  sessionHistory.forEach(e => {
+    const subj = (e.subject || 'General').trim() || 'General';
+    counts[subj] = (counts[subj] || 0) + 1;
+    if (e.subjectEmoji && !emojiMap[subj]) emojiMap[subj] = e.subjectEmoji;
+  });
+
+  // Sort descending by count
+  const sorted   = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const total    = sessionHistory.length;
+  const maxCount = sorted[0][1];
+
+  // Weak spot = ≤30% of the top subject's count (only meaningful if ≥2 subjects)
+  const weakThreshold = maxCount * 0.30;
+  const weakSubjects  = sorted.length >= 2
+    ? sorted.filter(([, c]) => c <= weakThreshold)
+    : [];
+
+  // ── Bar chart section ──
+  const chartTitle = document.createElement('div');
+  chartTitle.className = 'analytics-section-title';
+  chartTitle.textContent = `📊 Topic Breakdown — ${total} question${total !== 1 ? 's' : ''}`;
+  panel.appendChild(chartTitle);
+
+  sorted.forEach(([subj, count]) => {
+    const pct     = Math.round((count / total) * 100);
+    const fillPct = Math.round((count / maxCount) * 100);
+    const isWeak  = weakSubjects.some(([s]) => s === subj);
+    const emoji   = emojiMap[subj] || '📚';
+
+    // Color tier based on share relative to top subject
+    let tier = 'tier-top';
+    if (fillPct < 25)       tier = 'tier-weak';
+    else if (fillPct < 50)  tier = 'tier-low';
+    else if (fillPct < 80)  tier = 'tier-mid';
+
+    const row = document.createElement('div');
+    row.className = 'analytics-subject-row';
+    row.innerHTML = `
+      <div class="analytics-subject-header">
+        <span class="analytics-subject-name">
+          <span>${emoji}</span>${escHtml(subj)}
+          ${isWeak ? '<span class="analytics-weak-badge">Weak spot</span>' : ''}
+        </span>
+        <span class="analytics-subject-count">${count} Q · ${pct}%</span>
+      </div>
+      <div class="analytics-bar-track">
+        <div class="analytics-bar-fill ${tier}" data-pct="${fillPct}"></div>
+      </div>`;
+    panel.appendChild(row);
+  });
+
+  // Animate bars after paint
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      panel.querySelectorAll('.analytics-bar-fill').forEach(el => {
+        el.style.width = el.dataset.pct + '%';
+      });
+    });
+  });
+
+  // ── Practise weak spots section ──
+  if (weakSubjects.length > 0) {
+    const hr = document.createElement('hr');
+    hr.className = 'analytics-divider';
+    panel.appendChild(hr);
+
+    const secTitle = document.createElement('div');
+    secTitle.className = 'analytics-section-title';
+    secTitle.textContent = '💪 Practise your weak spots';
+    panel.appendChild(secTitle);
+
+    weakSubjects.slice(0, 3).forEach(([subj]) => {
+      const emoji = emojiMap[subj] || '📚';
+      const btn   = document.createElement('button');
+      btn.className = 'analytics-practise-btn';
+      btn.innerHTML = `
+        <span class="analytics-practise-emoji">${emoji}</span>
+        <span class="analytics-practise-info">
+          <div>${escHtml(subj)}</div>
+          <div class="analytics-practise-sub">Tap to get a practice question</div>
+        </span>
+        <span class="analytics-practise-arrow">→</span>`;
+      btn.onclick = () => practiseSubject(subj);
+      panel.appendChild(btn);
+    });
+  }
+}
+
+// Called when user taps a "Practise" button — closes sheet and
+// pre-fills the question input with a practice prompt.
+function practiseSubject(subject) {
+  closeHistSheet();
+  if (typeof setMode === 'function') setMode('text');
+  const ti = document.getElementById('textQInput');
+  if (ti) {
+    ti.value = `Give me a practice question on ${subject}`;
+    ti.dispatchEvent(new Event('input'));
+    setTimeout(() => {
+      ti.focus();
+      ti.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 260);
+  }
+  // Open the question panel (dp4) if it is collapsed
+  const dp4 = document.getElementById('dp4');
+  if (dp4 && !dp4.classList.contains('open') && typeof togglePanel === 'function') {
+    togglePanel(4);
+  }
+}
+// ── END WEAK TOPIC ANALYTICS ───────────────────────────
+
+// ── GLOBAL EXPOSURE ───────────────────────────────────────────────────────────
 window.handleAuthClick    = handleAuthClick;
 window.gateSignIn         = gateSignIn;
 window.toggleLangDropdown = toggleLangDropdown;
@@ -5754,6 +6292,9 @@ window.switchHistTab      = switchHistTab;
 window.simplifyAnswer     = simplifyAnswer;
 window.toggleMic          = toggleMic;
 window.stopMic            = stopMic;
+window.sendSuggestionChip = sendSuggestionChip;
+window.buildAnalytics     = buildAnalytics;
+window.practiseSubject    = practiseSubject;
 // ── END GLOBAL EXPOSURE ───────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
