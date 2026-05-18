@@ -442,10 +442,10 @@ async function streamGroq(keys, ctx, onChunk) {
   const {
     question, className, subject, lang, board,
     stream: streamVal, mode, simplify,
-    history = [], subjectType = 'general',
+    history = [], subjectType = 'general', chapter = '',
   } = ctx;
 
-  const sysPrompt  = systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify);
+  const sysPrompt  = systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify, chapter);
   const senior     = isSeniorClass(className);
   const model      = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
   const rot        = senior ? rotations.groqSenior : rotations.groqJunior;
@@ -528,9 +528,8 @@ async function streamGemini(keys, ctx, onChunk) {
   const {
     question, className, subject, lang, board,
     stream: streamVal, mode, simplify,
-    history = [], subjectType = 'general',
+    history = [], subjectType = 'general', chapter = '',
   } = ctx;
-
   const rot        = rotations.gemini;
   const hasHistory = Array.isArray(history) && history.length > 1;
   const senior     = isSeniorClass(className);
@@ -552,11 +551,7 @@ async function streamGemini(keys, ctx, onChunk) {
   }
 
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify) }] },
-    contents,
-    generationConfig: {
-      temperature: temp,
-      topK: useThinking ? undefined : 40,
+    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify, chapter) }] },
       topP: 0.92,
       maxOutputTokens: useThinking ? 16384 : 8192,
       candidateCount: 1,
@@ -901,7 +896,7 @@ function needsSearchGrounding(subjectType, subject) {
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text', simplify = false) {
+function systemPrompt(className, subject, lang, board = '', stream = '', mode = 'text', simplify = false, chapter = '') {
   const langMap = { en: 'English', bn: 'Bengali (Bangla)', hi: 'Hindi', as: 'Assamese' };
   const replyLang = langMap[lang] || 'English';
 
@@ -1164,6 +1159,13 @@ ${className ? `Class: ${className}` : 'Class: Not specified (assume middle schoo
 ${stream    ? `Stream: ${stream}`   : ''}
 ${subject   ? `Subject: ${subject}` : ''}
 Adjust explanation depth and vocabulary for this level.
+${chapter ? `
+CURRENT CHAPTER — STRICTLY FOLLOW:
+The student is studying: **${chapter}**
+- Scope your answer to concepts covered in or before this chapter.
+- Do NOT introduce formulas, theorems, or topics from later chapters.
+- Mention the chapter name naturally where relevant (e.g. "In ${chapter}, we learn that…").
+- If a prerequisite concept from an earlier chapter is needed, briefly recall it.` : ''}
 ${boardBlock}${simplifyBlock}`;
 }
 
@@ -1180,8 +1182,8 @@ function photoInstruction(lang) {
 // FIX: Added `history` parameter. When a conversation history is provided
 // (follow-up questions), we build a proper multi-turn messages array instead
 // of a single user message. This gives the AI full context of the conversation.
-async function askGroq(keys, { question, className, subject, lang, board, stream, mode, simplify, history = [], subjectType = 'general' }) {
-  const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode, !!simplify);
+async function askGroq(keys, { question, className, subject, lang, board, stream, mode, simplify, history = [], subjectType = 'general', chapter = '' }) {
+  const sysPrompt = systemPrompt(className, subject, lang, board, stream, mode, !!simplify, chapter);
   let lastErr = null;
 
   const senior = isSeniorClass(className);
@@ -1264,7 +1266,7 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
 // we build a proper multi-turn `contents` array in Gemini's format.
 // For photo follow-ups, the original image is re-attached to the first turn
 // so the AI can still reference it throughout the conversation.
-async function askGemini(keys, { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history = [], subjectType = 'general' }) {
+async function askGemini(keys, { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history = [], subjectType = 'general', chapter = '' }) {
   const rot = rotations.gemini;
   let lastErr = null;
 
@@ -1355,10 +1357,7 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
 
   // ── Build the Gemini request body ─────────────────────────────────────────
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode, !!simplify) }] },
-    contents,
-    generationConfig: {
-      // [UPGRADE #1] Thinking requires temp=1.0 and a thinkingConfig block.
+    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode, !!simplify, chapter) }] },
       // Standard requests use the subject-tuned temperature from getTemperature().
       temperature:      temp,
       topK:             useThinking ? undefined : 40,  // thinking ignores topK
@@ -1714,6 +1713,7 @@ async function handleRequest(req, res) {
     mode, question, imageBase64, imageMime,
     className, subject, lang = 'en', board = '', stream = '', uid, simplify = false,
     subjectType: rawSubjectType = 'general',
+    chapter = '',
     // FIX: Accept conversation history from the frontend.
     // This is an array of { role: 'user'|'assistant', content: string } objects
     // built up over the course of a follow-up conversation.
@@ -1743,7 +1743,7 @@ async function handleRequest(req, res) {
   }
 
   // FIX: Pass history through to askGroq and askGemini via ctx.
-  const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history, subjectType };
+  const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history, subjectType, chapter };
 
   // ── STREAMING TEXT MODE ──────────────────────────────────────────────────────
   // When the client sends ?stream=1 and mode is text, bypass the normal JSON
