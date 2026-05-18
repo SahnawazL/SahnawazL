@@ -31,6 +31,29 @@
  * ║  (Chief Ministers, recent events, COP summits, etc.).       ║
  * ║  Automatically disabled for hard science (they need          ║
  * ║  precision, not web lookup) and for photo mode.             ║
+ * ║                                                              ║
+ * ║  ── UPGRADE #3: BACKEND subjectType AUTO-DETECTION ────────║
+ * ║  Frontend may send subjectType='general' for unknown or     ║
+ * ║  new subjects. detectSubjectType() inspects the actual      ║
+ * ║  subject name string and returns the correct type so that   ║
+ * ║  Thinking Mode (math/physics/chem) and Search Grounding     ║
+ * ║  (humanities/gk/geo) always activate correctly regardless   ║
+ * ║  of what the frontend sends.                                ║
+ * ║                                                              ║
+ * ║  ── UPGRADE #4: SMART QUIZ PROMPT BUILDER ─────────────────║
+ * ║  buildQuizSystem() generates a subject-aware, class-aware,  ║
+ * ║  board-aware system prompt for quiz generation. Produces    ║
+ * ║  exam-quality MCQs with correct difficulty distribution,    ║
+ * ║  believable wrong options, and enforces strict JSON format  ║
+ * ║  matching what the frontend parser expects.                 ║
+ * ║                                                              ║
+ * ║  ── UPGRADE #5: EXPANDED TEMPERATURE MAP ───────────────────║
+ * ║  getTemperature() now covers 14 subject types (was 10).     ║
+ * ║  accountancy (0.12) and economics (0.28) are now separate   ║
+ * ║  from commerce for precise tuning. Added: psychology,       ║
+ * ║  sanskrit, and pe. detectSubjectType() updated to route     ║
+ * ║  all new types correctly so every subject gets the right    ║
+ * ║  temperature automatically.                                 ║
  * ╚══════════════════════════════════════════════════════════════╝
  *
  * HOW TO ADD KEYS in Vercel → Settings → Environment Variables:
@@ -73,8 +96,9 @@ function isSeniorClass(className) {
   return num >= 11;
 }
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_URL   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL      = 'gemini-2.5-flash';
+const GEMINI_URL        = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent`;
 
 // ── [UPGRADE #1] Subjects that benefit from Gemini Thinking Mode ──────────────
 // Only exact sciences where chain-of-thought reasoning prevents calculation
@@ -262,6 +286,107 @@ async function cacheSet(kv, key, answer) {
   await kvCacheSet(kv, key, answer); // fire-and-forget on failure
 }
 
+// ── Subject type auto-detection ───────────────────────────────────────────────
+// The frontend sends subjectType but can default to 'general' for unknown
+// subjects. This function detects the correct type from the subject string
+// so Thinking Mode and Search Grounding always activate correctly.
+// Frontend value is trusted if it's specific; this is a fallback safety net.
+function detectSubjectType(subject, frontendType) {
+  // Trust the frontend if it already sent a specific type (not 'general')
+  if (frontendType && frontendType !== 'general') return frontendType;
+
+  const s = (subject || '').toLowerCase();
+
+  // Exact science — must match first (highest priority)
+  if (s.includes('math') || s.includes('algebra') || s.includes('geometry') ||
+      s.includes('trigonometry') || s.includes('calculus') || s.includes('statistic') ||
+      s.includes('arithmetic') || s.includes('mensuration') || s.includes('number'))
+    return 'math';
+
+  if (s.includes('physics') || s.includes('mechanics') || s.includes('optics') ||
+      s.includes('thermodynamics') || s.includes('electro'))
+    return 'physics';
+
+  if (s.includes('chem') || s.includes('organic') || s.includes('inorganic') ||
+      s.includes('periodic') || s.includes('reaction') || s.includes('acid') ||
+      s.includes('base') || s.includes('salt'))
+    return 'chemistry';
+
+  if (s.includes('bio') || s.includes('botany') || s.includes('zoology') ||
+      s.includes('genetics') || s.includes('ecology') || s.includes('cell') ||
+      s.includes('anatomy') || s.includes('physiology'))
+    return 'biology';
+
+  // Accountancy — very precise, separate from general commerce
+  if (s.includes('account') || s.includes('journal') || s.includes('ledger') ||
+      s.includes('balance sheet') || s.includes('trial balance') || s.includes('debit') ||
+      s.includes('credit') || s.includes('depreciation') || s.includes('cash flow'))
+    return 'accountancy';
+
+  // Economics — theory + numericals, needs more creative latitude than accountancy
+  if (s.includes('econom') || s.includes('micro') || s.includes('macro') ||
+      s.includes('demand') || s.includes('supply') || s.includes('gdp') ||
+      s.includes('inflation') || s.includes('market') || s.includes('consumer'))
+    return 'economics';
+
+  // Commerce / Business Studies
+  if (s.includes('commerce') || s.includes('bst') || s.includes('business') ||
+      s.includes('management') || s.includes('marketing') || s.includes('finance'))
+    return 'commerce';
+
+  // Computer
+  if (s.includes('computer') || s.includes('ict') || s.includes('programming') ||
+      s.includes('coding') || s.includes('software') || s.includes('hardware') ||
+      s.includes('algorithm') || s.includes('data structure') || s.includes('python') ||
+      s.includes('java') || s.includes('c++'))
+    return 'computer';
+
+  // Language / Literature
+  if (s.includes('english') || s.includes('hindi') || s.includes('bengali') ||
+      s.includes('assamese') || s.includes('telugu') || s.includes('tamil') ||
+      s.includes('kannada') || s.includes('marathi') || s.includes('gujarati') ||
+      s.includes('sanskrit') || s.includes('urdu') || s.includes('grammar') ||
+      s.includes('essay') || s.includes('poem') || s.includes('prose') ||
+      s.includes('literature') || s.includes('letter') || s.includes('story'))
+    return 'language';
+
+  // Psychology — own type so it gets correct temperature
+  if (s.includes('psycholog') || s.includes('mental') || s.includes('behaviour') ||
+      s.includes('behavior') || s.includes('freud') || s.includes('cognit'))
+    return 'psychology';
+
+  // Physical Education
+  if (s.includes('physical education') || s.includes(' pe ') || s.includes('sport') ||
+      s.includes('fitness') || s.includes('yoga') || s.includes('olympic') ||
+      s.includes('health and physical'))
+    return 'pe';
+
+  // Sanskrit
+  if (s.includes('sanskrit') || s.includes('shlokas') || s.includes('vedic') ||
+      s.includes('devanagari'))
+    return 'sanskrit';
+
+  // Humanities / Social
+  if (s.includes('history') || s.includes('civics') || s.includes('political') ||
+      s.includes('polity') || s.includes('social') || s.includes('sociology') ||
+      s.includes('philosophy'))
+    return 'humanities';
+
+  // Geography / Environment
+  if (s.includes('geo') || s.includes('map') || s.includes('evs') ||
+      s.includes('environment') || s.includes('climate') || s.includes('weather') ||
+      s.includes('soil') || s.includes('river') || s.includes('mountain'))
+    return 'environment';
+
+  // GK / General Knowledge
+  if (s.includes('gk') || s.includes('general knowledge') || s.includes('current') ||
+      s.includes('affairs') || s.includes('quiz') || s.includes('gk'))
+    return 'general';
+
+  // Default — still 'general' but now only reached if nothing matched
+  return 'general';
+}
+
 // ── Per-user spam guard ───────────────────────────────────────────────────────
 const spamTracker = new Map();
 
@@ -280,6 +405,305 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+// ── SSE Streaming Helpers ─────────────────────────────────────────────────────
+// Used by streamTextResponse() to push tokens to the client as they arrive.
+// Format: standard Server-Sent Events — each line is "data: <json>\n\n".
+function sseStart(res) {
+  res.setHeader('Content-Type',      'text/event-stream');
+  res.setHeader('Cache-Control',     'no-cache, no-transform');
+  res.setHeader('X-Accel-Buffering', 'no');   // disable nginx/proxy buffering
+  res.setHeader('Connection',        'keep-alive');
+  res.status(200);
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+}
+
+function sseChunk(res, text) {
+  try { res.write(`data: ${JSON.stringify({ chunk: text })}\n\n`); } catch (_) {}
+}
+
+function sseDone(res) {
+  try { res.write('data: [DONE]\n\n'); res.end(); } catch (_) {}
+}
+
+function sseError(res, msg) {
+  try {
+    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (_) {}
+}
+
+// ── Groq SSE streaming ────────────────────────────────────────────────────────
+// Mirrors askGroq() but pipes tokens to onChunk() as they arrive.
+// Returns { success: true, fullText } or { success: false }.
+async function streamGroq(keys, ctx, onChunk) {
+  const {
+    question, className, subject, lang, board,
+    stream: streamVal, mode, simplify,
+    history = [], subjectType = 'general',
+  } = ctx;
+
+  const sysPrompt  = systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify);
+  const senior     = isSeniorClass(className);
+  const model      = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
+  const rot        = senior ? rotations.groqSenior : rotations.groqJunior;
+  const temp       = getTemperature(subjectType);
+
+  const hasHistory   = Array.isArray(history) && history.length > 1;
+  let recentHistory  = hasHistory ? history.slice(-6) : null;
+  if (recentHistory && recentHistory[0]?.role !== 'user') recentHistory = recentHistory.slice(1);
+
+  const messages = recentHistory
+    ? [{ role: 'system', content: sysPrompt }, ...recentHistory]
+    : [{ role: 'system', content: sysPrompt }, { role: 'user', content: question.trim() }];
+
+  for (let attempt = 0; attempt < Math.max(keys.length, 1); attempt++) {
+    const key = pickKey(keys, rot);
+    if (!key) break;
+
+    try {
+      const r = await fetch(GROQ_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body:    JSON.stringify({
+          model, messages,
+          temperature: temp, max_tokens: 8192, top_p: 0.92,
+          stream: true,
+        }),
+      });
+
+      if (!r.ok) {
+        let errData = {};
+        try { errData = await r.json(); } catch (_) {}
+        const isQuota = r.status === 429 || (errData.error?.message || '').toLowerCase().includes('rate');
+        if (isQuota) rot.exhausted.add(key);
+        continue;
+      }
+
+      const reader  = r.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText  = '';
+      let buf       = '';
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') break outer;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.error) {
+              const isQuota = parsed.error.code === 429
+                || (parsed.error.message || '').toLowerCase().includes('rate');
+              if (isQuota) rot.exhausted.add(key);
+              break outer;
+            }
+            const text = parsed.choices?.[0]?.delta?.content || '';
+            if (text) { fullText += text; onChunk(text); }
+          } catch (_) {}
+        }
+      }
+
+      if (fullText) return { success: true, fullText };
+
+    } catch (_) { /* network error — try next key */ }
+  }
+
+  return { success: false };
+}
+
+// ── Gemini SSE streaming ──────────────────────────────────────────────────────
+// Uses the streamGenerateContent endpoint (alt=sse).
+// Preserves Thinking Mode and Search Grounding logic from askGemini().
+// Photo mode is NOT passed here — images use the standard (non-stream) endpoint.
+async function streamGemini(keys, ctx, onChunk) {
+  const {
+    question, className, subject, lang, board,
+    stream: streamVal, mode, simplify,
+    history = [], subjectType = 'general',
+  } = ctx;
+
+  const rot        = rotations.gemini;
+  const hasHistory = Array.isArray(history) && history.length > 1;
+  const senior     = isSeniorClass(className);
+
+  const useThinking  = senior && THINKING_SUBJECTS.includes(subjectType) && !hasHistory;
+  const useGrounding = !useThinking && needsSearchGrounding(subjectType, subject);
+  const temp         = useThinking ? 1.0 : getTemperature(subjectType);
+
+  let contents;
+  if (hasHistory) {
+    let recentHistory = history.slice(-6);
+    if (recentHistory[0]?.role !== 'user') recentHistory = recentHistory.slice(1);
+    contents = recentHistory.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content || '' }],
+    }));
+  } else {
+    contents = [{ role: 'user', parts: [{ text: question.trim() }] }];
+  }
+
+  const body = {
+    system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify) }] },
+    contents,
+    generationConfig: {
+      temperature: temp,
+      topK: useThinking ? undefined : 40,
+      topP: 0.92,
+      maxOutputTokens: useThinking ? 16384 : 8192,
+      candidateCount: 1,
+      ...(useThinking ? { thinkingConfig: { thinkingBudget: 8192 } } : {}),
+    },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH'        },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+    ],
+    ...(useGrounding ? { tools: [{ googleSearch: {} }] } : {}),
+  };
+
+  for (let attempt = 0; attempt < Math.max(keys.length, 1); attempt++) {
+    const key = pickKey(keys, rot);
+    if (!key) break;
+
+    try {
+      const r = await fetch(`${GEMINI_STREAM_URL}?key=${key}&alt=sse`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+
+      if (!r.ok) {
+        let errData = {};
+        try { errData = await r.json(); } catch (_) {}
+        const isQuota = r.status === 429 || errData.error?.status === 'RESOURCE_EXHAUSTED';
+        if (isQuota) rot.exhausted.add(key);
+        continue;
+      }
+
+      const reader  = r.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText  = '';
+      let buf       = '';
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') break outer;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.error) {
+              const isQuota = parsed.error.status === 'RESOURCE_EXHAUSTED' || parsed.error.code === 429;
+              if (isQuota) rot.exhausted.add(key);
+              break outer;
+            }
+            // Skip internal thought parts (Thinking Mode) — emit answer only
+            const parts = parsed.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+              if (part.text && !part.thought) { fullText += part.text; onChunk(part.text); }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (fullText) return { success: true, fullText };
+
+    } catch (_) { /* network error — try next key */ }
+  }
+
+  return { success: false };
+}
+
+// ── Main SSE handler for text mode ────────────────────────────────────────────
+// Called when the frontend sends ?stream=1 with mode=text.
+// Sets SSE headers, handles cache, routes to Groq/Gemini (same logic as the
+// non-streaming text path), streams tokens, then finalises cache + Firestore.
+async function streamTextResponse(groqKeys, geminiKeys, ctx, req, res) {
+  const {
+    question, subject, lang, board, simplify = false,
+    history = [], subjectType = 'general', uid, className,
+  } = ctx;
+
+  sseStart(res);
+
+  // ── Cache check ─────────────────────────────────────────────────────────────
+  const isFollowUpQ = Array.isArray(history) && history.length > 0;
+  const isCacheable = !isFollowUpQ && !simplify && question?.trim();
+  const kv          = await getKV();
+  const cacheKey    = isCacheable ? makeCacheKey(question, subject, className, lang, board) : null;
+
+  if (isCacheable && cacheKey) {
+    const cached = await cacheGet(kv, cacheKey);
+    if (cached) {
+      console.log('[Cache/SSE] HIT:', cacheKey.slice(0, 80));
+      sseChunk(res, cached);   // single chunk = instant for the student
+      sseDone(res);
+      return;
+    }
+  }
+
+  // ── Smart routing (identical to non-streaming text path) ────────────────────
+  const senior         = isSeniorClass(className);
+  const wantsThinking  = senior && THINKING_SUBJECTS.includes(subjectType) && !isFollowUpQ;
+  const wantsGrounding = needsSearchGrounding(subjectType, subject);
+  const geminiFirst    = geminiKeys.length > 0 && (wantsThinking || wantsGrounding);
+
+  let fullText = '';
+  let success  = false;
+  const onChunk = (text) => sseChunk(res, text);
+
+  if (geminiFirst) {
+    const result = await streamGemini(geminiKeys, ctx, onChunk);
+    if (result.success) { fullText = result.fullText; success = true; }
+    else console.warn('[Gemini/SSE] Smart-route failed, falling back to Groq.');
+  }
+
+  if (!success && groqKeys.length > 0) {
+    const result = await streamGroq(groqKeys, ctx, onChunk);
+    if (result.success) { fullText = result.fullText; success = true; }
+  }
+
+  if (!success && geminiKeys.length > 0 && !geminiFirst) {
+    const result = await streamGemini(geminiKeys, ctx, onChunk);
+    if (result.success) { fullText = result.fullText; success = true; }
+  }
+
+  if (!success) {
+    sseError(res, '❌ Connection error. Please check your internet and try again.');
+    return;
+  }
+
+  // ── Post-stream bookkeeping ──────────────────────────────────────────────────
+  if (isCacheable && cacheKey && fullText) {
+    cacheSet(kv, cacheKey, fullText).catch(() => {});
+  }
+  if (uid && fullText) {
+    const entryId = Date.now();
+    saveHistoryToFirestore(uid, {
+      id: entryId, ts: entryId, mode: 'text',
+      question: question || '', subject: subject || '',
+      className: className || '',
+      answer: fullText.slice(0, 500),
+    }).catch(() => {});
+  }
+
+  sseDone(res);
 }
 
 // ── Firebase Storage Image Upload ─────────────────────────────────────────────
@@ -417,20 +841,43 @@ async function saveHistoryToFirestore(uid, entry) {
 // Creative/language subjects benefit from slightly higher temperature.
 // NOTE: When Gemini Thinking Mode is active, temperature is forced to 1.0
 // regardless of this map (that is a hard Gemini API requirement).
+// ── [UPGRADE #5] Per-subject temperature map ─────────────────────────────────
+// Temperature controls how creative/varied the AI's answer is.
+// Low (0.10) = strict, precise, formulaic. High (0.55) = expressive, creative.
+// New subjects added: accountancy, economics, sanskrit, psychology, pe.
+// accountancy and economics are now separate from 'commerce' for better tuning.
 function getTemperature(subjectType) {
   const map = {
-    math:        0.10,  // must be exact — no creativity allowed
-    physics:     0.10,  // same: formulas, unit analysis
-    chemistry:   0.15,  // mostly formulaic, some explanation
-    biology:     0.20,
-    computer:    0.20,  // code needs consistency
-    commerce:    0.20,
-    humanities:  0.30,
-    environment: 0.30,
-    language:    0.55,  // essays/creative writing need expressiveness
-    general:     0.30,
+    // ── Exact sciences (must be precise — no creative variation allowed) ──
+    math:         0.10,  // every step must be exactly right
+    physics:      0.10,  // formulas, unit analysis, derivations
+    chemistry:    0.15,  // mostly formulaic, slight room for explanation style
+
+    // ── Life & applied sciences ───────────────────────────────────────────
+    biology:      0.20,  // factual but explanatory; diagrams help
+    computer:     0.20,  // code needs consistency; logic must be exact
+
+    // ── Commerce stream ───────────────────────────────────────────────────
+    accountancy:  0.12,  // journal entries, ledger, rules — very precise
+    commerce:     0.22,  // business studies — some theory, some rules
+    economics:    0.28,  // theory + graphs + numericals — needs more latitude
+
+    // ── Social sciences & humanities ──────────────────────────────────────
+    humanities:   0.30,  // history, civics, political science — explanatory
+    environment:  0.30,  // geography, EVS — factual with some description
+    psychology:   0.32,  // concepts + case studies — slightly more expressive
+
+    // ── Languages ─────────────────────────────────────────────────────────
+    sanskrit:     0.22,  // grammar rules are strict; translation needs slight creativity
+    language:     0.55,  // essays, letters, creative writing — expressiveness needed
+
+    // ── General / GK ──────────────────────────────────────────────────────
+    general:      0.30,  // mixed content — balanced middle ground
+
+    // ── Physical education ────────────────────────────────────────────────
+    pe:           0.30,  // rules, techniques, theory — descriptive
   };
-  return map[subjectType] ?? 0.25;
+  return map[subjectType] ?? 0.25;  // safe default for any unmapped type
 }
 
 // ── [UPGRADE #2] Should this request use Google Search Grounding? ─────────────
@@ -991,18 +1438,76 @@ function extractGeminiText(data) {
 }
 
 // ── Quiz system prompt ────────────────────────────────────────────────────────
-const QUIZ_SYSTEM = `You are a JSON quiz generator. You output ONLY valid JSON arrays, nothing else.
-No markdown, no code fences, no explanation, no preamble — just the raw JSON array starting with [ and ending with ].`;
+// [UPGRADE #4] Dynamic quiz prompt builder — subject-aware, class-aware, board-aware.
+// Produces exam-quality MCQs with believable wrong options and difficulty distribution.
+function buildQuizSystem(className, subject, subjectType, board) {
+  const senior  = isSeniorClass(className);
+  const isMath  = ['math','physics','chemistry'].includes(subjectType);
+  const isLang  = subjectType === 'language';
+  const boardHint = board ? ` following the ${board} syllabus and exam style` : '';
+  const classHint = className ? ` for Class ${className} students` : ' for school students';
+
+  const subjectRules = isMath
+    ? `- For calculation questions: show the numerical answer as the correct option (not a formula)
+- Include at least 1 question that requires a calculation or formula application
+- Wrong options must be plausible wrong calculations (off-by-one, wrong formula, unit error)`
+    : isLang
+    ? `- Questions may test grammar rules, word meanings, comprehension, or author intent
+- Wrong options must be believable alternative interpretations or near-synonyms
+- Avoid trivially obvious wrong options`
+    : `- Wrong options must be believable — use real but incorrect facts, not nonsense
+- At least 1 question should test a commonly confused concept in this subject
+- Include specific names, dates, or terms students are expected to recall`;
+
+  const difficultyGuide = senior
+    ? `DIFFICULTY MIX (strictly follow):
+- Q1: Medium — tests core concept understanding
+- Q2: Hard — requires applying knowledge or multi-step thinking
+- Q3: Medium-Hard — tests a commonly confused or tricky aspect`
+    : `DIFFICULTY MIX (strictly follow):
+- Q1: Easy — tests basic recall or definition
+- Q2: Medium — tests understanding and application
+- Q3: Tricky — a concept students commonly get wrong`;
+
+  return `You are an expert quiz generator for Indian school students${classHint}${boardHint}.
+Output ONLY a valid JSON array. No markdown, no code fences, no extra text. Start with [ and end with ].
+
+STRICT JSON FORMAT — every object must have exactly these keys:
+{
+  "q": "Question text (clear, exam-style, ends with ?)",
+  "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+  "correct": 0,
+  "explanation": "One sentence explaining why the correct answer is right."
+}
+
+CRITICAL FORMAT RULES:
+- correct must be a NUMBER (0=A, 1=B, 2=C, 3=D) — never a letter
+- Vary which position is correct across all 3 questions (not always 0)
+- Questions must be based ONLY on the answer content provided — never invent facts
+- Each question must test a genuinely different idea — no rephrasing the same concept
+- Options must be parallel in structure (all noun phrases OR all full sentences)
+- Explanation must name the correct answer and briefly state the reason
+
+${difficultyGuide}
+
+WRONG OPTIONS QUALITY:
+${subjectRules}
+
+OUTPUT: Exactly 3 question objects in a valid JSON array. Nothing else.`;
+}
 
 // ── Suggestions system prompt ─────────────────────────────────────────────────
 const SUGGESTIONS_SYSTEM = `You are a helpful study assistant. You output ONLY valid JSON arrays of strings, nothing else.
 No markdown, no code fences, no explanation, no preamble — just the raw JSON array starting with [ and ending with ].`;
 
 // ── Quiz handler ──────────────────────────────────────────────────────────────
-async function askQuiz(groqKeys, geminiKeys, { question, className }) {
-  const senior = isSeniorClass(className);
-  const model  = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
-  const rot    = senior ? rotations.groqSenior : rotations.groqJunior;
+// [UPGRADE #4] Now accepts subject, subjectType, board so buildQuizSystem()
+// can tailor difficulty rules, wrong-option quality, and exam style per subject.
+async function askQuiz(groqKeys, geminiKeys, { question, className, subject = '', subjectType = 'general', board = '' }) {
+  const senior    = isSeniorClass(className);
+  const model     = senior ? GROQ_MODEL_SENIOR : GROQ_MODEL_JUNIOR;
+  const rot       = senior ? rotations.groqSenior : rotations.groqJunior;
+  const quizSys   = buildQuizSystem(className, subject, subjectType, board);
 
   if (groqKeys.length > 0) {
     for (let attempt = 0; attempt < Math.max(groqKeys.length, 1); attempt++) {
@@ -1015,10 +1520,10 @@ async function askQuiz(groqKeys, geminiKeys, { question, className }) {
           body: JSON.stringify({
             model,
             messages: [
-              { role: 'system', content: QUIZ_SYSTEM },
+              { role: 'system', content: quizSys },
               { role: 'user',   content: question.trim() },
             ],
-            temperature: 0.3, max_tokens: 2048, top_p: 0.9,
+            temperature: 0.4, max_tokens: 2048, top_p: 0.9,
           }),
         });
         const data = await r.json();
@@ -1043,9 +1548,9 @@ async function askQuiz(groqKeys, geminiKeys, { question, className }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            system_instruction: { parts: [{ text: QUIZ_SYSTEM }] },
+            system_instruction: { parts: [{ text: quizSys }] },
             contents: [{ role: 'user', parts: [{ text: question.trim() }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 1024, candidateCount: 1 },
+            generationConfig: { temperature: 0.4, maxOutputTokens: 2048, candidateCount: 1 },
           }),
         });
         const data = await r.json();
@@ -1163,12 +1668,19 @@ async function handleRequest(req, res) {
   const {
     mode, question, imageBase64, imageMime,
     className, subject, lang = 'en', board = '', stream = '', uid, simplify = false,
-    subjectType = 'general',
+    subjectType: rawSubjectType = 'general',
     // FIX: Accept conversation history from the frontend.
     // This is an array of { role: 'user'|'assistant', content: string } objects
     // built up over the course of a follow-up conversation.
     history = [],
   } = req.body || {};
+
+  // ── [UPGRADE #3] Auto-detect subjectType from subject string ─────────────────
+  // The frontend may send subjectType='general' for unknown or new subjects.
+  // detectSubjectType() inspects the actual subject name and returns the correct
+  // type — ensuring Thinking Mode (math/physics/chem) and Search Grounding
+  // (humanities/gk/geography) always activate for the right subjects.
+  const subjectType = detectSubjectType(subject, rawSubjectType);
 
   const ip         = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
   const trackingId = (uid && uid.length > 4) ? `uid:${uid}` : `ip:${ip}`;
@@ -1187,6 +1699,14 @@ async function handleRequest(req, res) {
 
   // FIX: Pass history through to askGroq and askGemini via ctx.
   const ctx = { question, imageBase64, imageMime, className, subject, lang, board, stream, mode, simplify, history, subjectType };
+
+  // ── STREAMING TEXT MODE ──────────────────────────────────────────────────────
+  // When the client sends ?stream=1 and mode is text, bypass the normal JSON
+  // response path and push tokens via SSE as they arrive from Groq / Gemini.
+  // Photo, quiz, suggestions, and simplify modes keep their existing paths.
+  if (req.query?.stream === '1' && mode === 'text') {
+    return streamTextResponse(groqKeys, geminiKeys, ctx, req, res);
+  }
 
   // ── Cache lookup (text-only, non-follow-up, non-simplify questions) ─────────
   // We only cache clean first questions — not follow-ups (history has context),
@@ -1219,7 +1739,7 @@ async function handleRequest(req, res) {
       className,
       subject,
       lang,
-      subjectType: req.body.subjectType || 'general',
+      subjectType, // already resolved via detectSubjectType above
     });
     if (result.answer) return res.status(200).json({ answer: result.answer });
     return res.status(500).json({ error: 'Suggestions generation failed.' });
@@ -1228,7 +1748,7 @@ async function handleRequest(req, res) {
   // ── QUIZ mode ──────────────────────────────────────────────────────────────
   if (mode === 'quiz') {
     if (!question?.trim()) return res.status(400).json({ error: 'No quiz prompt.' });
-    const result = await askQuiz(groqKeys, geminiKeys, { question, className });
+    const result = await askQuiz(groqKeys, geminiKeys, { question, className, subject, subjectType, board });
     if (result.answer) {
       if (uid) {
         const entryId = Date.now();
