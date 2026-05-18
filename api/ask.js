@@ -552,9 +552,12 @@ async function streamGemini(keys, ctx, onChunk) {
 
   const body = {
     system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, streamVal, mode, !!simplify, chapter) }] },
-      topP: 0.92,
+    generationConfig: {
+      temperature:     temp,
+      topK:            useThinking ? undefined : 40,
+      topP:            0.92,
       maxOutputTokens: useThinking ? 16384 : 8192,
-      candidateCount: 1,
+      candidateCount:  1,
       ...(useThinking ? { thinkingConfig: { thinkingBudget: 8192 } } : {}),
     },
     safetySettings: [
@@ -1358,6 +1361,7 @@ async function askGemini(keys, { question, imageBase64, imageMime, className, su
   // ── Build the Gemini request body ─────────────────────────────────────────
   const body = {
     system_instruction: { parts: [{ text: systemPrompt(className, subject, lang, board, stream, mode, !!simplify, chapter) }] },
+    generationConfig: {
       // Standard requests use the subject-tuned temperature from getTemperature().
       temperature:      temp,
       topK:             useThinking ? undefined : 40,  // thinking ignores topK
