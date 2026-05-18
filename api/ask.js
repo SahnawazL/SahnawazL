@@ -952,10 +952,17 @@ SCIENCE — CRITICAL RULES:
 - Show significant figures appropriately.` : '';
 
   const bioSvgGuide = isBio ? `
-Biology SVG Guidelines (use these for organ/cell/process diagrams):
-- For organ diagrams: draw anatomically positioned schematic shapes. Label every part.
-- NEVER draw organ diagrams as left-to-right flowcharts.
-- Define an arrowhead marker at the top of the SVG.
+Biology SVG Guidelines — draw these whenever the topic matches:
+- Genetics / Hardy-Weinberg: draw a Punnett square (2×2 grid with alleles on top and side, genotypes inside each cell) OR a bar chart showing genotype frequencies (AA, Aa, aa) as filled rectangles with labeled heights (p², 2pq, q²). NEVER just type the formula as SVG text — draw the visual.
+- Cell diagrams: draw an oval cell outline, then internal organelles as labeled shapes (nucleus = large circle, mitochondria = oval with inner folds, chloroplast = oval with stacked lines, etc.).
+- Organ diagrams: draw anatomically positioned schematic shapes (heart = asymmetric oval with chambers, kidney = bean shape, etc.). Label every part with leader lines.
+- Photosynthesis / Respiration: draw a process flow with labeled boxes connected by arrows (reactants → energy → products), NOT a left-to-right text list.
+- DNA / RNA: draw a double helix (two wavy parallel lines with rungs), label bases (A-T, G-C), direction arrows.
+- Mitosis / Meiosis: draw cells at each phase as circles with chromosomes shown as lines or X shapes inside.
+- Nervous system: draw a neuron with labeled parts (dendrites, cell body, axon, myelin sheath, synapse).
+- Ecosystem / Food chain: draw labeled boxes for producers → primary consumers → secondary consumers with arrows.
+CRITICAL: SVGs MUST contain actual shapes (rect, circle, path, line, ellipse, polygon) — not just <text> elements. A diagram made only of text labels is NOT a diagram.
+- Define an arrowhead marker at the top of every SVG that uses arrows.
 - Keep it clean and school-textbook style.` : '';
 
   const isPhotoMode = mode === 'photo';
@@ -1014,6 +1021,7 @@ GENERAL SVG RULES:
 - Value labels: <text fill="#f7c948" font-family="sans-serif" font-size="11" font-weight="bold">value</text>
 - All text must stay INSIDE the viewBox boundaries.
 - Minimum content: at least 5 meaningful SVG elements (shapes, lines, text labels).
+- ⛔ CRITICAL: An SVG made ONLY of <text> elements is NOT a diagram — it is just text in a box. Every diagram MUST include real visual shapes: <rect>, <circle>, <path>, <line>, <ellipse>, <polygon>, or <polyline>.
 ${physicsSvgGuide}
 ${chemSvgGuide}
 ${bioSvgGuide}` : `
