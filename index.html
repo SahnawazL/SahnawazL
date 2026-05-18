@@ -1825,8 +1825,43 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   border: 1px solid rgba(62,207,142,0.25); border-radius: 100px;
   padding: 0.1rem 0.45rem; white-space: nowrap;
 }
+/* ── CHAPTER CHIPS ROW ────────────────────────────────────── */
+.chapter-row {
+  display: none; flex-direction: column;
+  margin: 0.55rem 0 0.2rem;
+  animation: fadeUp 0.35s ease both;
+}
+.chapter-row.show { display: flex; }
+.chapter-row-label {
+  font-size: 0.57rem; font-weight: 800; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--border);
+  padding: 0 0.1rem 0.42rem;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.chapter-row-label::before, .chapter-row-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--border); opacity: 0.5;
+}
+.chapter-scroll {
+  display: flex; gap: 0.38rem;
+  overflow-x: auto; padding: 0.1rem 0.05rem 0.5rem;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.chapter-scroll::-webkit-scrollbar { display: none; }
+.chapter-chip {
+  flex-shrink: 0; padding: 0.35rem 0.75rem; border-radius: 100px;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-family: var(--font-body); font-size: 0.71rem; font-weight: 600;
+  color: var(--muted); cursor: pointer; white-space: nowrap;
+  transition: all 0.15s;
+}
+.chapter-chip:hover { border-color: var(--accent); color: var(--text); background: rgba(79,142,247,0.08); }
+.chapter-chip.sel {
+  border-color: var(--accent); background: rgba(79,142,247,0.16);
+  color: var(--accent); font-weight: 700;
+}
+.chapter-chip.any-chip { border-color: rgba(247,201,72,0.35); color: var(--accent2); background: rgba(247,201,72,0.06); }
+.chapter-chip.any-chip.sel { border-color: var(--accent2); background: rgba(247,201,72,0.15); color: var(--accent2); }
 </style>
-</head>
 <body>
 
 <!-- ── LOGIN GATE (mandatory — hides until authenticated) ── -->
@@ -2037,6 +2072,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
   <!-- ── PROFILE TOAST ── -->
   <div class="profile-toast" id="profileToast"></div>
+
+  <!-- ── CHAPTER ROW (appears after subject picked, Class 11/12 only) ── -->
+  <div class="chapter-row" id="chapterRow">
+    <div class="chapter-row-label">📖 Select Chapter (optional)</div>
+    <div class="chapter-scroll" id="chapterScroll"></div>
+  </div>
 
   <!-- STEP 5 (or 3 for 1-10, 4 for 11/12): QUESTION — locked until subject done -->
   <div class="step-card locked" id="card5">
@@ -2609,6 +2650,7 @@ let selBoard = null;  // {id, name, shortName}
 let selClass = null;
 let selStream = null; // {id, name, emoji} — only for class 11/12
 let selSubj  = null;
+let selChapter = null; // currently selected chapter (Class 11/12 only)
 let curFile  = null;
 let curB64   = null;
 let openDP   = 0;
@@ -3537,7 +3579,7 @@ function buildBoardGrid() {
 
 function pickBoard(b) {
   selBoard = b;
-  selClass = null; selStream = null; selSubj = null;
+  selClass = null; selStream = null; selSubj = null; selChapter = null;
   const v = document.getElementById('val-board');
   v.textContent = b.name + ' — ' + b.desc;
   v.classList.remove('ph'); v.classList.add('dv');
@@ -3578,7 +3620,7 @@ function buildClassGrid() {
 
 function pickClass(cls) {
   selClass = cls;
-  selStream = null; selSubj = null;
+  selStream = null; selSubj = null; selChapter = null;
   const t = T[currentLang];
   const v = document.getElementById('val-cls');
   v.textContent = `${cls.num} (${cls.label})`;
@@ -3594,6 +3636,9 @@ function pickClass(cls) {
   document.getElementById('card4').classList.add('locked');
   document.getElementById('card5').classList.add('locked');
   document.getElementById('modeToggleWrap').style.display = 'none';
+  // Hide chapter row — new class means chapter map may differ
+  const chapterRow = document.getElementById('chapterRow');
+  if (chapterRow) chapterRow.classList.remove('show');
 
   if (isHigherSecondary()) {
     // Show stream step, lock subject until stream picked
@@ -3634,7 +3679,7 @@ function buildStreamGrid() {
 
 function pickStream(s) {
   selStream = s;
-  selSubj = null;
+  selSubj = null; selChapter = null;
   const v = document.getElementById('val-stream');
   v.textContent = `${s.emoji}  ${s.name}`;
   v.classList.remove('ph'); v.classList.add('dv');
@@ -3670,6 +3715,94 @@ function buildSubjGrid() {
   });
 }
 
+// ── CHAPTER MAP (Class 11 & 12 — NCERT/CBSE, also used by ASSEB Science) ──
+// Key: `${classId}_${subjectKey}` (works across boards for NCERT-aligned subjects)
+// To expand: add more keys following the same pattern.
+const CHAPTER_MAP = {
+  // ── CLASS 11 SCIENCE ──────────────────────────────────────────
+  c11_physics: ['Ch.1 - Physical World','Ch.2 - Units & Measurement','Ch.3 - Motion in a Straight Line','Ch.4 - Motion in a Plane','Ch.5 - Laws of Motion','Ch.6 - Work, Energy & Power','Ch.7 - System of Particles & Rotational Motion','Ch.8 - Gravitation','Ch.9 - Mechanical Properties of Solids','Ch.10 - Mechanical Properties of Fluids','Ch.11 - Thermal Properties of Matter','Ch.12 - Thermodynamics','Ch.13 - Kinetic Theory','Ch.14 - Oscillations','Ch.15 - Waves'],
+  c11_chemistry: ['Ch.1 - Some Basic Concepts of Chemistry','Ch.2 - Structure of Atom','Ch.3 - Classification of Elements & Periodicity','Ch.4 - Chemical Bonding & Molecular Structure','Ch.5 - States of Matter','Ch.6 - Chemical Thermodynamics','Ch.7 - Equilibrium','Ch.8 - Redox Reactions','Ch.9 - Hydrogen','Ch.10 - The s-Block Elements','Ch.11 - The p-Block Elements','Ch.12 - Organic Chemistry: Basic Principles','Ch.13 - Hydrocarbons','Ch.14 - Environmental Chemistry'],
+  c11_math: ['Ch.1 - Sets','Ch.2 - Relations & Functions','Ch.3 - Trigonometric Functions','Ch.4 - Complex Numbers & Quadratic Equations','Ch.5 - Linear Inequalities','Ch.6 - Permutations & Combinations','Ch.7 - Binomial Theorem','Ch.8 - Sequences & Series','Ch.9 - Straight Lines','Ch.10 - Conic Sections','Ch.11 - 3D Geometry (Introduction)','Ch.12 - Limits & Derivatives','Ch.13 - Statistics','Ch.14 - Probability'],
+  c11_biology: ['Ch.1 - The Living World','Ch.2 - Biological Classification','Ch.3 - Plant Kingdom','Ch.4 - Animal Kingdom','Ch.5 - Morphology of Flowering Plants','Ch.6 - Anatomy of Flowering Plants','Ch.7 - Structural Organisation in Animals','Ch.8 - Cell: The Unit of Life','Ch.9 - Biomolecules','Ch.10 - Cell Cycle & Cell Division','Ch.11 - Transport in Plants','Ch.12 - Mineral Nutrition','Ch.13 - Photosynthesis in Higher Plants','Ch.14 - Respiration in Plants','Ch.15 - Plant Growth & Development','Ch.16 - Digestion & Absorption','Ch.17 - Breathing & Exchange of Gases','Ch.18 - Body Fluids & Circulation','Ch.19 - Excretory Products & Elimination','Ch.20 - Locomotion & Movement','Ch.21 - Neural Control & Coordination','Ch.22 - Chemical Coordination & Integration'],
+  c11_computer: ['Ch.1 - Computer System Overview','Ch.2 - Data Representation','Ch.3 - Emerging Trends','Ch.4 - Introduction to Problem Solving','Ch.5 - Getting Started with Python','Ch.6 - Flow of Control','Ch.7 - Functions','Ch.8 - Strings','Ch.9 - Lists','Ch.10 - Tuples & Dictionary','Ch.11 - Societal Impacts'],
+  // ── CLASS 11 COMMERCE ─────────────────────────────────────────
+  c11_accountancy: ['Ch.1 - Introduction to Accounting','Ch.2 - Theory Base of Accounting','Ch.3 - Recording of Transactions – I','Ch.4 - Recording of Transactions – II','Ch.5 - Bank Reconciliation Statement','Ch.6 - Trial Balance & Rectification of Errors','Ch.7 - Depreciation, Provisions & Reserves','Ch.8 - Bills of Exchange','Ch.9 - Financial Statements – I','Ch.10 - Financial Statements – II','Ch.11 - Accounts from Incomplete Records','Ch.12 - Computers in Accounting'],
+  c11_bizstudies: ['Ch.1 - Business, Trade & Commerce','Ch.2 - Forms of Business Organisation','Ch.3 - Private, Public & Global Enterprises','Ch.4 - Business Services','Ch.5 - Emerging Modes of Business','Ch.6 - Social Responsibility & Business Ethics','Ch.7 - Formation of a Company','Ch.8 - Sources of Business Finance','Ch.9 - Small Business','Ch.10 - Internal Trade','Ch.11 - International Business'],
+  c11_economics: ['Ch.1 - Introduction (Statistics)','Ch.2 - Collection of Data','Ch.3 - Organisation of Data','Ch.4 - Presentation of Data','Ch.5 - Measures of Central Tendency','Ch.6 - Measures of Dispersion','Ch.7 - Correlation','Ch.8 - Index Numbers','Ch.9 - Indian Economy – Eve of Independence','Ch.10 - Indian Economy 1950–1990','Ch.11 - Liberalisation, Privatisation, Globalisation','Ch.12 - Poverty','Ch.13 - Human Capital Formation','Ch.14 - Rural Development','Ch.15 - Employment & Growth','Ch.16 - Infrastructure','Ch.17 - Environment & Sustainable Development','Ch.18 - Comparative Development Experiences'],
+  // ── CLASS 11 ARTS ─────────────────────────────────────────────
+  c11_history: ['Ch.1 - From the Beginning of Time','Ch.2 - Early Cities','Ch.3 - An Empire Across Three Continents','Ch.4 - The Central Islamic Lands','Ch.5 - Nomadic Empires','Ch.6 - The Three Orders','Ch.7 - Changing Cultural Traditions','Ch.8 - Confrontation of Cultures','Ch.9 - The Industrial Revolution','Ch.10 - Displacing Indigenous Peoples','Ch.11 - Paths to Modernisation'],
+  c11_polsci: ['Ch.1 - Political Theory: An Introduction','Ch.2 - Freedom','Ch.3 - Equality','Ch.4 - Social Justice','Ch.5 - Rights','Ch.6 - Citizenship','Ch.7 - Nationalism','Ch.8 - Secularism','Ch.9 - Peace','Ch.10 - Development','Ch.11 - Constitution: Why & How?','Ch.12 - Rights in the Indian Constitution','Ch.13 - Election and Representation','Ch.14 - Executive','Ch.15 - Legislature','Ch.16 - Judiciary','Ch.17 - Federalism','Ch.18 - Local Governments','Ch.19 - Constitution as Living Document','Ch.20 - Philosophy of the Constitution'],
+  c11_geo: ['Ch.1 - Geography as a Discipline','Ch.2 - Origin & Evolution of the Earth','Ch.3 - Interior of the Earth','Ch.4 - Distribution of Oceans & Continents','Ch.5 - Minerals & Rocks','Ch.6 - Geomorphic Processes','Ch.7 - Landforms & Their Evolution','Ch.8 - Atmosphere: Composition & Structure','Ch.9 - Solar Radiation, Heat Balance & Temperature','Ch.10 - Atmospheric Circulation & Weather Systems','Ch.11 - Water in the Atmosphere','Ch.12 - World Climate & Climate Change','Ch.13 - Water – the Oceans','Ch.14 - Movements of Ocean Water','Ch.15 - Life on the Earth','Ch.16 - India – Location','Ch.17 - Structure & Physiography','Ch.18 - Drainage System','Ch.19 - Climate','Ch.20 - Natural Vegetation','Ch.21 - Soils','Ch.22 - Natural Hazards & Disasters'],
+  c11_psychology: ['Ch.1 - What is Psychology?','Ch.2 - Methods of Enquiry in Psychology','Ch.3 - The Bases of Human Behaviour','Ch.4 - Human Development','Ch.5 - Sensory, Attentional & Perceptual Processes','Ch.6 - Learning','Ch.7 - Human Memory','Ch.8 - Thinking','Ch.9 - Motivation & Emotion'],
+  // ── CLASS 12 SCIENCE ──────────────────────────────────────────
+  c12_physics: ['Ch.1 - Electric Charges & Fields','Ch.2 - Electrostatic Potential & Capacitance','Ch.3 - Current Electricity','Ch.4 - Moving Charges & Magnetism','Ch.5 - Magnetism & Matter','Ch.6 - Electromagnetic Induction','Ch.7 - Alternating Current','Ch.8 - Electromagnetic Waves','Ch.9 - Ray Optics & Optical Instruments','Ch.10 - Wave Optics','Ch.11 - Dual Nature of Radiation & Matter','Ch.12 - Atoms','Ch.13 - Nuclei','Ch.14 - Semiconductor Electronics'],
+  c12_chemistry: ['Ch.1 - The Solid State','Ch.2 - Solutions','Ch.3 - Electrochemistry','Ch.4 - Chemical Kinetics','Ch.5 - Surface Chemistry','Ch.6 - Isolation of Elements','Ch.7 - The p-Block Elements','Ch.8 - The d & f-Block Elements','Ch.9 - Coordination Compounds','Ch.10 - Haloalkanes & Haloarenes','Ch.11 - Alcohols, Phenols & Ethers','Ch.12 - Aldehydes, Ketones & Carboxylic Acids','Ch.13 - Amines','Ch.14 - Biomolecules','Ch.15 - Polymers','Ch.16 - Chemistry in Everyday Life'],
+  c12_math: ['Ch.1 - Relations & Functions','Ch.2 - Inverse Trigonometric Functions','Ch.3 - Matrices','Ch.4 - Determinants','Ch.5 - Continuity & Differentiability','Ch.6 - Application of Derivatives','Ch.7 - Integrals','Ch.8 - Application of Integrals','Ch.9 - Differential Equations','Ch.10 - Vector Algebra','Ch.11 - Three Dimensional Geometry','Ch.12 - Linear Programming','Ch.13 - Probability'],
+  c12_biology: ['Ch.1 - Reproduction in Organisms','Ch.2 - Sexual Reproduction in Flowering Plants','Ch.3 - Human Reproduction','Ch.4 - Reproductive Health','Ch.5 - Principles of Inheritance & Variation','Ch.6 - Molecular Basis of Inheritance','Ch.7 - Evolution','Ch.8 - Human Health & Disease','Ch.9 - Enhancement in Food Production','Ch.10 - Microbes in Human Welfare','Ch.11 - Biotechnology: Principles & Processes','Ch.12 - Biotechnology & Its Applications','Ch.13 - Organisms & Populations','Ch.14 - Ecosystem','Ch.15 - Biodiversity & Conservation','Ch.16 - Environmental Issues'],
+  c12_computer: ['Ch.1 - Python Revision Tour','Ch.2 - Functions','Ch.3 - File Handling','Ch.4 - Exception Handling','Ch.5 - Data Structures','Ch.6 - Database Concepts','Ch.7 - Structured Query Language (SQL)','Ch.8 - Computer Networks','Ch.9 - Societal Impacts'],
+  // ── CLASS 12 COMMERCE ─────────────────────────────────────────
+  c12_accountancy: ['Ch.1 - Accounting for Partnership: Basic Concepts','Ch.2 - Reconstitution: Admission of a Partner','Ch.3 - Reconstitution: Retirement/Death of a Partner','Ch.4 - Dissolution of a Partnership Firm','Ch.5 - Accounting for Share Capital','Ch.6 - Issue & Redemption of Debentures','Ch.7 - Financial Statements of a Company','Ch.8 - Analysis of Financial Statements','Ch.9 - Accounting Ratios','Ch.10 - Cash Flow Statement'],
+  c12_bizstudies: ['Ch.1 - Nature & Significance of Management','Ch.2 - Principles of Management','Ch.3 - Business Environment','Ch.4 - Planning','Ch.5 - Organising','Ch.6 - Staffing','Ch.7 - Directing','Ch.8 - Controlling','Ch.9 - Financial Management','Ch.10 - Financial Markets','Ch.11 - Marketing Management','Ch.12 - Consumer Protection'],
+  c12_economics: ['Ch.1 - Introduction to Microeconomics','Ch.2 - Theory of Consumer Behaviour','Ch.3 - Production & Costs','Ch.4 - Theory of the Firm under Perfect Competition','Ch.5 - Market Equilibrium','Ch.6 - Non-Competitive Markets','Ch.7 - National Income Accounting','Ch.8 - Money & Banking','Ch.9 - Determination of Income & Employment','Ch.10 - Government Budget & the Economy','Ch.11 - Open Economy Macroeconomics'],
+  // ── CLASS 12 ARTS ─────────────────────────────────────────────
+  c12_history: ['Ch.1 - Bricks, Beads & Bones','Ch.2 - Kings, Farmers & Towns','Ch.3 - Kinship, Caste & Class','Ch.4 - Thinkers, Beliefs & Buildings','Ch.5 - Through the Eyes of Travellers','Ch.6 - Bhakti–Sufi Traditions','Ch.7 - An Imperial Capital: Vijayanagara','Ch.8 - Peasants, Zamindars & the State','Ch.9 - Kings & Chronicles: The Mughal Courts','Ch.10 - Colonialism & the Countryside','Ch.11 - Rebels & the Raj','Ch.12 - Colonial Cities','Ch.13 - Mahatma Gandhi & the Nationalist Movement','Ch.14 - Understanding Partition','Ch.15 - Framing the Constitution'],
+  c12_polsci: ['Ch.1 - The Cold War Era','Ch.2 - The End of Bipolarity','Ch.3 - US Hegemony in World Politics','Ch.4 - Alternative Centres of Power','Ch.5 - Contemporary South Asia','Ch.6 - International Organisations','Ch.7 - Security in the Contemporary World','Ch.8 - Environment & Natural Resources','Ch.9 - Globalisation','Ch.10 - Era of One-Party Dominance','Ch.11 - Nation Building & Its Problems','Ch.12 - Politics of Planned Development','Ch.13 - India\'s External Relations','Ch.14 - Challenges to the Congress System','Ch.15 - Crisis of the Democratic Order','Ch.16 - Rise of Popular Movements','Ch.17 - Regional Aspirations','Ch.18 - Recent Developments in Indian Politics'],
+  c12_geo: ['Ch.1 - Human Geography: Nature & Scope','Ch.2 - World Population: Distribution, Density, Growth','Ch.3 - Population Composition','Ch.4 - Human Development','Ch.5 - Primary Activities','Ch.6 - Secondary Activities','Ch.7 - Tertiary & Quaternary Activities','Ch.8 - Transport & Communication','Ch.9 - International Trade','Ch.10 - Human Settlements','Ch.11 - Population Distribution (India)','Ch.12 - Migration (India)','Ch.13 - Human Development (India)','Ch.14 - Human Settlements (India)','Ch.15 - Land Resources & Agriculture (India)','Ch.16 - Water Resources (India)','Ch.17 - Mineral & Energy Resources (India)','Ch.18 - Manufacturing Industries (India)','Ch.19 - Planning & Sustainable Development (India)','Ch.20 - Transport & Communication (India)','Ch.21 - International Trade (India)','Ch.22 - Geographical Perspective on Selected Issues'],
+  c12_psychology: ['Ch.1 - Variations in Psychological Attributes','Ch.2 - Self and Personality','Ch.3 - Meeting Life Challenges','Ch.4 - Psychological Disorders','Ch.5 - Therapeutic Approaches','Ch.6 - Attitude and Social Cognition','Ch.7 - Social Influence & Group Processes','Ch.8 - Psychology and Life','Ch.9 - Developing Psychological Skills'],
+  // ── CLASS 11 SOCIOLOGY ────────────────────────────────────────
+  c11_sociology: ['Ch.1 - Society and Sociology','Ch.2 - Social Change and Social Order in Rural and Urban Society','Ch.3 - Environment and Society','Ch.4 - Culture and Socialisation','Ch.5 - Doing Sociology: Research Methods','Ch.6 - Individuals and Societies','Ch.7 - Presenting Society','Ch.8 - Social Structure, Stratification and Social Processes','Ch.9 - Structural Change','Ch.10 - Cultural Change'],
+  // ── CLASS 12 SOCIOLOGY ────────────────────────────────────────
+  c12_sociology: ['Ch.1 - Introducing Indian Society','Ch.2 - The Demographic Structure of the Indian Society','Ch.3 - Social Institutions: Continuity and Change','Ch.4 - The Market as a Social Institution','Ch.5 - Patterns of Social Inequality and Exclusion','Ch.6 - The Challenges of Cultural Diversity','Ch.7 - Structural Change','Ch.8 - Cultural Change','Ch.9 - The Story of Indian Democracy','Ch.10 - Change and Development in Rural Society','Ch.11 - Change and Development in Industrial Society','Ch.12 - Globalisation and Social Change','Ch.13 - Mass Media and Communications','Ch.14 - Social Movements'],
+  // ── CLASS 11 INFORMATICS PRACTICES ───────────────────────────
+  c11_infoprac: ['Ch.1 - Computer System','Ch.2 - Emerging Trends','Ch.3 - Introduction to Python','Ch.4 - Working with Lists and Dictionaries','Ch.5 - Database Concepts','Ch.6 - Introduction to SQL','Ch.7 - Data Handling using NumPy','Ch.8 - Visualisation using pyplot','Ch.9 - Societal Impacts'],
+  // ── CLASS 12 INFORMATICS PRACTICES ───────────────────────────
+  c12_infoprac: ['Ch.1 - Querying and SQL Functions','Ch.2 - Data Handling using Pandas – I','Ch.3 - Data Handling using Pandas – II','Ch.4 - Plotting Data using Matplotlib','Ch.5 - Internet and Web','Ch.6 - Societal Impacts'],
+};
+
+// ── CHAPTER FUNCTIONS ────────────────────────────────────────────────────────
+function getChapterKey() {
+  if (!selClass || !selSubj) return null;
+  return `${selClass.id}_${selSubj.key}`;
+}
+
+function buildChapterRow() {
+  const row    = document.getElementById('chapterRow');
+  const scroll = document.getElementById('chapterScroll');
+  if (!row || !scroll) return;
+
+  // Only show for Class 11 & 12 (as planned — add more classes later)
+  if (!isHigherSecondary()) { row.classList.remove('show'); selChapter = null; return; }
+
+  const chapters = CHAPTER_MAP[getChapterKey()];
+  if (!chapters || chapters.length === 0) { row.classList.remove('show'); selChapter = null; return; }
+
+  scroll.innerHTML = '';
+  selChapter = null; // reset when a new subject is picked
+
+  // "Any Chapter" chip — selected by default, means no chapter restriction
+  const anyChip = document.createElement('div');
+  anyChip.className = 'chapter-chip any-chip sel';
+  anyChip.textContent = '📚 Any Chapter';
+  anyChip.onclick = () => pickChapter(null, anyChip);
+  scroll.appendChild(anyChip);
+
+  chapters.forEach(ch => {
+    const chip = document.createElement('div');
+    chip.className = 'chapter-chip';
+    chip.textContent = ch;
+    chip.onclick = () => pickChapter(ch, chip);
+    scroll.appendChild(chip);
+  });
+
+  row.classList.add('show');
+}
+
+function pickChapter(chapter, chipEl) {
+  selChapter = chapter;
+  document.querySelectorAll('#chapterScroll .chapter-chip').forEach(c => c.classList.remove('sel'));
+  if (chipEl) chipEl.classList.add('sel');
+}
+
 function pickSubj(s) {
   selSubj = s;
   const t = T[currentLang];
@@ -3694,6 +3827,9 @@ function pickSubj(s) {
 
   // Show mode toggle
   document.getElementById('modeToggleWrap').style.display = 'flex';
+
+  // Build chapter chips (only for Class 11/12, hidden otherwise)
+  buildChapterRow();
 
   // Default to text mode
   setMode('text');
@@ -4001,6 +4137,7 @@ async function askQuestion() {
     stream: selStream ? selStream.name : '',
     subject: selSubj ? selSubj.subject : '',
     subjectType: getSubjectType(selSubj),
+    chapter: selChapter || '',
     uid: currentUser ? currentUser.uid : null,
   };
 
@@ -6487,6 +6624,8 @@ window.stopMic            = stopMic;
 window.sendSuggestionChip = sendSuggestionChip;
 window.buildAnalytics     = buildAnalytics;
 window.practiseSubject    = practiseSubject;
+window.buildChapterRow    = buildChapterRow;
+window.pickChapter        = pickChapter;
 // ── END GLOBAL EXPOSURE ───────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
