@@ -965,29 +965,66 @@ Biology SVG Guidelines (use these for organ/cell/process diagrams):
   const isComputer = subj.includes('computer') || subj.includes('ict');
   const needsDiagram = isScience || isArt || isGeo || isSocial || isComputer;
 
-  const diagramBlock = (!isPhotoMode && needsDiagram) ? `
-DIAGRAM RULE — DRAW AN SVG WHENEVER RELEVANT:
-For any concept that has a visual form — shape, chart, graph, object, map, diagram, process, structure — you MUST draw a real SVG. Never just describe it in text.
+  const physicsSvgGuide = isPhysics ? `
+Physics SVG Examples — draw these whenever the topic matches:
+- Projectile motion: draw a parabolic arc with labeled axes (x=Range, y=Height), angle θ at origin, velocity vector v₀, peak point h_max, and landing point R. Use <path d="M ...Q... "/> for the curve.
+- Electric field lines: draw field line arrows around + and - charges, or parallel plate capacitor with uniform field lines between plates.
+- Wave diagram: draw a sine wave with labeled wavelength λ, amplitude A, and direction of propagation arrow.
+- Circuit diagram: draw resistors (zigzag), capacitors (parallel lines), batteries (short/long lines), with connecting wires.
+- Ray optics: draw a lens or mirror with incident ray, refracted/reflected ray, focal point F, and image formation.
+- Force diagrams: draw an object with labeled arrows for weight (↓), normal force (↑), friction (←), and applied force (→).
+- Simple pendulum: draw a pivot point, string, and bob, with arc showing oscillation and labels L (length), θ (angle).
+- Orbital motion / escape velocity: draw a planet circle in center, curved arrow showing orbit, straight escape arrow outward.
+ALWAYS draw the actual physics concept visually — never list data points as text.` : '';
 
-Output using this EXACT format (no space after [SVG:):
+  const chemSvgGuide = isChem ? `
+Chemistry SVG Examples — draw these whenever the topic matches:
+- Atomic structure: draw concentric circles for electron shells, dots for electrons, labeled nucleus with protons/neutrons.
+- Molecular geometry: draw bond lines between element symbols (e.g., H-O-H for water with correct bond angle).
+- Reaction process: draw reactant shapes → arrow → product shapes with labels.
+- pH scale: draw a horizontal bar from 0–14 with color zones (red=acid, green=neutral, blue=base) and labeled examples.
+- Electrolysis cell: draw a beaker with electrodes, ions, and direction arrows.
+ALWAYS draw the concept visually — never list chemical data as text.` : '';
+
+  const diagramBlock = (!isPhotoMode && needsDiagram) ? `
+DIAGRAM RULE — MANDATORY SVG DRAWING:
+For any concept that has a visual form — shape, chart, graph, trajectory, field, wave, structure, process — you MUST draw a real SVG diagram. This is NOT optional.
+
+⛔ ABSOLUTELY FORBIDDEN:
+- [Diagram: Projectile Motion\nTime of Flight: 2.04 s\n...] ← THIS IS WRONG. NEVER do this.
+- [Diagram: Escape Velocity\nEarth: 11.2 km/s\n...] ← THIS IS WRONG. NEVER do this.
+- The [Diagram:...] text format is BANNED for Physics, Chemistry, Biology, Geography, and Computer Science.
+- NEVER list numbers or facts inside a [Diagram:...] block. That renders as a useless text card.
+- If you cannot draw an SVG, skip the diagram entirely. But NEVER use [Diagram:...] with data inside it.
+
+✅ CORRECT FORMAT — always use this exact structure (no space after [SVG:):
 [SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H" width="W" height="H">
   <rect width="W" height="H" fill="#1a1f30" rx="8"/>
-  <!-- diagram content here -->
+  <!-- actual drawn diagram here — shapes, lines, arrows, labels -->
 </svg>]
 
 GENERAL SVG RULES:
+- viewBox width: 360–500, height: 260–400 depending on complexity
 - Background: <rect width="W" height="H" fill="#1a1f30" rx="8"/>
-- Outlines/lines: stroke="#4f8ef7" stroke-width="2" fill="none"
-- Bold labels: <text fill="#f7c948" font-family="sans-serif" font-size="12" font-weight="bold">
-- All text must stay INSIDE the viewBox.
+- Lines/shapes: stroke="#4f8ef7" stroke-width="2" fill="none"
+- Axis lines: stroke="#6b7fa3" stroke-width="1.5"
+- Arrows: use <defs><marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f8ef7"/></marker></defs> then stroke with marker-end="url(#arr)"
+- Title label: <text x="W/2" y="22" fill="#f7c948" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">Title Here</text>
+- Regular labels: <text fill="#e0e8ff" font-family="sans-serif" font-size="11">Label</text>
+- Value labels: <text fill="#f7c948" font-family="sans-serif" font-size="11" font-weight="bold">value</text>
+- All text must stay INSIDE the viewBox boundaries.
+- Minimum content: at least 5 meaningful SVG elements (shapes, lines, text labels).
+${physicsSvgGuide}
+${chemSvgGuide}
 ${bioSvgGuide}` : `
 DIAGRAM RULE:
 Only draw a diagram if it genuinely helps understanding. If needed, use SVG format:
-[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 260" width="300" height="260">
-  <rect width="300" height="260" fill="#1a1f30" rx="8"/>
+[SVG:<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 260" width="360" height="260">
+  <rect width="360" height="260" fill="#1a1f30" rx="8"/>
   <!-- content here -->
 </svg>]
-Otherwise skip the diagram entirely.`;
+⛔ NEVER use [Diagram: text...] format — it is not supported and will display incorrectly.
+If no diagram is needed, skip it entirely.`;
 
   const simplifyBlock = simplify ? `
 
