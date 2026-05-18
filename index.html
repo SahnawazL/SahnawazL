@@ -4048,38 +4048,68 @@ async function askQuestion() {
   startThinkingMessages();
 
   try {
-    const res = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    // ── Text mode: use SSE streaming (?stream=1) ────────────────────────────────
+    // The server sends tokens as they arrive so students see the answer build up
+    // in real time instead of waiting for the full response.
+    // Photo mode stays on the regular JSON path (image upload needs it).
+    if (payload.mode === 'text') {
+      const res = await fetch('/api/ask?stream=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    let data;
-    try { data = await res.json(); }
-    catch (_) { throw new Error(`❌ Server error (${res.status}). Please try again.`); }
+      // Non-200 means the error occurred before streaming started (e.g. spam guard)
+      if (!res.ok) {
+        let errData = {};
+        try { errData = await res.json(); } catch (_) {}
+        throw new Error(errData.error || `❌ Server error (${res.status}). Please try again.`);
+      }
 
-    if (!res.ok || data.error) {
-      throw new Error(data.error || `Server error (${res.status})`);
+      // Hand off to the SSE stream renderer; it hides thinking + renders text
+      await streamAnswer(res, rb, rc, payload, _imageDataUrl);
+
+      // Seed conversation history once stream is complete
+      if (lastAnswerText) {
+        conversationHistory = [
+          { role: 'user',      content: payload.question || '' },
+          { role: 'assistant', content: lastAnswerText },
+        ];
+      }
+
+    } else {
+      // ── Photo mode: keep the original JSON path ──────────────────────────────
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      let data;
+      try { data = await res.json(); }
+      catch (_) { throw new Error(`❌ Server error (${res.status}). Please try again.`); }
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Server error (${res.status})`);
+      }
+
+      stopThinkingMessages();
+      hideThinking();
+
+      setTimeout(() => {
+        lastAnswerText = data.answer;
+        conversationHistory = [
+          { role: 'user',      content: payload.question || '' },
+          { role: 'assistant', content: data.answer },
+        ];
+        typeText(rb, data.answer, payload, _imageDataUrl);
+        rb.classList.add('reveal');
+        rc.classList.remove('thinking');
+        rc.classList.add('answered');
+        rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelector('.lang-bar').classList.add('has-answer');
+      }, 320);
     }
-
-    stopThinkingMessages();
-    hideThinking();
-
-    // Brief pause so hiding animation plays before answer appears
-    setTimeout(() => {
-      lastAnswerText = data.answer;
-      // FIX: Seed the conversation history so follow-ups have full context.
-      conversationHistory = [
-        { role: 'user',      content: payload.question || '' },
-        { role: 'assistant', content: data.answer },
-      ];
-      typeText(rb, data.answer, payload, _imageDataUrl);
-      rb.classList.add('reveal');
-      rc.classList.remove('thinking');
-      rc.classList.add('answered');
-      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      document.querySelector('.lang-bar').classList.add('has-answer');
-    }, 320);
 
   } catch (e) {
     stopThinkingMessages();
@@ -4155,6 +4185,136 @@ function typeText(el, text, payload, imageDataUrl) {
   }
   n();
 }
+// ── STREAMING ANSWER RENDERER ─────────────────────────────────────────────────
+// Called when the frontend receives an SSE response (?stream=1).
+// Shows a lightweight preview as chunks arrive, then renders the full
+// formatted version (KaTeX + SVGs) when the stream completes.
+//
+// Why two-pass rendering?
+//   KaTeX is expensive and can't run incrementally. So during streaming we show
+//   a readable text preview (bold/italic/newlines, maths shown as [formula]),
+//   then do a single fmt() + injectSVGs() call after [DONE].
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Lightweight preview renderer — no KaTeX, just readable markdown basics.
+function _previewChunkedText(rawText) {
+  // Strip SVG blocks before HTML-escaping (they contain raw < > characters)
+  let t = rawText.replace(/\[SVG:[\s\S]*?<\/svg>\s*\]/g, '[📐 Diagram]');
+
+  // HTML-escape so injected text can't break the DOM
+  t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Replace LaTeX math with readable placeholders while streaming
+  t = t
+    .replace(/\$\$[\s\S]*?\$\$/g,   '<span style="color:var(--muted);font-style:italic">[formula]</span>')
+    .replace(/\\\[[\s\S]*?\\\]/g,   '<span style="color:var(--muted);font-style:italic">[formula]</span>')
+    .replace(/\$[^\$\n]{1,300}?\$/g,'<span style="color:var(--muted);font-style:italic">[math]</span>')
+    .replace(/\\ce\{[^}]*\}/g,      '<span style="color:var(--muted);font-style:italic">[chem]</span>');
+
+  // Basic markdown
+  t = t
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,     '<em>$1</em>')
+    .replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
+
+  // Newlines to line breaks
+  t = t.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+  return t;
+}
+// Throttled scroll — avoids calling scrollIntoView on every single token.
+let _lastStreamScroll = 0;
+function _streamScroll(el) {
+  const now = Date.now();
+  if (now - _lastStreamScroll > 250) {
+    el.closest('.result-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    _lastStreamScroll = now;
+  }
+}
+
+// Main streaming handler.  fetchRes is the Response object from fetch().
+// Caller is responsible for updating conversationHistory after this resolves.
+async function streamAnswer(fetchRes, rb, rc, payload, imageDataUrl) {
+  const reader  = fetchRes.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText  = '';
+  let buf       = '';
+  let firstChunk = true;
+  let hasError   = false;
+
+  try {
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';   // keep incomplete line for next read
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break outer;
+
+        let parsed;
+        try { parsed = JSON.parse(raw); } catch (_) { continue; }
+
+        if (parsed.error) {
+          hasError = true;
+          stopThinkingMessages(); hideThinking();
+          rb.innerHTML  = `<span style="color:var(--danger)">${parsed.error}</span>`;
+          rb.classList.add('reveal');
+          rc.classList.remove('thinking');
+          break outer;
+        }
+
+        if (parsed.chunk) {
+          // First token: transition from "thinking" panel to live stream
+          if (firstChunk) {
+            stopThinkingMessages(); hideThinking();
+            rb.classList.add('reveal');
+            rc.classList.remove('thinking');
+            firstChunk = false;
+          }
+          fullText += parsed.chunk;
+          rb.innerHTML = _previewChunkedText(fullText) + '<span class="typing-cursor"></span>';
+          _streamScroll(rb);
+        }
+      }
+    }
+  } catch (_) {
+    // Network drop mid-stream — show what we have, or error if nothing arrived
+    if (!fullText && !hasError) {
+      hasError = true;
+      stopThinkingMessages(); hideThinking();
+      rb.innerHTML = '<span style="color:var(--danger)">❌ Connection lost mid-stream. Please try again.</span>';
+      rb.classList.add('reveal');
+      rc.classList.remove('thinking');
+    }
+  }
+
+  if (hasError) return;
+
+  if (!fullText) {
+    stopThinkingMessages(); hideThinking();
+    rb.innerHTML = '<span style="color:var(--danger)">❌ No response received. Please try again.</span>';
+    rb.classList.add('reveal');
+    rc.classList.remove('thinking');
+    return;
+  }
+
+  // ── Stream complete: render fully formatted version ──────────────────────────
+  const formatted = fmt(fullText);
+  rb.innerHTML = formatted;
+  injectSVGs(rb);
+  lastAnswerText = fullText;
+  rc.classList.add('answered');
+  rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelector('.lang-bar').classList.add('has-answer');
+  if (payload) saveToHistory(payload, fullText, formatted, imageDataUrl || null);
+  showActionsBar();
+}
+// ── END STREAMING ANSWER RENDERER ─────────────────────────────────────────────
+
 // ── ANSWER ACTIONS ──
 let lastAnswerText = '';
 let conversationHistory = []; // tracks full chat thread across follow-ups
@@ -4458,35 +4618,63 @@ async function sendFollowup() {
   rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   try {
-    const res = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    let data;
-    try { data = await res.json(); } catch (_) { data = { error: `❌ Server error (${res.status}). Please try again.` }; }
-    stopThinkingMessages();
-    hideThinking();
+    // Text follow-ups use SSE streaming; photo follow-ups use the JSON path.
+    if (payload.mode === 'text') {
+      const res = await fetch('/api/ask?stream=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    setTimeout(() => {
-      if (!res.ok || data.error) {
-        rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Something went wrong.'}</span>`;
+      if (!res.ok) {
+        let errData = {};
+        try { errData = await res.json(); } catch (_) {}
+        stopThinkingMessages(); hideThinking();
+        setTimeout(() => {
+          rb.innerHTML = `<span style="color:var(--danger)">${errData.error || `❌ Server error (${res.status}).`}</span>`;
+          rb.classList.add('reveal');
+        }, 100);
       } else {
-        lastAnswerText = data.answer;
-        lastPayload = { ...payload, question: q };
-        // FIX: Append the AI's reply to the history so the NEXT follow-up
-        // also has full context (supports unlimited follow-up rounds).
-        conversationHistory = [
-          ...updatedHistory,
-          { role: 'assistant', content: data.answer },
-        ];
-        typeText(rb, data.answer, { ...payload, question: q }, null);
-        rc.classList.remove('thinking');
-        rc.classList.add('answered');
+        await streamAnswer(res, rb, rc, { ...payload, question: q }, null);
+        if (lastAnswerText) {
+          lastPayload = { ...payload, question: q };
+          conversationHistory = [
+            ...updatedHistory,
+            { role: 'assistant', content: lastAnswerText },
+          ];
+        }
       }
-      rb.classList.add('reveal');
-      rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 320);
+
+    } else {
+      // Photo follow-up — keep the existing JSON path
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      let data;
+      try { data = await res.json(); } catch (_) { data = { error: `❌ Server error (${res.status}). Please try again.` }; }
+      stopThinkingMessages();
+      hideThinking();
+
+      setTimeout(() => {
+        if (!res.ok || data.error) {
+          rb.innerHTML = `<span style="color:var(--danger)">${data.error || 'Something went wrong.'}</span>`;
+        } else {
+          lastAnswerText = data.answer;
+          lastPayload = { ...payload, question: q };
+          conversationHistory = [
+            ...updatedHistory,
+            { role: 'assistant', content: data.answer },
+          ];
+          typeText(rb, data.answer, { ...payload, question: q }, null);
+          rc.classList.remove('thinking');
+          rc.classList.add('answered');
+        }
+        rb.classList.add('reveal');
+        rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 320);
+    }
 
   } catch (e) {
     stopThinkingMessages();
@@ -5032,32 +5220,36 @@ async function generateQuiz() {
   const langMap = { en: 'English', bn: 'Bengali', hi: 'Hindi', as: 'Assamese' };
   const replyLang = langMap[lang] || 'English';
 
-  const prompt = `You are a quiz generator for Indian school students.
+  const board    = selBoard  ? selBoard.name  : '';
+  const stream   = selStream ? selStream.name : '';
+  const boardCtx = board  ? `\nBoard: ${board}`   : '';
+  const streamCtx = stream ? `\nStream: ${stream}` : '';
 
-Based on this answer about "${subject}" for ${cls}:
+  const prompt = `Generate exactly 3 MCQ questions to test a ${cls} student's understanding of ${subject}${boardCtx}${streamCtx}.
+
+The questions must be based ONLY on this answer content:
 ---
 ${stripForQuiz(lastAnswerText)}
 ---
 
-Generate exactly 3 multiple choice questions (MCQs) to test the student's understanding.
-
-RULES:
-- Questions must be based ONLY on the answer above
-- Each question has exactly 4 options (A, B, C, D)
-- One correct answer per question
-- Include a short 1-sentence explanation for the correct answer
-- Questions should be in ${replyLang}
-- Difficulty: mix of easy, medium, one tricky
-
-Respond ONLY with a valid JSON array, no markdown, no extra text:
+STRICT OUTPUT FORMAT — respond with ONLY a valid JSON array, no markdown, no explanation:
 [
   {
-    "q": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "q": "Question text (exam-style, ends with ?)",
+    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
     "correct": 0,
-    "explanation": "Brief reason why A is correct."
+    "explanation": "One sentence: why the correct answer is right."
   }
-]`;
+]
+
+CRITICAL RULES:
+- "correct" must be a NUMBER (0=A, 1=B, 2=C, 3=D) — never a letter
+- Vary which option is correct — don't always make it 0 or 1
+- All questions and options must be in ${replyLang}
+- Options must be believable — wrong options should be plausible, not obviously fake
+- Each question must test a genuinely different concept from the answer
+- Difficulty: Q1 easy (recall), Q2 medium (understanding), Q3 tricky (application or common mistake)
+- Explanation must clearly state the reason, not just repeat the answer`;
 
   try {
     const res  = await fetch('/api/ask', {
