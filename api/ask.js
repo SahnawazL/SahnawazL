@@ -477,8 +477,11 @@ async function streamGroq(keys, ctx, onChunk) {
       if (!r.ok) {
         let errData = {};
         try { errData = await r.json(); } catch (_) {}
-        const isQuota = r.status === 429 || (errData.error?.message || '').toLowerCase().includes('rate');
-        if (isQuota) rot.exhausted.add(key);
+        if (r.status === 429 || (errData.error?.message || '').toLowerCase().includes('rate')) {
+          const msg = (errData.error?.message || '').toLowerCase();
+          const isDailyLimit = msg.includes('per day') || msg.includes('rpd') || msg.includes('daily');
+          if (isDailyLimit) rot.exhausted.add(key);
+        }
         continue;
       }
 
@@ -501,9 +504,11 @@ async function streamGroq(keys, ctx, onChunk) {
           try {
             const parsed = JSON.parse(raw);
             if (parsed.error) {
-              const isQuota = parsed.error.code === 429
-                || (parsed.error.message || '').toLowerCase().includes('rate');
-              if (isQuota) rot.exhausted.add(key);
+              if (parsed.error.code === 429 || (parsed.error.message || '').toLowerCase().includes('rate')) {
+                const msg = (parsed.error.message || '').toLowerCase();
+                const isDailyLimit = msg.includes('per day') || msg.includes('rpd') || msg.includes('daily');
+                if (isDailyLimit) rot.exhausted.add(key);
+              }
               break outer;
             }
             const text = parsed.choices?.[0]?.delta?.content || '';
@@ -1231,10 +1236,16 @@ async function askGroq(keys, { question, className, subject, lang, board, stream
 
       const data = await r.json();
       if (data.error) {
-        const msg  = data.error.message || '';
+        const msg  = (data.error.message || '').toLowerCase();
         const code = data.error.code || r.status;
-        const isQuota = code === 429 || msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('quota');
-        if (isQuota) { rot.exhausted.add(key); lastErr = 'quota'; continue; }
+        if (code === 429 || msg.includes('rate') || msg.includes('quota')) {
+          // Per-minute limit: key is still valid, just busy right now → try next key but don't exhaust.
+          // Per-day limit: key is truly exhausted → mark it and skip for the rest of the day.
+          const isDailyLimit = msg.includes('per day') || msg.includes('rpd') || msg.includes('daily');
+          if (isDailyLimit) rot.exhausted.add(key);
+          lastErr = 'quota';
+          continue;
+        }
         lastErr = msg;
         continue;
       }
@@ -1733,7 +1744,9 @@ async function handleRequest(req, res) {
 
   const ip         = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
   const trackingId = (uid && uid.length > 4) ? `uid:${uid}` : `ip:${ip}`;
-  if (isSpamming(trackingId)) {
+  // Suggestions are auto-fired after every answer (fire-and-forget).
+  // Exempting them ensures they don't consume the user's 8/min question quota.
+  if (mode !== 'suggestions' && isSpamming(trackingId)) {
     return res.status(429).json({
       error: '⏳ Slow down! You are asking too many questions at once. Please wait a moment.'
     });
