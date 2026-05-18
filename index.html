@@ -3719,6 +3719,22 @@ function buildSubjGrid() {
 // Key: `${classId}_${subjectKey}` (works across boards for NCERT-aligned subjects)
 // To expand: add more keys following the same pattern.
 const CHAPTER_MAP = {
+  // ── CLASS 9 SCIENCE ───────────────────────────────────────────
+  c9_math: ['Ch.1 - Number Systems','Ch.2 - Polynomials','Ch.3 - Coordinate Geometry','Ch.4 - Linear Equations in Two Variables','Ch.5 - Introduction to Euclid\'s Geometry','Ch.6 - Lines and Angles','Ch.7 - Triangles','Ch.8 - Quadrilaterals','Ch.9 - Circles','Ch.10 - Heron\'s Formula','Ch.11 - Surface Areas and Volumes','Ch.12 - Statistics'],
+  c9_science: ['Ch.1 - Matter in Our Surroundings','Ch.2 - Is Matter Around Us Pure?','Ch.3 - Atoms and Molecules','Ch.4 - Structure of the Atom','Ch.5 - The Fundamental Unit of Life','Ch.6 - Tissues','Ch.7 - Motion','Ch.8 - Force and Laws of Motion','Ch.9 - Gravitation','Ch.10 - Work and Energy','Ch.11 - Sound','Ch.12 - Why Do We Fall Ill?','Ch.13 - Natural Resources'],
+  // ── CLASS 9 SOCIAL SCIENCE (split by book) ────────────────────
+  c9_history: ['Ch.1 - The French Revolution','Ch.2 - Socialism in Europe and the Russian Revolution','Ch.3 - Nazism and the Rise of Hitler','Ch.4 - Forest Society and Colonialism','Ch.5 - Pastoralists in the Modern World'],
+  c9_geo: ['Ch.1 - India \u2013 Size and Location','Ch.2 - Physical Features of India','Ch.3 - Drainage','Ch.4 - Climate','Ch.5 - Natural Vegetation and Wildlife','Ch.6 - Population'],
+  c9_polsci: ['Ch.1 - What is Democracy? Why Democracy?','Ch.2 - Constitutional Design','Ch.3 - Electoral Politics','Ch.4 - Working of Institutions','Ch.5 - Democratic Rights'],
+  c9_economics: ['Ch.1 - The Story of Village Palampur','Ch.2 - People as Resource','Ch.3 - Poverty as a Challenge','Ch.4 - Food Security in India'],
+  // ── CLASS 10 SCIENCE ──────────────────────────────────────────
+  c10_math: ['Ch.1 - Real Numbers','Ch.2 - Polynomials','Ch.3 - Pair of Linear Equations in Two Variables','Ch.4 - Quadratic Equations','Ch.5 - Arithmetic Progressions','Ch.6 - Triangles','Ch.7 - Coordinate Geometry','Ch.8 - Introduction to Trigonometry','Ch.9 - Some Applications of Trigonometry','Ch.10 - Circles','Ch.11 - Areas Related to Circles','Ch.12 - Surface Areas and Volumes','Ch.13 - Statistics','Ch.14 - Probability'],
+  c10_science: ['Ch.1 - Chemical Reactions and Equations','Ch.2 - Acids, Bases and Salts','Ch.3 - Metals and Non-metals','Ch.4 - Carbon and its Compounds','Ch.5 - Life Processes','Ch.6 - Control and Coordination','Ch.7 - How do Organisms Reproduce?','Ch.8 - Heredity','Ch.9 - Light – Reflection and Refraction','Ch.10 - Human Eye and the Colourful World','Ch.11 - Electricity','Ch.12 - Magnetic Effects of Electric Current','Ch.13 - Our Environment'],
+  // ── CLASS 10 SOCIAL SCIENCE (split by book) ───────────────────
+  c10_history: ['Ch.1 - The Rise of Nationalism in Europe','Ch.2 - Nationalism in India','Ch.3 - The Making of a Global World','Ch.4 - The Age of Industrialisation','Ch.5 - Print Culture and the Modern World'],
+  c10_geo: ['Ch.1 - Resources and Development','Ch.2 - Forest and Wildlife Resources','Ch.3 - Water Resources','Ch.4 - Agriculture','Ch.5 - Minerals and Energy Resources','Ch.6 - Manufacturing Industries','Ch.7 - Lifelines of National Economy'],
+  c10_polsci: ['Ch.1 - Power Sharing','Ch.2 - Federalism','Ch.3 - Democracy and Diversity','Ch.4 - Gender, Religion and Caste','Ch.5 - Popular Struggles and Movements','Ch.6 - Political Parties','Ch.7 - Outcomes of Democracy','Ch.8 - Challenges to Democracy'],
+  c10_economics: ['Ch.1 - Development','Ch.2 - Sectors of the Indian Economy','Ch.3 - Money and Credit','Ch.4 - Globalisation and the Indian Economy','Ch.5 - Consumer Rights'],
   // ── CLASS 11 SCIENCE ──────────────────────────────────────────
   c11_physics: ['Ch.1 - Physical World','Ch.2 - Units & Measurement','Ch.3 - Motion in a Straight Line','Ch.4 - Motion in a Plane','Ch.5 - Laws of Motion','Ch.6 - Work, Energy & Power','Ch.7 - System of Particles & Rotational Motion','Ch.8 - Gravitation','Ch.9 - Mechanical Properties of Solids','Ch.10 - Mechanical Properties of Fluids','Ch.11 - Thermal Properties of Matter','Ch.12 - Thermodynamics','Ch.13 - Kinetic Theory','Ch.14 - Oscillations','Ch.15 - Waves'],
   c11_chemistry: ['Ch.1 - Some Basic Concepts of Chemistry','Ch.2 - Structure of Atom','Ch.3 - Classification of Elements & Periodicity','Ch.4 - Chemical Bonding & Molecular Structure','Ch.5 - States of Matter','Ch.6 - Chemical Thermodynamics','Ch.7 - Equilibrium','Ch.8 - Redox Reactions','Ch.9 - Hydrogen','Ch.10 - The s-Block Elements','Ch.11 - The p-Block Elements','Ch.12 - Organic Chemistry: Basic Principles','Ch.13 - Hydrocarbons','Ch.14 - Environmental Chemistry'],
@@ -3770,8 +3786,12 @@ function buildChapterRow() {
   const scroll = document.getElementById('chapterScroll');
   if (!row || !scroll) return;
 
-  // Only show for Class 11 & 12 (as planned — add more classes later)
-  if (!isHigherSecondary()) { row.classList.remove('show'); selChapter = null; return; }
+  // Show for Class 9, 10, 11 & 12 only
+  const isC9or10 = selClass && (selClass.id === 'c9' || selClass.id === 'c10');
+  if (!isHigherSecondary() && !isC9or10) { row.classList.remove('show'); selChapter = null; return; }
+
+  // ICSE/ISC uses different textbooks — hide chapters to avoid showing wrong NCERT chapters
+  if (selBoard && selBoard.id === 'icse') { row.classList.remove('show'); selChapter = null; return; }
 
   const chapters = CHAPTER_MAP[getChapterKey()];
   if (!chapters || chapters.length === 0) { row.classList.remove('show'); selChapter = null; return; }
